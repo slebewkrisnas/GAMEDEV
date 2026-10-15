@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Walking Game</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Import Map untuk Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="info">
+    <h2>🌳 3D Walking Game</h2>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — Jalan</div>
+    <div><kbd>Shift</kbd> — Lari | <kbd>Mouse</kbd> — Lihat sekitar</div>
+  </div>
+
+  <div id="hint">🖱️ Klik di layar untuk mulai</div>
+
+  <!-- Script Utama -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

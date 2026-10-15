@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>DEAD ZONE — 3D FPS Zombie Survival</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./js/libs/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Floating Button Kembali ke Dunia 3D -->
+  <button id="floating-back-world" title="Kembali ke Dunia 3D" onclick="if(document.exitPointerLock) document.exitPointerLock(); window.location.href='../main.html?from=camp'">
+    <span>🗺️</span><span class="lbl">Dunia 3D</span>
+  </button>
+
+  <!-- 3D Canvas Container -->
+  <div id="game-container"></div>
+
+  <!-- Fullscreen Damage and Low-HP Overlays -->
+  <div id="damage-flash"></div>
+  <div id="low-hp-vignette"></div>
+
+  <!-- HUD Interface (Active during gameplay) -->
+  <div id="hud" class="hidden">
+    <!-- Top Left: Health & Status -->
+    <div class="hud-panel hud-top-left">
+      <div class="hud-label">VITALS</div>
+      <div class="health-bar-wrapper">
+        <div id="health-bar-fill" class="health-bar-fill"></div>
+        <div id="health-text" class="health-text">100 / 100</div>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="player-status-text">OPERATIONAL</span>
+      </div>
+    </div>
+
+    <!-- Top Center: Wave & Threat Info -->
+    <div class="hud-panel hud-top-center">
+      <div class="wave-title" id="hud-wave-title">WAVE 1 / 3</div>
+      <div class="wave-details">
+        <span>ZOMBIES REMAINING: <strong id="hud-zombies-count">5</strong></span>
+        <span class="hud-divider">|</span>
+        <span>KILLS: <strong id="hud-kill-count">0</strong></span>
+      </div>
+    </div>
+
+    <!-- Center Screen Announcement Banner -->
+    <div id="announcement-banner" class="announcement-banner hidden">
+      <div id="banner-title" class="banner-title">WAVE 1 INCOMING</div>
+      <div id="banner-subtitle" class="banner-subtitle">PREPARE YOUR WEAPON</div>
+    </div>
+
+    <!-- Center: Crosshair & Hitmarker -->
+    <div id="crosshair" class="crosshair">
+      <div class="ch-line ch-top"></div>
+      <div class="ch-line ch-bottom"></div>
+      <div class="ch-line ch-left"></div>
+      <div class="ch-line ch-right"></div>
+      <div class="ch-dot"></div>
+      <div id="hit-marker" class="hit-marker hidden"></div>
+    </div>
+
+    <!-- Bottom Center: Weapon Alerts / Reload Notification -->
+    <div class="hud-bottom-center">
+      <div id="reload-alert" class="reload-alert hidden">PRESS [R] TO RELOAD</div>
+      <div id="reload-bar-container" class="reload-bar-container hidden">
+        <div class="reload-bar-label">RELOADING</div>
+        <div class="reload-bar-track">
+          <div id="reload-bar-fill" class="reload-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Ammo & Weapon Details -->
+    <div class="hud-panel hud-bottom-right">
+      <div class="weapon-name">TACTICAL 9MM</div>
+      <div class="ammo-display">
+        <span id="ammo-current" class="ammo-current">12</span>
+        <span class="ammo-slash">/</span>
+        <span id="ammo-reserve" class="ammo-reserve">60</span>
+      </div>
+      <div class="ammo-mag-label">MAGAZINE / RESERVE</div>
+    </div>
+
+    <!-- Bottom Left: Controls Quick Reference -->
+    <div class="hud-panel hud-bottom-left">
+      <div class="controls-hint">
+        <span>[WASD] Move</span>
+        <span>[SPACE] Jump</span>
+        <span>[SHIFT] Sprint</span>
+        <span>[F] Flashlight</span>
+        <span>[L-CLICK] Fire</span>
+        <span>[R] Reload</span>
+        <span>[ESC] Pause</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Menu Overlay -->
+  <div id="menu-screen" class="menu-screen">
+    <div class="menu-backdrop"></div>
+    <div class="menu-content">
+      <div class="game-logo">
+        <h1 class="glitch-title" data-text="DEAD ZONE">DEAD ZONE</h1>
+        <div class="game-subtitle">ZOMBIE SURVIVAL — PROTOCOL OMEGA</div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-play" class="btn btn-primary">
+          <span class="btn-glow"></span>
+          <span class="btn-text">ENTER DEAD ZONE</span>
+        </button>
+        <button id="btn-how-to-play" class="btn btn-secondary">
+          <span class="btn-text">MISSION BRIEFING</span>
+        </button>
+        <button id="btn-settings" class="btn btn-secondary">
+          <span class="btn-text">SETTINGS</span>
+        </button>
+        <button id="btn-menu-back-world" class="btn btn-world" onclick="window.location.href='../main.html?from=camp'">
+          <span class="btn-text">🗺️ KEMBALI KE DUNIA 3D</span>
+        </button>
+      </div>
+
+      <div class="menu-footer">
+        <p>Built with Three.js WebGL &bull; Surviving 3 Waves Guarantees Evacuation</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Screen Overlay -->
+  <div id="pause-screen" class="menu-screen hidden">
+    <div class="menu-backdrop"></div>
+    <div class="menu-content">
+      <h2 class="menu-title">TACTICAL PAUSE</h2>
+      <p class="pause-hint">Simulation paused. Click Resume to re-lock mouse pointer.</p>
+      <div class="menu-actions">
+        <button id="btn-resume" class="btn btn-primary">
+          <span class="btn-glow"></span>
+          <span class="btn-text">RESUME COMBAT</span>
+        </button>
+        <button id="btn-pause-how" class="btn btn-secondary">
+          <span class="btn-text">CONTROLS</span>
+        </button>
+        <button id="btn-pause-restart" class="btn btn-danger">
+          <span class="btn-text">RESTART MISSION</span>
+        </button>
+        <button id="btn-pause-back-world" class="btn btn-world" onclick="window.location.href='../main.html?from=camp'">
+          <span class="btn-text">🗺️ KEMBALI KE DUNIA 3D</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Screen Overlay -->
+  <div id="game-over-screen" class="menu-screen hidden">
+    <div class="menu-backdrop death-backdrop"></div>
+    <div class="menu-content">
+      <h2 class="menu-title death-title">SIGNAL LOST</h2>
+      <p class="death-subtitle">The infected swarm overwhelmed your position.</p>
+
+      <div class="stats-card">
+        <div class="stat-row">
+          <span>Wave Reached:</span>
+          <span id="stat-go-wave">1 / 3</span>
+        </div>
+        <div class="stat-row">
+          <span>Zombies Eliminated:</span>
+          <span id="stat-go-kills">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Total Shots Fired:</span>
+          <span id="stat-go-shots">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Combat Accuracy:</span>
+          <span id="stat-go-accuracy">0%</span>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-gameover-restart" class="btn btn-danger">
+          <span class="btn-glow"></span>
+          <span class="btn-text">DEPLOY AGAIN</span>
+        </button>
+        <button id="btn-gameover-back-world" class="btn btn-world" onclick="window.location.href='../main.html?from=camp'">
+          <span class="btn-text">🗺️ KEMBALI KE DUNIA 3D</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory Screen Overlay -->
+  <div id="victory-screen" class="menu-screen hidden">
+    <div class="menu-backdrop victory-backdrop"></div>
+    <div class="menu-content">
+      <h2 class="menu-title victory-title">ZONE CLEARED</h2>
+      <p class="victory-subtitle">All 3 zombie waves neutralized. Extraction helicopter deployed!</p>
+
+      <div class="stats-card">
+        <div class="stat-row">
+          <span>Waves Completed:</span>
+          <span>3 / 3 (100%)</span>
+        </div>
+        <div class="stat-row">
+          <span>Total Kills:</span>
+          <span id="stat-vic-kills">23</span>
+        </div>
+        <div class="stat-row">
+          <span>Shots Fired:</span>
+          <span id="stat-vic-shots">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Headshots:</span>
+          <span id="stat-vic-headshots">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Combat Accuracy:</span>
+          <span id="stat-vic-accuracy">0%</span>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-victory-restart" class="btn btn-victory">
+          <span class="btn-glow"></span>
+          <span class="btn-text">PLAY AGAIN</span>
+        </button>
+        <button id="btn-victory-back-world" class="btn btn-world" onclick="window.location.href='../main.html?from=camp'">
+          <span class="btn-text">🗺️ KEMBALI KE DUNIA 3D</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions Modal -->
+  <div id="modal-how" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>MISSION BRIEFING & CONTROLS</h3>
+        <button id="btn-close-how" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="briefing-section">
+          <h4>TACTICAL OBJECTIVE</h4>
+          <p>You are stranded in an abandoned quarantine zone. Eliminate all hostile infected across <strong>3 consecutive waves</strong> to trigger extraction.</p>
+        </div>
+        <div class="briefing-section">
+          <h4>COMBAT CONTROLS</h4>
+          <ul class="control-list">
+            <li><span class="key-badge">W A S D</span> Navigate horizontal space</li>
+            <li><span class="key-badge">SPACE</span> Tactical Jump / Vault</li>
+            <li><span class="key-badge">SHIFT</span> Tactical Sprint</li>
+            <li><span class="key-badge">F</span> Toggle Tactical Flashlight</li>
+            <li><span class="key-badge">MOUSE</span> Look and Aim reticle</li>
+            <li><span class="key-badge">LEFT CLICK</span> Discharge 9mm Pistol</li>
+            <li><span class="key-badge">R</span> Tactical Reload (1.3s)</li>
+            <li><span class="key-badge">ESC</span> Pause simulation / Release cursor</li>
+          </ul>
+        </div>
+        <div class="briefing-section">
+          <h4>COMBAT INTEL</h4>
+          <p><span class="intel-highlight">CRITICAL WEAKNESS:</span> Aim for the head! Headshots inflict fatal 1-shot critical damage. Body shots require 3 hits.</p>
+          <p><span class="intel-highlight">WAVE PROGRESSION:</span> Wave 1 features slow walkers. Wave 2 deploys fast sprinters. Wave 3 unleashes heavy brutes and fast sprinters.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-how-ack" class="btn btn-secondary">UNDERSTOOD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>COMBAT SETTINGS</h3>
+        <button id="btn-close-settings" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-item">
+          <label for="setting-sensitivity">Mouse Sensitivity: <span id="val-sensitivity">0.0022</span></label>
+          <input type="range" id="setting-sensitivity" min="0.0008" max="0.0050" step="0.0002" value="0.0022">
+        </div>
+        <div class="setting-item">
+          <label for="setting-volume">Master Volume: <span id="val-volume">80%</span></label>
+          <input type="range" id="setting-volume" min="0" max="100" step="5" value="80">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-settings" class="btn btn-primary">SAVE & CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WebGL or Error Fallback -->
+  <div id="webgl-error" class="webgl-error hidden">
+    <div class="error-box">
+      <h2>HARDWARE ACCELERATION ERROR</h2>
+      <p id="error-message">Unable to initialize WebGL 3D context. Please ensure WebGL is enabled in your browser hardware settings.</p>
+    </div>
+  </div>
+
+  <!-- Main ES Module Entry Point -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
