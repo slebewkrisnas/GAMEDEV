@@ -1,0 +1,257 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  background: #87ceeb;
+}
+
+#info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 15px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  z-index: 10;
+}
+
+#info h2 {
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #7fffd4;
+}
+
+kbd {
+  background: #333;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  font-size: 12px;
+  color: #fff;
+}
+
+#hint {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 12px 25px;
+  border-radius: 30px;
+  font-size: 15px;
+  z-index: 20;
+  transition: opacity 0.4s;
+}
+
+#hint.hidden {
+  opacity: 0;
+}
+
+/* ==================== DEVICE SELECTOR (KANAN ATAS) ==================== */
+.device-selector {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 30px;
+  padding: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.device-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  padding: 0 8px 0 10px;
+  text-transform: uppercase;
+}
+
+.dev-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dev-btn:hover {
+  color: #ffffff;
+}
+
+.dev-btn.active {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.55);
+}
+
+/* ==================== MOBILE TOUCH CONTROLS ==================== */
+#mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  display: none; /* Hidden by default in laptop mode */
+}
+
+body.mode-hp #mobile-controls {
+  display: block;
+}
+
+body.mode-hp #hint {
+  display: none !important;
+}
+
+body.mode-hp #info {
+  max-width: 210px;
+  font-size: 11px;
+  padding: 10px 14px;
+}
+
+/* Touch Look Area (Right 65% of screen) */
+#touch-look-zone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 65%;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/* Virtual Joystick */
+#joystick-container {
+  position: absolute;
+  bottom: 28px;
+  left: 28px;
+  width: 140px;
+  height: 140px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joystick-base {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+#joystick-thumb {
+  width: 58px;
+  height: 58px;
+  background: radial-gradient(circle at 35% 35%, #38bdf8, #0284c7);
+  border: 2px solid #e0f2fe;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.6);
+  pointer-events: none;
+  transition: transform 0.05s ease-out;
+}
+
+/* Mobile Action Buttons (Lari & Lompat) */
+.mobile-action-buttons {
+  position: absolute;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mobile-btn {
+  border: none;
+  outline: none;
+  border-radius: 50%;
+  font-family: inherit;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-btn:active {
+  transform: scale(0.92);
+}
+
+.mobile-btn .btn-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mobile-btn .btn-text {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+/* Jump Button */
+#btn-mobile-jump {
+  width: 76px;
+  height: 76px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 2px solid #a7f3d0;
+}
+
+#btn-mobile-jump:active {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+/* Sprint Button */
+#btn-mobile-sprint {
+  width: 66px;
+  height: 66px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 2px solid #fde68a;
+}
+
+#btn-mobile-sprint.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: #fca5a5;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.75);
+}

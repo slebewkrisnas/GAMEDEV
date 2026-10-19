@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Walking Game</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Import Map untuk Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="info">
+    <h2>🌳 3D Walking Game</h2>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — Jalan | <kbd>Spasi</kbd> — Lompat</div>
+    <div><kbd>Shift</kbd> — Lari | <kbd>Mouse</kbd> — Lihat sekitar</div>
+  </div>
+
+  <div id="hint">🖱️ Klik di layar untuk mulai</div>
+
+  <!-- Device Mode Selector (Kanan Atas) -->
+  <div id="deviceModeSelector" class="device-selector">
+    <span class="device-label">Main:</span>
+    <button id="btnModeLaptop" class="dev-btn active" title="Main pakai Laptop (Keyboard & Mouse)">💻 Laptop</button>
+    <button id="btnModeHP" class="dev-btn" title="Main pakai HP (Analog & Tombol)">📱 HP</button>
+  </div>
+
+  <!-- Mobile Controls Overlay (Muncul saat mode HP) -->
+  <div id="mobile-controls">
+    <!-- Touch Look Area (Lihat Sekeliling) -->
+    <div id="touch-look-zone"></div>
+
+    <!-- Joystick Analog (Kiri Bawah) -->
+    <div id="joystick-container">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+
+    <!-- Tombol Aksi (Kanan Bawah: Lari & Lompat) -->
+    <div class="mobile-action-buttons">
+      <button id="btn-mobile-sprint" class="mobile-btn" title="Tombol Lari">
+        <span class="btn-icon">⚡</span>
+        <span class="btn-text">LARI</span>
+      </button>
+      <button id="btn-mobile-jump" class="mobile-btn" title="Tombol Lompat">
+        <span class="btn-icon">🦘</span>
+        <span class="btn-text">LOMPAT</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Script Utama -->
+  <script type="module" src="app.js?v=4"></script>
+</body>
+</html>
