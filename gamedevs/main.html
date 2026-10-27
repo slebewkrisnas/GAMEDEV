@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Walking Game</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Import Map untuk Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="info">
+    <h2>🌳 3D Walking Game</h2>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — Jalan | <kbd>Spasi</kbd> — Lompat</div>
+    <div><kbd>Shift</kbd> — Lari | <kbd>Mouse</kbd> — Lihat sekitar</div>
+    <div><kbd>E</kbd> — Bicara dengan NPC</div>
+  </div>
+
+  <div id="hint">🖱️ Klik di layar untuk mulai</div>
+
+  <!-- Navigation Compass Bar (Atas Tengah) -->
+  <div id="compassContainer" class="compass-container">
+    <div class="compass-bar">
+      <div class="compass-needle">▼</div>
+      <div id="compassTape" class="compass-tape"></div>
+      <div id="compassWaypoints" class="compass-waypoints"></div>
+    </div>
+    <!-- Waypoint Distance Badges -->
+    <div id="waypointBadges" class="waypoint-badges">
+      <span class="wp-badge" id="wpFarm">🍎 Kebun: <b id="distFarm">--m</b></span>
+      <span class="wp-badge" id="wpCamp">🎖️ Kamp: <b id="distCamp">--m</b></span>
+      <span class="wp-badge" id="wpArena">⚔️ Arena: <b id="distArena">--m</b></span>
+      <span class="wp-badge" id="wpPlaza">🏆 Plaza: <b id="distPlaza">--m</b></span>
+    </div>
+    <!-- Meta Quest & Trophy Tracker -->
+    <div id="questStatusPill" class="quest-pill">
+      <span class="quest-title">🎯 MISI:</span>
+      <span class="quest-item" id="qFruitItem">🍎 Kebun <b id="qFruitStatus">⏳</b></span>
+      <span class="quest-item" id="qDeadZoneItem">💀 Dead Zone <b id="qDeadZoneStatus">⏳</b></span>
+      <span class="quest-item" id="qArenaItem">⚔️ Arena <b id="qArenaStatus">⏳</b></span>
+    </div>
+  </div>
+
+  <!-- Device Mode Selector (Kanan Atas) -->
+  <div id="deviceModeSelector" class="device-selector">
+    <span class="device-label">Main:</span>
+    <button id="btnModeLaptop" class="dev-btn active" title="Main pakai Laptop (Keyboard & Mouse)">💻 Laptop</button>
+    <button id="btnModeHP" class="dev-btn" title="Main pakai HP (Analog & Tombol)">📱 HP</button>
+  </div>
+
+  <!-- Audio Controls Panel (Kanan Atas di bawah Mode Selector) -->
+  <div id="audioControls" class="audio-controls">
+    <button id="btnAudioMute" class="audio-btn" title="Nyalakan / Bisukan Suara">
+      <span id="audioIcon">🔊</span>
+    </button>
+    <input type="range" id="audioVolume" class="audio-slider" min="0" max="1" step="0.05" value="0.65" title="Volume Suara">
+  </div>
+
+  <!-- Proximity NPC Interaction Prompt (Tengah Layar) -->
+  <div id="npcPrompt" class="npc-prompt hidden">
+    <span class="key-badge">E</span> <span id="npcPromptText">Bicara</span>
+  </div>
+
+  <!-- Trophy Celebration Banner -->
+  <div id="trophyBanner" class="trophy-banner hidden">
+    <div class="trophy-icon" id="trophyIcon">🏆</div>
+    <div class="trophy-info">
+      <div class="trophy-title" id="trophyTitle">Piala Terbuka!</div>
+      <div class="trophy-desc" id="trophyDesc">Prestasi berhasil diraih di Hub 3D.</div>
+    </div>
+  </div>
+
+  <!-- RPG Dialogue Card (Bawah Layar) -->
+  <div id="dialogueCard" class="dialogue-card hidden">
+    <div class="dialogue-avatar" id="dialogueAvatar">👨‍🌾</div>
+    <div class="dialogue-body">
+      <div class="dialogue-header">
+        <span class="dialogue-name" id="dialogueName">Pak Joko</span>
+        <span class="dialogue-role" id="dialogueRole">Petani Penyiram</span>
+      </div>
+      <p class="dialogue-text" id="dialogueText">Halo penjelajah!</p>
+    </div>
+    <button id="btnDialogueNext" class="dialogue-btn" title="Lanjut / Tutup">Lanjut ❯</button>
+  </div>
+
+  <!-- Mobile Controls Overlay (Muncul saat mode HP) -->
+  <div id="mobile-controls">
+    <!-- Touch Look Area (Lihat Sekeliling) -->
+    <div id="touch-look-zone"></div>
+
+    <!-- Joystick Analog (Kiri Bawah) -->
+    <div id="joystick-container">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+
+    <!-- Tombol Aksi (Kanan Bawah: Lari, Lompat, Bicara) -->
+    <div class="mobile-action-buttons">
+      <button id="btn-mobile-talk" class="mobile-btn mobile-talk-btn hidden" title="Tombol Bicara">
+        <span class="btn-icon">💬</span>
+        <span class="btn-text">BICARA</span>
+      </button>
+      <button id="btn-mobile-sprint" class="mobile-btn" title="Tombol Lari">
+        <span class="btn-icon">⚡</span>
+        <span class="btn-text">LARI</span>
+      </button>
+      <button id="btn-mobile-jump" class="mobile-btn" title="Tombol Lompat">
+        <span class="btn-icon">🦘</span>
+        <span class="btn-text">LOMPAT</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Achievement Kiosk Modal (Plaza) -->
+  <div id="kioskModal" class="kiosk-modal hidden">
+    <div class="kiosk-box">
+      <div class="kiosk-header">
+        <h3>🏛️ PAPAN PRESTASI DUNIA 3D</h3>
+        <button id="btnKioskClose" class="kiosk-close">&times;</button>
+      </div>
+      <div class="kiosk-body" id="kioskBody">
+        <!-- Content filled dynamically -->
+      </div>
+      <div class="kiosk-footer">
+        <button id="btnKioskOk" class="kiosk-ok-btn">TUTUP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Utama -->
+  <script type="module" src="app.js?v=6"></script>
+</body>
+</html>
