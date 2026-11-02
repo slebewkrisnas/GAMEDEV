@@ -14,3 +14,4 @@ Thumbs.db
 # Ignore redundant raw 230MB GLB model (exceeds GitHub 100MB limit)
 # The optimized 71MB realistic_man.glb is used by the game
 *Realistic man.glb
+
