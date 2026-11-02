@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Antigravity & AI Agent Internal Data
+.gemini/
+
+# OS and Editor generated files
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+
+# Ignore redundant raw 230MB GLB model (exceeds GitHub 100MB limit)
+# The optimized 71MB realistic_man.glb is used by the game
+*Realistic man.glb

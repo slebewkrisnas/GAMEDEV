@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>3D Walking Game - Hub</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111422;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 520px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+    }
+    h2 { margin-top: 0; color: #4cc9f0; }
+    p { color: #ccc; line-height: 1.6; }
+    .btn {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #4cc9f0, #4361ee);
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(76, 201, 240, 0.4);
+    }
+    .warning {
+      background: rgba(255, 170, 0, 0.15);
+      border: 1px solid #ffaa00;
+      color: #ffdd88;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      margin-top: 16px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="mainCard">
+    <h2>🌍 Memuat 3D Walking Game...</h2>
+    <p>Mengalihkan Anda ke Dunia Utama 3D dengan Karakter Realistis...</p>
+    <a href="gamedevs/main.html" class="btn" id="goBtn">Masuk ke Dunia 3D</a>
+
+    <div id="fileNotice" class="warning" style="display: none;">
+      <b>⚠️ Perhatian:</b> Anda membuka file langsung melalui protokol <code>file://</code>.<br>
+      Browser keamanan modern memblokir aset 3D & modul Three.js dari <code>file://</code>.<br><br>
+      <b>Cara menjalankan yang benar:</b>
+      <ol style="margin: 6px 0 0 18px; padding: 0;">
+        <li>Buka file <b>JALANKAN_GAME.bat</b> di folder ini, ATAU</li>
+        <li>Gunakan <b>Live Server</b> di VS Code (Klik kanan <code>index.html</code> &rarr; <i>Open with Live Server</i>).</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    if (window.location.protocol === 'file:') {
+      document.getElementById('fileNotice').style.display = 'block';
+    } else {
+      setTimeout(() => {
+        window.location.href = "gamedevs/main.html";
+      }, 300);
+    }
+  </script>
+</body>
+</html>
