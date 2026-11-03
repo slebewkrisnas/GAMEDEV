@@ -12,8 +12,6 @@ import {
   CAMP_PORTAL_POS,
   ARENA_PORTAL_POS,
   KIOSK_POS,
-  LOGO_STATUE_POS,
-  logoStatueRadius,
   portalLight,
   campPortalLight,
   arenaPortalLight,
@@ -340,16 +338,6 @@ function animate() {
 
     // Tabrakan Pagar & Batas Map
     resolveWallCollisions(player.position);
-
-    // Tabrakan Patung Logo Resmi
-    const dxLogo = player.position.x - LOGO_STATUE_POS.x;
-    const dzLogo = player.position.z - LOGO_STATUE_POS.z;
-    const distToLogoStatue = Math.hypot(dxLogo, dzLogo);
-    if (distToLogoStatue < logoStatueRadius) {
-      const angle = Math.atan2(dzLogo, dxLogo);
-      player.position.x = LOGO_STATUE_POS.x + Math.cos(angle) * logoStatueRadius;
-      player.position.z = LOGO_STATUE_POS.z + Math.sin(angle) * logoStatueRadius;
-    }
 
     // Rotasi Hadap Karakter Menyesuaikan Arah Jalan
     const targetAngle = Math.atan2(moveVec.x, moveVec.z);
