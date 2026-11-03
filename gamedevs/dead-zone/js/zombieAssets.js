@@ -208,8 +208,9 @@ export function createZombieInstance(type = 'walker') {
   const rootGroup = new THREE.Group();
   rootGroup.name = `Zombie3D_${type}`;
 
-  // FBX forward orientation offset
-  model.rotation.y = Math.PI; // Face forward along +Z in container
+  // FBX forward orientation offset:
+  // Set to 0 so the model faces forward towards the player
+  model.rotation.y = 0;
   rootGroup.add(model);
 
   // Animation Mixer
