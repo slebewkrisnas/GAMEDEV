@@ -75,3 +75,5 @@ p.d{max-width:540px;font-size:18px;opacity:.88}
 @keyframes cb{0%{opacity:0;transform:translateX(-50%) scale(.6)}12%{opacity:1;transform:translateX(-50%) scale(1.2)}25%{transform:translateX(-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
 #vig{box-shadow:inset 0 0 120px 30px rgba(255,40,60,.6);opacity:0}#vig.on{animation:vg .5s}
 @keyframes vg{0%{opacity:1}100%{opacity:0}}
+#loadStatus{position:fixed;bottom:calc(15px + env(safe-area-inset-bottom,0px));left:calc(15px + env(safe-area-inset-left,0px));font-size:12px;letter-spacing:.08em;color:var(--teal);background:rgba(10,20,40,.85);border:1px solid var(--line);border-radius:10px;padding:6px 14px;z-index:9999;transition:opacity .5s,transform .5s;pointer-events:none}
+#loadStatus.done{color:var(--gold);opacity:0;transform:translateY(10px)}
