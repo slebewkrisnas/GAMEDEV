@@ -36,7 +36,7 @@ const CDT={punch:.38,kick:.62,skill:5.5,dodge:.9};
 function playAnim(f,name,loop=false,timeScale=1.0){
  if(!f.actions||!f.actions[name])return;
  const next=f.actions[name];
- if(f.curAction===next&&next.isRunning())return;
+ if(f.curAction===next&&next.isRunning()&&loop)return;
  next.reset();
  next.setLoop(loop?THREE.LoopRepeat:THREE.LoopOnce,loop?Infinity:1);
  next.clampWhenFinished=!loop;
@@ -460,60 +460,97 @@ function init3DCharacters(){
    const boneMap=new Map();
    bones.forEach((b,idx)=>boneMap.set(b.name,idx));
 
-   // Bangun segmen tulang untuk perhitungan bobot kulit (skinning)
+   // Putar geometri 180 derajat (PI) agar karakter menghadap depan (+Z) menuju musuh
+   // dan skala agar tinggi mesh (234.6cm) pas 100% dengan tinggi armature Mixamo (182cm)
+   const geom=meshNode.geometry.clone();
+   geom.rotateY(Math.PI);
+   geom.scale(0.776,0.776,0.776);
+   const pos=geom.attributes.position;
+
+   // Tulang utama untuk perhitungan segmen bobot kulit (skinning)
+   const keyBoneNames=[
+    'mixamorigHips','mixamorigSpine','mixamorigSpine1','mixamorigSpine2','mixamorigNeck','mixamorigHead',
+    'mixamorigLeftShoulder','mixamorigLeftArm','mixamorigLeftForeArm','mixamorigLeftHand',
+    'mixamorigRightShoulder','mixamorigRightArm','mixamorigRightForeArm','mixamorigRightHand',
+    'mixamorigLeftUpLeg','mixamorigLeftLeg','mixamorigLeftFoot','mixamorigLeftToeBase',
+    'mixamorigRightUpLeg','mixamorigRightLeg','mixamorigRightFoot','mixamorigRightToeBase'
+   ];
+
    const segments=[];
-   bones.forEach((b,idx)=>{
+   keyBoneNames.forEach(name=>{
+    const b=baseArmature.getObjectByName(name);
+    if(!b)return;
+    const idx=boneMap.get(name);
     const p1=new THREE.Vector3();
     b.getWorldPosition(p1);
-    let hasChild=false;
-    b.children.forEach(ch=>{
-     if(ch.isBone){
-      hasChild=true;
-      const p2=new THREE.Vector3();
-      ch.getWorldPosition(p2);
-      segments.push({idx1:idx,idx2:boneMap.get(ch.name),p1,p2,name:b.name});
-     }
-    });
-    if(!hasChild)segments.push({idx1:idx,idx2:idx,p1,p2:p1,name:b.name});
+    let childBone=b.children.find(c=>c.isBone);
+    if(childBone){
+     const p2=new THREE.Vector3();
+     childBone.getWorldPosition(p2);
+     segments.push({
+      name,idx1:idx,idx2:boneMap.get(childBone.name),
+      x1:p1.x,y1:p1.y,z1:p1.z,
+      x2:p2.x,y2:p2.y,z2:p2.z,
+      vx:p2.x-p1.x,vy:p2.y-p1.y,vz:p2.z-p1.z,
+      lenSq:Math.max(0.0001,(p2.x-p1.x)**2+(p2.y-p1.y)**2+(p2.z-p1.z)**2)
+     });
+    }else{
+     segments.push({
+      name,idx1:idx,idx2:idx,
+      x1:p1.x,y1:p1.y,z1:p1.z,
+      x2:p1.x,y2:p1.y,z2:p1.z,
+      vx:0,vy:0,vz:0,lenSq:0.0001
+     });
+    }
    });
 
-   // Siapkan geometri dengan skinIndex & skinWeight
-   const geom=meshNode.geometry.clone();
-   const pos=geom.attributes.position;
+   // Zero-allocation skinning loop (blazing fast ~100ms)
    const skinIndices=new Uint16Array(pos.count*4);
    const skinWeights=new Float32Array(pos.count*4);
 
-   const p=new THREE.Vector3(),v=new THREE.Vector3(),w=new THREE.Vector3(),pb=new THREE.Vector3();
-   function distToSeg(p,s){
-    v.subVectors(s.p2,s.p1);
-    w.subVectors(p,s.p1);
-    const c1=w.dot(v);
-    if(c1<=0)return{d:p.distanceTo(s.p1),idx:s.idx1};
-    const c2=v.dot(v);
-    if(c2<=c1)return{d:p.distanceTo(s.p2),idx:s.idx2};
-    const b=c1/c2;
-    pb.addVectors(s.p1,v.multiplyScalar(b));
-    return{d:p.distanceTo(pb),idx:b<0.5?s.idx1:s.idx2};
-   }
-
    for(let i=0;i<pos.count;i++){
-    p.fromBufferAttribute(pos,i);
-    let best=[];
+    const px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);
+    let bestDist1=1e9,bestIdx1=0;
+    let bestDist2=1e9,bestIdx2=0;
+
     for(let s=0;s<segments.length;s++){
      const seg=segments[s];
-     if(seg.name.includes('Left')&&p.x<-3)continue;
-     if(seg.name.includes('Right')&&p.x>3)continue;
-     best.push(distToSeg(p,seg));
+     if(seg.name.includes('Left')&&px<-3)continue;
+     if(seg.name.includes('Right')&&px>3)continue;
+
+     const wx=px-seg.x1,wy=py-seg.y1,wz=pz-seg.z1;
+     const c1=wx*seg.vx+wy*seg.vy+wz*seg.vz;
+     let dSq,boneIdx;
+     if(c1<=0){
+      dSq=wx*wx+wy*wy+wz*wz;
+      boneIdx=seg.idx1;
+     }else if(c1>=seg.lenSq){
+      const dx=px-seg.x2,dy=py-seg.y2,dz=pz-seg.z2;
+      dSq=dx*dx+dy*dy+dz*dz;
+      boneIdx=seg.idx2;
+     }else{
+      const t=c1/seg.lenSq;
+      const qx=seg.x1+seg.vx*t-px;
+      const qy=seg.y1+seg.vy*t-py;
+      const qz=seg.z1+seg.vz*t-pz;
+      dSq=qx*qx+qy*qy+qz*qz;
+      boneIdx=t<0.5?seg.idx1:seg.idx2;
+     }
+
+     if(dSq<bestDist1){
+      bestDist2=bestDist1;bestIdx2=bestIdx1;
+      bestDist1=dSq;bestIdx1=boneIdx;
+     }else if(dSq<bestDist2&&boneIdx!==bestIdx1){
+      bestDist2=dSq;bestIdx2=boneIdx;
+     }
     }
-    best.sort((a,b)=>a.d-b.d);
-    const b1=best[0]||{idx:0,d:1};
-    const b2=best.find(x=>x.idx!==b1.idx)||b1;
-    const w1=1/Math.max(0.1,b1.d);
-    const w2=1/Math.max(0.1,b2.d);
-    const sum=w1+w2;
-    skinIndices[i*4]=b1.idx;
+
+    const d1=Math.sqrt(bestDist1)+0.1;
+    const d2=Math.sqrt(bestDist2)+0.1;
+    const w1=1/d1,w2=1/d2,sum=w1+w2;
+    skinIndices[i*4]=bestIdx1;
     skinWeights[i*4]=w1/sum;
-    skinIndices[i*4+1]=b2.idx;
+    skinIndices[i*4+1]=bestIdx2;
     skinWeights[i*4+1]=w2/sum;
    }
 
@@ -542,20 +579,28 @@ function init3DCharacters(){
     }
    }
 
-   // Buat klip idle halus dari pose siap t=0 dengan gelombang nafas
+   // Buat klip idle dinamis bersiklus nafas dari pose siap t=0
    if(clips.punch){
     const punchClip=clips.punch;
     const idleTracks=[];
     punchClip.tracks.forEach(track=>{
      const itemSize=track.getValueSize();
      const v0=Array.from(track.values.slice(0,itemSize));
-     const times=[0,1.0,2.0];
-     let values=[...v0,...v0,...v0];
-     if(track.name==='mixamorigHips.position'){
-      values[4]+=1.5;
-     }
      const TrackType=track.constructor;
-     idleTracks.push(new TrackType(track.name,times,values));
+     if(track.name.includes('Hips.position')){
+      const times=[0,1.0,2.0];
+      const val0=[...v0];
+      const val1=[...v0];val1[1]+=2.0;
+      idleTracks.push(new TrackType(track.name,times,[...val0,...val1,...val0]));
+     }else if(track.name.includes('Spine.quaternion')){
+      const times=[0,1.0,2.0];
+      const q0=new THREE.Quaternion().fromArray(v0);
+      const q1=q0.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),0.04));
+      idleTracks.push(new TrackType(track.name,times,[...q0.toArray(),...q1.toArray(),...q0.toArray()]));
+     }else{
+      const times=[0,2.0];
+      idleTracks.push(new TrackType(track.name,times,[...v0,...v0]));
+     }
     });
     clips.idle=new THREE.AnimationClip('idle',2.0,idleTracks);
    }
@@ -567,15 +612,18 @@ function init3DCharacters(){
     armature.traverse(c=>{if(c.isBone)fighterBones.push(c)});
     const skeleton=new THREE.Skeleton(fighterBones);
 
+    // PENTING: skinning: true wajib diset agar WebGLRenderer Three.js r128 mengaktifkan GPU skeletal animation
     const mSkin=new THREE.MeshStandardMaterial({
      map:tSkin,normalMap:nSkin,roughness:.65,metalness:.15,
-     color:isPlayer?0xffffff:0xd4b0a0
+     color:isPlayer?0xffffff:0xd4b0a0,
+     skinning:true
     });
     const mCloth=new THREE.MeshStandardMaterial({
      map:tCloth,normalMap:nCloth,roughness:.7,metalness:.2,
      color:isPlayer?0xffffff:0xff5566,
      emissive:isPlayer?0x113344:0x330005,
-     emissiveIntensity:0.2
+     emissiveIntensity:0.2,
+     skinning:true
     });
 
     const materials=[mSkin,mCloth];
@@ -585,7 +633,7 @@ function init3DCharacters(){
     skinnedMesh.add(armature);
     skinnedMesh.bind(skeleton);
 
-    const scale=0.0088;
+    const scale=0.01;
     skinnedMesh.scale.set(scale,scale,scale);
     skinnedMesh.position.set(0,0,0);
 
