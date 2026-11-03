@@ -15,3 +15,8 @@ Thumbs.db
 # The optimized 71MB realistic_man.glb is used by the game
 *Realistic man.glb
 
+# Ignore raw uncompressed source files (TGA 4K raw textures & Maya scene files)
+# The optimized web textures in textures_web/ are used by the browser game
+*.tga
+*.mb
+

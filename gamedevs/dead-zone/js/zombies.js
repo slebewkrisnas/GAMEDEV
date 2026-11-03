@@ -1,11 +1,13 @@
 // ============================================================================
 // DEAD ZONE — ZOMBIE SYSTEM & AI STATE MACHINE
-// Handles procedural humanoid zombie geometry, limb animations, AI states
-// (CHASE, ATTACK, DEAD), hitboxes, damage, and death despawn.
+// Integrates high-fidelity 3D Skeletal FBX Zombie assets (Zombie Biasa & Boss Titan)
+// with PBR textures, animation state machine (CHASE, ATTACK, DEAD),
+// precision hitboxes for headshots & damage, and smooth audio effects.
 // ============================================================================
 
 import * as THREE from 'three';
 import { sound } from './audio.js';
+import { zombieAssets, createZombieInstance, playZombieAction, initZombieAssets } from './zombieAssets.js';
 
 export class Zombie {
   constructor(scene, environment, player, config, onDeathCallback) {
@@ -63,15 +65,15 @@ export class Zombie {
       this.attackDamage = 13;
     }
 
-    // 4. Scale
+    // 4. Scale factor for entity bounds
     if (config.scale) {
       this.scale = config.scale;
     } else if (this.type === 'boss') {
-      this.scale = 2.6; // Ukuran jauh lebih besar (Titan)
+      this.scale = 1.85; // Massive colossal Necromancer boss
     } else if (this.type === 'tank' || this.type === 'brute') {
-      this.scale = 1.35; // Kekar dan kokoh
+      this.scale = 1.25; // Kekar dan kokoh
     } else if (this.type === 'runner') {
-      this.scale = 0.88; // Gesit dan ramping
+      this.scale = 0.9; // Gesit dan ramping
     } else if (this.type === 'stalker') {
       this.scale = 1.05;
     } else {
@@ -83,25 +85,28 @@ export class Zombie {
     this.isAlive = true;
 
     // Combat parameters
-    this.attackRange = 1.75 * this.scale;
+    this.attackRange = this.type === 'boss' ? 3.0 : (1.85 * this.scale);
     this.attackCooldown = this.type === 'runner' ? 0.8 : (this.type === 'boss' ? 1.4 : 1.1);
     this.attackTimer = 0.5;
 
     // Death / Despawn timing
     this.deathTimer = 0;
-    this.deathDuration = this.type === 'boss' ? 3.5 : 2.0;
+    this.deathDuration = this.type === 'boss' ? 5.2 : 3.8;
 
-    // Animation variables
+    // Animation & Groan variables
     this.walkCycle = Math.random() * Math.PI * 2;
     this.groanTimer = Math.random() * 5 + 3;
 
     // Hitboxes list for raycasting
     this.hitboxes = [];
 
+    // Real FBX 3D Asset reference
+    this.realAsset = null;
+    this.proceduralGroup = null;
+
     // Create 3D Zombie Mesh hierarchy
     this.mesh = new THREE.Group();
     this.buildZombieMesh();
-    this.mesh.scale.set(this.scale, this.scale, this.scale);
 
     // Initial position adapted to terrain
     const initY = (this.environment && typeof this.environment.getTerrainHeight === 'function')
@@ -112,172 +117,160 @@ export class Zombie {
   }
 
   buildZombieMesh() {
-    // Skin & Clothing materials tuned by zombie type
-    let skinColor = 0x6b8f60;
-    let shirtColor = 0x475569;
-    let eyeColor = 0xff2222;
-    let emissiveSkin = 0x1e2e1c;
-    let emissiveIntensity = 0.35;
+    // Try building real 3D FBX asset first
+    const realInstance = createZombieInstance(this.type);
+    if (realInstance) {
+      this.setupRealAsset(realInstance);
+    } else {
+      // Temporary procedural fallback until 3D FBX finish loading
+      this.buildProceduralZombieMesh();
+    }
+  }
 
-    if (this.type === 'boss') {
-      skinColor = 0x221a2c; // Mutated dark obsidian purple
-      shirtColor = 0x181024;
-      eyeColor = 0xff0033; // Radiant blazing crimson eyes
-      emissiveSkin = 0x581c87;
-      emissiveIntensity = 0.55;
-    } else if (this.type === 'tank' || this.type === 'brute') {
-      skinColor = 0x475841; // Heavy mossy armored skin
-      shirtColor = 0x272e36;
-      emissiveSkin = 0x162414;
-    } else if (this.type === 'runner') {
-      skinColor = 0x8da178; // Sickly pale green
-      shirtColor = 0x991b1b; // Tattered bloodied red shirt
-      emissiveSkin = 0x291515;
-    } else if (this.type === 'stalker') {
-      skinColor = 0x2f3d32; // Toxic camouflage
-      shirtColor = 0x1e2922;
-      eyeColor = 0x22c55e; // Menacing neon radioactive green
-      emissiveSkin = 0x14532d;
+  setupRealAsset(instance) {
+    if (this.proceduralGroup) {
+      this.mesh.remove(this.proceduralGroup);
+      this.proceduralGroup = null;
     }
 
-    const skinMat = new THREE.MeshStandardMaterial({
-      color: skinColor,
-      emissive: emissiveSkin,
-      emissiveIntensity: emissiveIntensity,
-      roughness: 0.8,
-      metalness: 0.05
-    });
+    this.realAsset = instance;
 
-    const clothesMat = new THREE.MeshStandardMaterial({
-      color: shirtColor,
-      emissive: 0x0f172a,
-      emissiveIntensity: 0.25,
-      roughness: 0.85
-    });
+    // Scale model container
+    this.realAsset.group.scale.set(this.scale, this.scale, this.scale);
+    this.mesh.add(this.realAsset.group);
 
+    // Initial animation action
+    const initAction = (this.type === 'runner') ? 'run' : 'walk';
+    playZombieAction(this.realAsset, initAction, 0.1);
+
+    // Create precision invisible hitboxes for bullet raycasting
+    this.setupHitboxes();
+  }
+
+  setupHitboxes() {
+    // Clear previous hitboxes
+    for (const hb of this.hitboxes) {
+      this.mesh.remove(hb);
+    }
+    this.hitboxes.length = 0;
+
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+
+    // 1. Head Hitbox (CRITICAL HEADSHOT)
+    const headH = (this.type === 'boss') ? 0.6 : 0.42;
+    const headW = (this.type === 'boss') ? 0.55 : 0.38;
+    const headGeo = new THREE.BoxGeometry(headW * this.scale, headH * this.scale, headW * this.scale);
+    const headHitbox = new THREE.Mesh(headGeo, hitMat);
+    headHitbox.position.y = (this.type === 'boss' ? 2.5 : 1.62) * this.scale;
+    headHitbox.userData = { zombie: this, isHead: true };
+    this.mesh.add(headHitbox);
+    this.hitboxes.push(headHitbox);
+
+    // 2. Torso Hitbox (BODY DAMAGE)
+    const torsoW = (this.type === 'boss') ? 0.95 : 0.65;
+    const torsoH = (this.type === 'boss') ? 1.3 : 0.9;
+    const torsoD = (this.type === 'boss') ? 0.75 : 0.5;
+    const torsoGeo = new THREE.BoxGeometry(torsoW * this.scale, torsoH * this.scale, torsoD * this.scale);
+    const torsoHitbox = new THREE.Mesh(torsoGeo, hitMat);
+    torsoHitbox.position.y = (this.type === 'boss' ? 1.45 : 1.0) * this.scale;
+    torsoHitbox.userData = { zombie: this, isHead: false };
+    this.mesh.add(torsoHitbox);
+    this.hitboxes.push(torsoHitbox);
+
+    // 3. Legs Hitbox (LOWER BODY)
+    const legW = (this.type === 'boss') ? 0.7 : 0.48;
+    const legH = (this.type === 'boss') ? 0.95 : 0.75;
+    const legGeo = new THREE.BoxGeometry(legW * this.scale, legH * this.scale, legW * this.scale);
+    const legHitbox = new THREE.Mesh(legGeo, hitMat);
+    legHitbox.position.y = (legH * 0.5) * this.scale;
+    legHitbox.userData = { zombie: this, isHead: false };
+    this.mesh.add(legHitbox);
+    this.hitboxes.push(legHitbox);
+  }
+
+  buildProceduralZombieMesh() {
+    this.proceduralGroup = new THREE.Group();
+    this.proceduralGroup.scale.set(this.scale, this.scale, this.scale);
+
+    let skinColor = (this.type === 'boss') ? 0x221a2c : ((this.type === 'runner') ? 0x8da178 : 0x6b8f60);
+    let shirtColor = (this.type === 'boss') ? 0x181024 : ((this.type === 'runner') ? 0x991b1b : 0x475569);
+    let eyeColor = (this.type === 'boss') ? 0xff0033 : 0xff2222;
+
+    const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.8 });
+    const clothesMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.85 });
     const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
 
-    // 1. Torso (Body)
-    const torsoW = (this.type === 'tank' || this.type === 'brute') ? 0.62 : ((this.type === 'boss') ? 0.68 : 0.5);
-    const torsoH = (this.type === 'boss') ? 0.8 : 0.72;
-    const torsoD = (this.type === 'tank' || this.type === 'boss') ? 0.38 : 0.28;
+    // Torso
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.72, 0.28), clothesMat);
+    torso.position.y = 1.05;
+    torso.userData = { zombie: this, isHead: false };
+    this.proceduralGroup.add(torso);
+    this.hitboxes.push(torso);
 
-    const torsoGeo = new THREE.BoxGeometry(torsoW, torsoH, torsoD);
-    this.torso = new THREE.Mesh(torsoGeo, clothesMat);
-    this.torso.position.y = 1.05;
-    this.torso.castShadow = true;
-    this.torso.receiveShadow = true;
-    this.torso.userData = { zombie: this, isHead: false };
-    this.mesh.add(this.torso);
-    this.hitboxes.push(this.torso);
+    // Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.35, 0.32), skinMat);
+    head.position.y = 1.62;
+    head.userData = { zombie: this, isHead: true };
+    this.proceduralGroup.add(head);
+    this.hitboxes.push(head);
 
-    // Boss special features: Glowing Chest Bio-Core & Spiked Pauldrons
-    if (this.type === 'boss') {
-      const coreGeo = new THREE.SphereGeometry(0.14, 8, 8);
-      const coreMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-      const bioCore = new THREE.Mesh(coreGeo, coreMat);
-      bioCore.position.set(0, 0.05, torsoD / 2 + 0.03);
-      this.torso.add(bioCore);
-    }
+    // Eyes
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), eyeMat);
+    leftEye.position.set(-0.08, 0.04, 0.16);
+    head.add(leftEye);
+    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), eyeMat);
+    rightEye.position.set(0.08, 0.04, 0.16);
+    head.add(rightEye);
 
-    // 2. Head
-    const headSize = (this.type === 'boss') ? 0.38 : 0.32;
-    const headGeo = new THREE.BoxGeometry(headSize, headSize * 1.06, headSize);
-    this.head = new THREE.Mesh(headGeo, skinMat);
-    this.head.position.y = 1.62;
-    this.head.castShadow = true;
-    this.head.receiveShadow = true;
-    this.head.userData = { zombie: this, isHead: true };
-    this.mesh.add(this.head);
-    this.hitboxes.push(this.head);
+    // Limbs
+    const armGeo = new THREE.BoxGeometry(0.14, 0.65, 0.14);
+    armGeo.translate(0, -0.28, 0);
 
-    // Eyes (Two glowing dots)
-    const eyeSize = (this.type === 'boss') ? 0.055 : 0.035;
-    const eyeGeo = new THREE.SphereGeometry(eyeSize, 6, 6);
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-headSize * 0.25, 0.04, -headSize * 0.51);
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(headSize * 0.25, 0.04, -headSize * 0.51);
-    this.head.add(leftEye);
-    this.head.add(rightEye);
-
-    // Boss Horns/Crown
-    if (this.type === 'boss') {
-      const hornGeo = new THREE.ConeGeometry(0.08, 0.35, 5);
-      hornGeo.rotateX(Math.PI / 4);
-      const hornMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
-      const leftHorn = new THREE.Mesh(hornGeo, hornMat);
-      leftHorn.position.set(-0.16, 0.22, -0.05);
-      const rightHorn = new THREE.Mesh(hornGeo, hornMat);
-      rightHorn.position.set(0.16, 0.22, -0.05);
-      this.head.add(leftHorn);
-      this.head.add(rightHorn);
-    }
-
-    // 3. Arms with Pivots at shoulders
-    const armW = (this.type === 'tank' || this.type === 'boss') ? 0.18 : 0.14;
-    const armGeo = new THREE.BoxGeometry(armW, 0.65, armW);
-    armGeo.translate(0, -0.28, 0); // Center pivot at top of arm
-
-    // Left Arm Pivot
-    const shoulderX = torsoW * 0.5 + armW * 0.5;
     this.leftArmPivot = new THREE.Group();
-    this.leftArmPivot.position.set(-shoulderX, 1.35, 0);
+    this.leftArmPivot.position.set(-0.32, 1.35, 0);
     this.leftArm = new THREE.Mesh(armGeo, skinMat);
-    this.leftArm.castShadow = true;
     this.leftArm.userData = { zombie: this, isHead: false };
     this.leftArmPivot.add(this.leftArm);
-    this.mesh.add(this.leftArmPivot);
+    this.proceduralGroup.add(this.leftArmPivot);
     this.hitboxes.push(this.leftArm);
 
-    // Right Arm Pivot
     this.rightArmPivot = new THREE.Group();
-    this.rightArmPivot.position.set(shoulderX, 1.35, 0);
+    this.rightArmPivot.position.set(0.32, 1.35, 0);
     this.rightArm = new THREE.Mesh(armGeo, skinMat);
-    this.rightArm.castShadow = true;
     this.rightArm.userData = { zombie: this, isHead: false };
     this.rightArmPivot.add(this.rightArm);
-    this.mesh.add(this.rightArmPivot);
+    this.proceduralGroup.add(this.rightArmPivot);
     this.hitboxes.push(this.rightArm);
 
-    // Boss Shoulder Spikes
-    if (this.type === 'boss') {
-      const spikeGeo = new THREE.ConeGeometry(0.12, 0.32, 5);
-      const spikeMat = new THREE.MeshStandardMaterial({ color: 0x0f0b14, roughness: 0.7 });
-      const leftSpike = new THREE.Mesh(spikeGeo, spikeMat);
-      leftSpike.position.set(0, 0.12, 0);
-      this.leftArmPivot.add(leftSpike);
-      const rightSpike = new THREE.Mesh(spikeGeo, spikeMat);
-      rightSpike.position.set(0, 0.12, 0);
-      this.rightArmPivot.add(rightSpike);
-    }
-
-    // 4. Legs with Pivots at hips
-    const legW = (this.type === 'tank' || this.type === 'boss') ? 0.2 : 0.16;
-    const legGeo = new THREE.BoxGeometry(legW, 0.72, legW);
+    const legGeo = new THREE.BoxGeometry(0.16, 0.72, 0.16);
     legGeo.translate(0, -0.36, 0);
-
     const pantsMat = new THREE.MeshStandardMaterial({ color: 0x181c22, roughness: 0.9 });
 
-    // Left Leg Pivot
     this.leftLegPivot = new THREE.Group();
-    this.leftLegPivot.position.set(-torsoW * 0.25, 0.72, 0);
+    this.leftLegPivot.position.set(-0.13, 0.72, 0);
     this.leftLeg = new THREE.Mesh(legGeo, pantsMat);
-    this.leftLeg.castShadow = true;
     this.leftLeg.userData = { zombie: this, isHead: false };
     this.leftLegPivot.add(this.leftLeg);
-    this.mesh.add(this.leftLegPivot);
+    this.proceduralGroup.add(this.leftLegPivot);
     this.hitboxes.push(this.leftLeg);
 
-    // Right Leg Pivot
     this.rightLegPivot = new THREE.Group();
-    this.rightLegPivot.position.set(torsoW * 0.25, 0.72, 0);
+    this.rightLegPivot.position.set(0.13, 0.72, 0);
     this.rightLeg = new THREE.Mesh(legGeo, pantsMat);
-    this.rightLeg.castShadow = true;
     this.rightLeg.userData = { zombie: this, isHead: false };
     this.rightLegPivot.add(this.rightLeg);
-    this.mesh.add(this.rightLegPivot);
+    this.proceduralGroup.add(this.rightLegPivot);
     this.hitboxes.push(this.rightLeg);
+
+    this.mesh.add(this.proceduralGroup);
+  }
+
+  tryUpgradeToRealAsset() {
+    if (this.realAsset || !zombieAssets.isLoaded || !this.isAlive) return;
+    const realInstance = createZombieInstance(this.type);
+    if (realInstance) {
+      this.setupRealAsset(realInstance);
+    }
   }
 
   takeDamage(amount, isHeadshot) {
@@ -299,13 +292,15 @@ export class Zombie {
     this.state = 'dead';
 
     // Clear hitboxes immediately so dead zombies cannot be shot or block raycasts
+    for (const hb of this.hitboxes) {
+      hb.userData = {};
+    }
     this.hitboxes.length = 0;
-    this.torso.userData = {};
-    this.head.userData = {};
-    this.leftArm.userData = {};
-    this.rightArm.userData = {};
-    this.leftLeg.userData = {};
-    this.rightLeg.userData = {};
+
+    // Play skeletal death animation
+    if (this.realAsset) {
+      playZombieAction(this.realAsset, 'death', 0.1);
+    }
 
     if (this.onDeathCallback) {
       this.onDeathCallback(this.mesh.position, this.type === 'boss', this);
@@ -313,6 +308,16 @@ export class Zombie {
   }
 
   update(delta) {
+    // Try upgrading to real FBX asset once assets finish loading
+    if (!this.realAsset && zombieAssets.isLoaded && this.isAlive) {
+      this.tryUpgradeToRealAsset();
+    }
+
+    // Update skeletal mixer
+    if (this.realAsset && this.realAsset.mixer) {
+      this.realAsset.mixer.update(delta);
+    }
+
     const groundY = (this.environment && typeof this.environment.getTerrainHeight === 'function')
       ? this.environment.getTerrainHeight(this.mesh.position.x, this.mesh.position.z)
       : 0;
@@ -323,17 +328,21 @@ export class Zombie {
     if (this.state === 'dead') {
       this.deathTimer += delta;
 
-      // Fall backward animation
-      if (this.mesh.rotation.x > -Math.PI / 2) {
-        this.mesh.rotation.x -= delta * 3.5;
-        this.mesh.position.y = Math.max(groundY + 0.15, this.mesh.position.y - delta * 0.8);
+      if (this.realAsset) {
+        // Skeletal animation handles collapse organically; sink after 2.4s
+        if (this.deathTimer > 2.4) {
+          this.mesh.position.y -= delta * 0.45;
+        }
+      } else {
+        // Fallback procedural backward fall
+        if (this.mesh.rotation.x > -Math.PI / 2) {
+          this.mesh.rotation.x -= delta * 3.5;
+          this.mesh.position.y = Math.max(groundY + 0.15, this.mesh.position.y - delta * 0.8);
+        }
+        if (this.deathTimer > 1.4) {
+          this.mesh.position.y -= delta * 0.5;
+        }
       }
-
-      // After 1.4s, sink into the ground
-      if (this.deathTimer > 1.4) {
-        this.mesh.position.y -= delta * 0.5;
-      }
-
       return;
     }
 
@@ -344,7 +353,7 @@ export class Zombie {
     this.groanTimer -= delta;
     if (this.groanTimer <= 0) {
       const distToPlayer = this.mesh.position.distanceTo(this.player.yawObject.position);
-      if (distToPlayer < 25) {
+      if (distToPlayer < 28) {
         sound.playZombieGroan();
       }
       this.groanTimer = Math.random() * 8 + 5;
@@ -355,8 +364,8 @@ export class Zombie {
     const dz = playerPos.z - this.mesh.position.z;
     const distanceToPlayer = Math.hypot(dx, dz);
 
-    // Always rotate smoothly to face player
-    const targetAngle = Math.atan2(dx, dz) + Math.PI; // Face player
+    // Always rotate smoothly to face player (+Z forward vector)
+    const targetAngle = Math.atan2(dx, dz);
     let angleDiff = targetAngle - this.mesh.rotation.y;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -368,13 +377,17 @@ export class Zombie {
     if (distanceToPlayer <= this.attackRange) {
       this.state = 'attack';
 
-      // Attack claw animation
-      this.attackTimer += delta;
-      const clawPhase = Math.sin(this.attackTimer * 6);
-      this.leftArmPivot.rotation.x = -Math.PI / 2 + clawPhase * 0.5;
-      this.rightArmPivot.rotation.x = -Math.PI / 2 - clawPhase * 0.5;
+      if (this.realAsset) {
+        playZombieAction(this.realAsset, 'attack', 0.15);
+      } else if (this.leftArmPivot && this.rightArmPivot) {
+        this.attackTimer += delta;
+        const clawPhase = Math.sin(this.attackTimer * 6);
+        this.leftArmPivot.rotation.x = -Math.PI / 2 + clawPhase * 0.5;
+        this.rightArmPivot.rotation.x = -Math.PI / 2 - clawPhase * 0.5;
+      }
 
       // Strike player on attack cooldown
+      this.attackTimer += delta;
       if (this.attackTimer >= this.attackCooldown) {
         this.attackTimer = 0;
         sound.playZombieAttack();
@@ -388,9 +401,14 @@ export class Zombie {
       this.state = 'chase';
       this.attackTimer = 0.3; // Ready to attack soon when in range
 
+      if (this.realAsset) {
+        const moveAction = (this.type === 'runner') ? 'run' : 'walk';
+        playZombieAction(this.realAsset, moveAction, 0.2);
+      }
+
       // Movement vector toward player
-      const dirX = dx / distanceToPlayer;
-      const dirZ = dz / distanceToPlayer;
+      const dirX = dx / (distanceToPlayer || 1);
+      const dirZ = dz / (distanceToPlayer || 1);
 
       const moveStep = this.speed * delta;
       const newX = this.mesh.position.x + dirX * moveStep;
@@ -418,15 +436,15 @@ export class Zombie {
         }
       }
 
-      // Walk cycle animation (swinging arms & legs)
-      this.walkCycle += delta * this.speed * 3.5;
-      const legSwing = Math.sin(this.walkCycle) * 0.5;
-      this.leftLegPivot.rotation.x = legSwing;
-      this.rightLegPivot.rotation.x = -legSwing;
-
-      // Arms raised forward in classic zombie stalk pose + subtle swing
-      this.leftArmPivot.rotation.x = -Math.PI / 2.6 + Math.sin(this.walkCycle) * 0.15;
-      this.rightArmPivot.rotation.x = -Math.PI / 2.6 - Math.sin(this.walkCycle) * 0.15;
+      // Procedural limb swing fallback
+      if (!this.realAsset && this.leftLegPivot && this.rightLegPivot) {
+        this.walkCycle += delta * this.speed * 3.5;
+        const legSwing = Math.sin(this.walkCycle) * 0.5;
+        this.leftLegPivot.rotation.x = legSwing;
+        this.rightLegPivot.rotation.x = -legSwing;
+        this.leftArmPivot.rotation.x = -Math.PI / 2.6 + Math.sin(this.walkCycle) * 0.15;
+        this.rightArmPivot.rotation.x = -Math.PI / 2.6 - Math.sin(this.walkCycle) * 0.15;
+      }
     }
   }
 
@@ -437,6 +455,9 @@ export class Zombie {
   destroy() {
     this.scene.remove(this.mesh);
     this.hitboxes.length = 0;
+    if (this.realAsset && this.realAsset.mixer) {
+      this.realAsset.mixer.stopAllAction();
+    }
   }
 }
 
@@ -447,6 +468,11 @@ export class ZombiesManager {
     this.player = player;
     this.onZombieKilled = onZombieKilled;
     this.zombies = [];
+
+    // Preload zombie FBX assets & textures early
+    initZombieAssets().catch(err => {
+      console.warn("Zombie assets preload warning:", err);
+    });
   }
 
   spawnZombie(config) {
@@ -494,10 +520,10 @@ export class ZombiesManager {
     // Soft zombie-to-zombie repulsion to prevent unnatural stacking
     for (let i = 0; i < this.zombies.length; i++) {
       const z1 = this.zombies[i];
-      if (z1.isDead) continue;
+      if (!z1.isAlive) continue;
       for (let j = i + 1; j < this.zombies.length; j++) {
         const z2 = this.zombies[j];
-        if (z2.isDead) continue;
+        if (!z2.isAlive) continue;
         const sepX = z2.mesh.position.x - z1.mesh.position.x;
         const sepZ = z2.mesh.position.z - z1.mesh.position.z;
         const sepDist = Math.hypot(sepX, sepZ);
