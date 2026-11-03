@@ -292,3 +292,4 @@ export function playZombieAction(zInstance, actionName, fadeDuration = 0.25) {
 
   zInstance.currentAction = targetAction;
 }
+
