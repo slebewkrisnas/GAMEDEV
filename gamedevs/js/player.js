@@ -64,6 +64,65 @@ export function getCurrentActionName() { return currentActionName; }
 export function getAnimActions() { return animActions; }
 export function getAnim() { return anim; }
 
+// ==================== POSE KEPALAN TANGAN (CLENCHED FIST) ====================
+// Menjaga agar seluruh 30 tulang jari selalu mengepal kokoh & maskulin di setiap frame
+export function applyFistPose() {
+  if (!realisticBones || !realisticBones.fistFingerMap) return;
+  for (const [bone, qFist] of realisticBones.fistFingerMap.entries()) {
+    bone.quaternion.copy(qFist);
+  }
+}
+
+export function getFistFingerQuats(targetModel, bindQuats = null) {
+  const bonesMap = {};
+  targetModel.traverse((c) => { if (c.isBone) bonesMap[c.name] = c; });
+
+  const fistQuats = new Map();
+  const fingerCurlConfig = {
+    index:  [-1.25, -1.50, -1.30],
+    middle: [-1.28, -1.55, -1.32],
+    ring:   [-1.26, -1.52, -1.30],
+    pinky:  [-1.22, -1.48, -1.28]
+  };
+
+  ['l', 'r'].forEach(side => {
+    // 4 Jari utama: Tekuk buku jari (knuckle) & lipat erat ke dalam telapak
+    for (const [finger, curls] of Object.entries(fingerCurlConfig)) {
+      for (let j = 1; j <= 3; j++) {
+        const boneName = `c_${finger}${j}.${side}`;
+        const bone = bonesMap[boneName];
+        if (!bone) continue;
+        const qBind = (bindQuats && bindQuats.has(bone)) ? bindQuats.get(bone).clone() : bone.quaternion.clone();
+        const angle = curls[j - 1];
+        const splayZ = (finger === 'index' ? -0.06 : (finger === 'pinky' ? 0.08 : (finger === 'ring' ? 0.04 : 0))) * (side === 'l' ? 1 : -1);
+        const qCurl = new THREE.Quaternion().setFromEuler(new THREE.Euler(angle, 0, splayZ, 'XYZ'));
+        fistQuats.set(bone, qBind.clone().multiply(qCurl));
+      }
+    }
+
+    // Ibu Jari (Thumb): Mengunci kokoh melintang di depan jari-jari
+    const t1 = bonesMap[`c_thumb1.${side}`];
+    const t2 = bonesMap[`c_thumb2.${side}`];
+    const t3 = bonesMap[`c_thumb3.${side}`];
+
+    if (t1) {
+      const qBind1 = (bindQuats && bindQuats.has(t1)) ? bindQuats.get(t1).clone() : t1.quaternion.clone();
+      const euler1 = side === 'l' ? new THREE.Euler(-0.45, 0.35, -0.55, 'XYZ') : new THREE.Euler(-0.45, -0.35, 0.55, 'XYZ');
+      fistQuats.set(t1, qBind1.clone().multiply(new THREE.Quaternion().setFromEuler(euler1)));
+    }
+    if (t2) {
+      const qBind2 = (bindQuats && bindQuats.has(t2)) ? bindQuats.get(t2).clone() : t2.quaternion.clone();
+      fistQuats.set(t2, qBind2.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.95, 0, 0, 'XYZ'))));
+    }
+    if (t3) {
+      const qBind3 = (bindQuats && bindQuats.has(t3)) ? bindQuats.get(t3).clone() : t3.quaternion.clone();
+      fistQuats.set(t3, qBind3.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.05, 0, 0, 'XYZ'))));
+    }
+  });
+
+  return fistQuats;
+}
+
 // player declared above
 // proceduralModel declared above
 proceduralModel.visible = false; // Model lama dinonaktifkan secara default agar tidak muncul
@@ -158,7 +217,7 @@ function getBoneDirInModel(b, child, root) {
   return p2.sub(p1).normalize();
 }
 
-async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, bindQuats = null) {
+async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, bindQuats = null, fistFingerMap = null) {
   let loadedFbx = null;
   for (const url of candidates) {
     try {
@@ -298,9 +357,9 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
         deltaQ.slerp(new THREE.Quaternion(), 0.5);
       }
 
-      // Redam rotasi pergelangan tangan berlebih agar telapak tangan rileks alami di sisi paha
+      // Kunci dan stabilkan pergelangan tangan agar kepalan tangan tegak, kokoh, dan maskulin sejajar lengan bawah (tidak lunglai / bencong)
       if (b.gName === 'handl' || b.gName === 'handr') {
-        deltaQ.slerp(new THREE.Quaternion(), 0.35);
+        deltaQ.slerp(new THREE.Quaternion(), 0.92);
       }
 
       qTargetWorld.copy(deltaQ).multiply(b.qGltfBind);
@@ -337,11 +396,25 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
     ));
   }
 
+  // Tambahkan track kepalan tangan (clenched fist) untuk seluruh 30 tulang jari agar tangan selalu mengepal kokoh
+  if (fistFingerMap && fistFingerMap.size > 0) {
+    for (const [fBone, qFist] of fistFingerMap.entries()) {
+      newTracks.push(new THREE.QuaternionKeyframeTrack(
+        fBone.name + '.quaternion',
+        [0, duration],
+        [qFist.x, qFist.y, qFist.z, qFist.w, qFist.x, qFist.y, qFist.z, qFist.w]
+      ));
+    }
+  }
+
   return { clip: new THREE.AnimationClip(clipName, duration, newTracks), boneData };
 }
 
-async function initFBXAnimations(targetModel, bindQuats = null) {
+async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = null) {
   try {
+    if (!fistFingerMap) {
+      fistFingerMap = getFistFingerQuats(targetModel, bindQuats);
+    }
     const fbxLoader = new FBXLoader();
     console.log('[FBX Loader] Memuat dan me-retarget animasi dari folder animation...');
     notifyPlayerProgress(82, 'Memuat & me-retarget animasi FBX (Walk, Run, Jump)...');
@@ -352,19 +425,19 @@ async function initFBXAnimations(targetModel, bindQuats = null) {
         '../animation/Walking.fbx',
         '/animation/Walking.fbx',
         '/gamedevs/animation/Walking.fbx'
-      ], 'Walk', bindQuats),
+      ], 'Walk', bindQuats, fistFingerMap),
       loadAndRetargetFBX(fbxLoader, targetModel, [
         './animation/Fast Run.fbx',
         '../animation/Fast Run.fbx',
         '/animation/Fast Run.fbx',
         '/gamedevs/animation/Fast Run.fbx'
-      ], 'Run', bindQuats),
+      ], 'Run', bindQuats, fistFingerMap),
       loadAndRetargetFBX(fbxLoader, targetModel, [
         './animation/Jumping.fbx',
         '../animation/Jumping.fbx',
         '/animation/Jumping.fbx',
         '/gamedevs/animation/Jumping.fbx'
-      ], 'Jump', bindQuats)
+      ], 'Jump', bindQuats, fistFingerMap)
     ]);
 
     const walkClip = walkRes ? walkRes.clip : null;
@@ -395,6 +468,14 @@ async function initFBXAnimations(targetModel, bindQuats = null) {
         } else if (b.gName === 'forearm_stretchr') {
           const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.22, 'ZYX'));
           q0.multiply(qRelax);
+        } else if (b.gName === 'handl') {
+          // Kepalan tangan kiri tegap rapi sejajar sisi paha
+          const qFist = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.12, -0.10, 'ZYX'));
+          q0.multiply(qFist);
+        } else if (b.gName === 'handr') {
+          // Kepalan tangan kanan tegap rapi sejajar sisi paha
+          const qFist = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -0.12, 0.10, 'ZYX'));
+          q0.multiply(qFist);
         }
 
         let qMid = q0.clone();
@@ -414,6 +495,18 @@ async function initFBXAnimations(targetModel, bindQuats = null) {
           [q0.x, q0.y, q0.z, q0.w, qMid.x, qMid.y, qMid.z, qMid.w, q0.x, q0.y, q0.z, q0.w]
         ));
       }
+
+      // Tambahkan track kepalan tangan (clenched fist) untuk seluruh 30 tulang jari saat idle
+      if (fistFingerMap && fistFingerMap.size > 0) {
+        for (const [fBone, qFist] of fistFingerMap.entries()) {
+          idleTracks.push(new THREE.QuaternionKeyframeTrack(
+            fBone.name + '.quaternion',
+            [0, idleDuration],
+            [qFist.x, qFist.y, qFist.z, qFist.w, qFist.x, qFist.y, qFist.z, qFist.w]
+          ));
+        }
+      }
+
       idleClip = new THREE.AnimationClip('Idle', idleDuration, idleTracks);
     }
 
@@ -421,6 +514,14 @@ async function initFBXAnimations(targetModel, bindQuats = null) {
     if (bindQuats) {
       for (const [bone, qBind] of bindQuats.entries()) {
         bone.quaternion.copy(qBind);
+      }
+      targetModel.updateMatrixWorld(true);
+    }
+
+    // Terapkan pose kepalan tangan ke seluruh 30 tulang jari
+    if (fistFingerMap && fistFingerMap.size > 0) {
+      for (const [bone, qFist] of fistFingerMap.entries()) {
+        bone.quaternion.copy(qFist);
       }
       targetModel.updateMatrixWorld(true);
     }
@@ -573,6 +674,16 @@ function loadRealisticManModel() {
           return null;
         }
 
+        const fistFingerMap = getFistFingerQuats(realisticModel, bindQuats);
+
+        // Langsung terapkan kepalan tangan kokoh ke bind pose awal model 3D
+        if (fistFingerMap && fistFingerMap.size > 0) {
+          for (const [bone, qFist] of fistFingerMap.entries()) {
+            bone.quaternion.copy(qFist);
+          }
+          realisticModel.updateMatrixWorld(true);
+        }
+
         realisticBones = {
           thighL: findBone(/^thigh_stretch\.?l$/i),
           thighR: findBone(/^thigh_stretch\.?r$/i),
@@ -589,7 +700,8 @@ function loadRealisticManModel() {
           spine: findBone(/^spine_01\.?x$/i) || findBone(/^spine_02\.?x$/i),
           head: findBone(/^head\.?x$/i),
           neck: findBone(/^neck\.?x$/i),
-          binds: bindQuats
+          binds: bindQuats,
+          fistFingerMap: fistFingerMap
         };
 
         // Tambahkan model realistis ke player dalam posisi invisible terlebih dahulu
@@ -597,7 +709,7 @@ function loadRealisticManModel() {
         player.add(realisticModel);
         realisticModel.visible = false;
 
-        initFBXAnimations(realisticModel, bindQuats).then((success) => {
+        initFBXAnimations(realisticModel, bindQuats, fistFingerMap).then((success) => {
           realisticModel.visible = true;
           proceduralModel.visible = false;
           usingRealisticModel = true;
@@ -930,32 +1042,38 @@ function makeArm(side) {
   wrist.position.set(0, -0.20, 0);
   lowerGroup.add(wrist);
 
-  // Hand Base (Palm)
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.055, 0.022), M.skin);
-  palm.position.set(side * 0.004, -0.24, 0.003);
-  palm.castShadow = true;
-  lowerGroup.add(palm);
+  // Kepalan Tangan Kokoh & Maskulin (Clenched Fist - Tangan Mengepal)
+  const fistGroup = new THREE.Group();
+  fistGroup.position.set(side * 0.004, -0.235, 0.002);
+  fistGroup.rotation.y = side * 0.18; // Hadap sedikit ke sisi dalam paha
+  lowerGroup.add(fistGroup);
 
-  // Opposable Thumb
-  const thumbBase = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.022, 6, 8), M.skin);
-  thumbBase.position.set(side * -0.022, -0.23, 0.012);
-  thumbBase.rotation.z = side * -0.4;
-  thumbBase.rotation.x = 0.3;
-  lowerGroup.add(thumbBase);
+  // Inti Kepalan Tangan (Fist Core)
+  const fistCore = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.058, 0.046), M.skin);
+  fistCore.position.set(0, 0, 0);
+  fistCore.castShadow = true;
+  fistGroup.add(fistCore);
 
-  // Realistic Curled Relaxed Fingers
-  const fingerDefs = [
-    { x: -0.016, l: 0.032 },
-    { x: -0.005, l: 0.036 },
-    { x:  0.006, l: 0.034 },
-    { x:  0.016, l: 0.028 }
-  ];
-  fingerDefs.forEach(fd => {
-    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.0075, fd.l, 6, 8), M.skin);
-    finger.position.set(side * fd.x, -0.265 - fd.l * 0.3, 0.004);
-    finger.rotation.x = -0.25;
-    lowerGroup.add(finger);
+  // Buku Jari Depan / 4 Knuckles
+  [-0.018, -0.006, 0.006, 0.018].forEach(kx => {
+    const knuckle = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), M.skin);
+    knuckle.position.set(side * kx, -0.014, 0.022);
+    fistGroup.add(knuckle);
   });
+
+  // Jari-jari Melipat Rapat ke Dalam Telapak
+  const curledFingers = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.044, 12), M.skin);
+  curledFingers.rotation.z = Math.PI / 2;
+  curledFingers.position.set(0, -0.016, 0.012);
+  fistGroup.add(curledFingers);
+
+  // Ibu Jari Mengunci Kokoh di Depan (Thumb Clench Lock)
+  const thumbLock = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.034, 8, 8), M.skin);
+  thumbLock.position.set(side * -0.018, -0.008, 0.022);
+  thumbLock.rotation.z = side * -0.65;
+  thumbLock.rotation.x = 0.25;
+  thumbLock.castShadow = true;
+  fistGroup.add(thumbLock);
 
   return { armGroup, lowerGroup };
 }

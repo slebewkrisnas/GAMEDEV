@@ -467,11 +467,21 @@ function init3DCharacters(){
    geom.scale(0.776,0.776,0.776);
    const pos=geom.attributes.position;
 
-   // Tulang utama untuk perhitungan segmen bobot kulit (skinning)
+   // Tulang utama untuk perhitungan segmen bobot kulit (skinning), termasuk buku & ruas jari kepalan
    const keyBoneNames=[
     'mixamorigHips','mixamorigSpine','mixamorigSpine1','mixamorigSpine2','mixamorigNeck','mixamorigHead',
     'mixamorigLeftShoulder','mixamorigLeftArm','mixamorigLeftForeArm','mixamorigLeftHand',
+    'mixamorigLeftHandIndex1','mixamorigLeftHandIndex2','mixamorigLeftHandIndex3',
+    'mixamorigLeftHandMiddle1','mixamorigLeftHandMiddle2','mixamorigLeftHandMiddle3',
+    'mixamorigLeftHandRing1','mixamorigLeftHandRing2','mixamorigLeftHandRing3',
+    'mixamorigLeftHandPinky1','mixamorigLeftHandPinky2','mixamorigLeftHandPinky3',
+    'mixamorigLeftHandThumb1','mixamorigLeftHandThumb2','mixamorigLeftHandThumb3',
     'mixamorigRightShoulder','mixamorigRightArm','mixamorigRightForeArm','mixamorigRightHand',
+    'mixamorigRightHandIndex1','mixamorigRightHandIndex2','mixamorigRightHandIndex3',
+    'mixamorigRightHandMiddle1','mixamorigRightHandMiddle2','mixamorigRightHandMiddle3',
+    'mixamorigRightHandRing1','mixamorigRightHandRing2','mixamorigRightHandRing3',
+    'mixamorigRightHandPinky1','mixamorigRightHandPinky2','mixamorigRightHandPinky3',
+    'mixamorigRightHandThumb1','mixamorigRightHandThumb2','mixamorigRightHandThumb3',
     'mixamorigLeftUpLeg','mixamorigLeftLeg','mixamorigLeftFoot','mixamorigLeftToeBase',
     'mixamorigRightUpLeg','mixamorigRightLeg','mixamorigRightFoot','mixamorigRightToeBase'
    ];

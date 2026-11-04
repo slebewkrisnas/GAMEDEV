@@ -30,11 +30,12 @@ import {
   getAnimActions,
   getAnim,
   rotateRealisticBone,
+  applyFistPose,
   JUMP_FORCE,
   GRAVITY,
   onPlayerReady,
   onPlayerProgress
-} from './js/player.js?v=20261101_loading_v1';
+} from './js/player.js?v=20261104_fist_v1';
 import {
   keys,
   getYaw,
@@ -276,10 +277,11 @@ function animate() {
   const delta = Math.min(clock.getDelta(), 0.1);
   const elapsedTime = clock.getElapsedTime();
 
-  // Update mixer animasi FBX karakter
+  // Update mixer animasi FBX karakter & kunci kepalan tangan kokoh
   const characterMixer = getCharacterMixer();
   if (characterMixer) {
     characterMixer.update(delta);
+    applyFistPose();
   }
 
   // Update animasi zona (portal berputar, lampu berdenyut, patung logo)
