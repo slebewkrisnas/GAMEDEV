@@ -34,6 +34,7 @@ class DeadZoneGame {
     // Timing
     this.clock = new THREE.Clock();
     this.maxDelta = 0.1;
+    this.zoneSwitchCooldown = 0;
 
     // UI Manager
     this.ui = new UIManager();
@@ -245,6 +246,7 @@ class DeadZoneGame {
 
   // Switch cleanly between Safe Zone & Sector-7 Wasteland
   switchZone(zoneName) {
+    this.zoneSwitchCooldown = 2.5;
     sound.playTeleportSound();
     this.currentState = this.STATES.PLAYING;
     this.ui.showScreen('playing');
@@ -357,6 +359,18 @@ class DeadZoneGame {
     if (this.currentState === this.STATES.PLAYING) {
       this.player.update(delta);
       this.weaponManager.update(delta);
+
+      // Otomatis pindah zona jika pemain melangkah masuk portal fisik (selain tombol [E])
+      if (this.zoneSwitchCooldown > 0) {
+        this.zoneSwitchCooldown -= delta;
+      } else {
+        const pPos = this.player.yawObject.position;
+        if (GameState.activeZone === 'safe_zone' && pPos.z >= 34.5 && Math.abs(pPos.x) < 3.5) {
+          this.switchZone('sector_7');
+        } else if (GameState.activeZone === 'sector_7' && pPos.z <= -90.5 && Math.abs(pPos.x) < 3.2) {
+          this.switchZone('safe_zone');
+        }
+      }
 
       // Check proximity to interactive points (Shops, Stash, Air-Lock, Beacon, Crates)
       if (this.shopManager) {

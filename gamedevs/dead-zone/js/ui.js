@@ -67,9 +67,29 @@ export class UIManager {
     this.callbacks = callbacks || {};
 
     // Play button
-    document.getElementById('btn-play').addEventListener('click', () => {
+    const startPlay = () => {
       sound.init();
       if (this.callbacks.onStartGame) this.callbacks.onStartGame();
+    };
+
+    const btnPlay = document.getElementById('btn-play');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', startPlay);
+      btnPlay.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startPlay();
+      }, { passive: false });
+    }
+
+    // Dukung tombol [Enter] dan [Spasi] pada keyboard saat di Menu Start
+    window.addEventListener('keydown', (e) => {
+      const startScreen = document.getElementById('start-screen');
+      if (startScreen && !startScreen.classList.contains('hidden')) {
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          startPlay();
+        }
+      }
     });
 
     // Resume button
