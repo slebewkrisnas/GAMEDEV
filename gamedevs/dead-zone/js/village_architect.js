@@ -725,9 +725,10 @@ export class VillageArchitect {
   // --------------------------------------------------------------------------
   loadHouseModel(x = 0, z = -18) {
     // 1. Daftarkan Box Collider segera agar tabrakan fisik bekerja tanpa jeda loading
+    // Collider mencakup dinding utama rumah, menyisakan beranda depan agar pemain leluasa
     const houseCollider = new THREE.Box3(
       new THREE.Vector3(x - 6.2, 0, z - 5.5),
-      new THREE.Vector3(x + 6.2, 7.0, z + 5.5)
+      new THREE.Vector3(x + 6.2, 7.0, z + 3.8)
     );
     this.colliders.push(houseCollider);
 
@@ -735,7 +736,7 @@ export class VillageArchitect {
     this.interactables.push({
       id: 'stash',
       type: 'stash',
-      position: new THREE.Vector3(x - 2.2, 1.0, z + 5.2),
+      position: new THREE.Vector3(x - 2.2, 1.0, z + 4.8),
       radius: 3.5,
       label: 'Peti Kayu Stash (Penyimpanan Aman) [E]'
     });
@@ -743,14 +744,14 @@ export class VillageArchitect {
     this.interactables.push({
       id: 'house_terminal',
       type: 'house',
-      position: new THREE.Vector3(x + 2.2, 1.0, z + 5.2),
+      position: new THREE.Vector3(x + 2.2, 1.0, z + 4.8),
       radius: 3.5,
       label: 'Papan Desa (Upgrade Rumah Pedesaan) [E]'
     });
 
     // 3. Lentera Beranda Menyala Hangat
     const porchLight = new THREE.PointLight(0xffb74d, 1.3, 14);
-    porchLight.position.set(x, 2.8, z + 5.0);
+    porchLight.position.set(x, 2.8, z + 4.8);
     this.lights.add(porchLight);
 
     // 4. Muat Model 3D GLB
@@ -760,7 +761,7 @@ export class VillageArchitect {
       (gltf) => {
         const model = gltf.scene;
         model.position.set(x, 0, z);
-        model.rotation.y = Math.PI; // Menghadap ke arah alun-alun (+Z)
+        model.rotation.y = 0; // Menghadap ke arah depan / alun-alun desa (+Z)
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -792,29 +793,13 @@ export class VillageArchitect {
     );
     this.colliders.push(shopCollider);
 
-    // 2. Daftarkan 3 Kios Interaksi di Meja Depan Toko (Armory, Medbay, Pengepul)
+    // 2. Daftarkan Kios Interaksi Tunggal di Depan Meja Toko (Toko Serba Ada)
     this.interactables.push({
-      id: 'armory',
-      type: 'armory',
-      position: new THREE.Vector3(x + 4.0, 1.2, z - 3.2),
-      radius: 3.5,
-      label: 'Pande Besi & Amunisi (Beli Senjata, Peluru & Tas) [E]'
-    });
-
-    this.interactables.push({
-      id: 'medbay',
-      type: 'medbay',
+      id: 'general_store',
+      type: 'general_store',
       position: new THREE.Vector3(x + 4.0, 1.2, z),
-      radius: 3.5,
-      label: 'Tabib Desa (Beli Jamu Herbal & Pulihkan HP) [E]'
-    });
-
-    this.interactables.push({
-      id: 'scrap_exchange',
-      type: 'scrap_exchange',
-      position: new THREE.Vector3(x + 4.0, 1.2, z + 3.2),
-      radius: 3.5,
-      label: 'Pengepul Hasil Buruan (Jual Jarahan Dapat Rp) [E]'
+      radius: 5.5,
+      label: '🏪 Toko Serba Ada (Beli Senjata, Amunisi, Jamu & Jual Jarahan) [E]'
     });
 
     // 3. Pencahayaan Toko & Kios
