@@ -11,6 +11,7 @@
 // ============================================================================
 
 import * as THREE from 'three';
+import { GLTFLoader } from './libs/GLTFLoader.js';
 
 export class VillageArchitect {
   constructor(env) {
@@ -720,7 +721,139 @@ export class VillageArchitect {
   }
 
   // --------------------------------------------------------------------------
-  // BANGUNAN 1: RUMAH PRIBADI PEMAIN (PLAYER HOUSE)
+  // BANGUNAN 1: RUMAH PEMAIN (3D GLB - House+Model+004.glb)
+  // --------------------------------------------------------------------------
+  loadHouseModel(x = 0, z = -18) {
+    // 1. Daftarkan Box Collider segera agar tabrakan fisik bekerja tanpa jeda loading
+    const houseCollider = new THREE.Box3(
+      new THREE.Vector3(x - 6.2, 0, z - 5.5),
+      new THREE.Vector3(x + 6.2, 7.0, z + 5.5)
+    );
+    this.colliders.push(houseCollider);
+
+    // 2. Daftarkan Titik Interaksi di Beranda Depan Rumah
+    this.interactables.push({
+      id: 'stash',
+      type: 'stash',
+      position: new THREE.Vector3(x - 2.2, 1.0, z + 5.2),
+      radius: 3.5,
+      label: 'Peti Kayu Stash (Penyimpanan Aman) [E]'
+    });
+
+    this.interactables.push({
+      id: 'house_terminal',
+      type: 'house',
+      position: new THREE.Vector3(x + 2.2, 1.0, z + 5.2),
+      radius: 3.5,
+      label: 'Papan Desa (Upgrade Rumah Pedesaan) [E]'
+    });
+
+    // 3. Lentera Beranda Menyala Hangat
+    const porchLight = new THREE.PointLight(0xffb74d, 1.3, 14);
+    porchLight.position.set(x, 2.8, z + 5.0);
+    this.lights.add(porchLight);
+
+    // 4. Muat Model 3D GLB
+    const loader = new GLTFLoader();
+    loader.load(
+      encodeURI('./asset dead-zone/house/House+Model+004.glb'),
+      (gltf) => {
+        const model = gltf.scene;
+        model.position.set(x, 0, z);
+        model.rotation.y = Math.PI; // Menghadap ke arah alun-alun (+Z)
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material) {
+              child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+            }
+          }
+        });
+        this.group.add(model);
+        console.log('✅ [VILLAGE] House Model 004 GLB berhasil dimuat.');
+      },
+      undefined,
+      (err) => {
+        console.error('❌ [VILLAGE] Gagal memuat House Model 004 GLB:', err);
+      }
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // BANGUNAN 2: TOKO SERBA ADA DESA (3D GLB - pan_shop.glb)
+  // Menyatukan Armory (Senjata/Peluru), Tabib Medbay (Obat/Jamu), dan Pengepul (Jual Rongsokan)
+  // --------------------------------------------------------------------------
+  loadShopModel(x = -18, z = 0) {
+    // 1. Daftarkan Box Collider fisik segera
+    const shopCollider = new THREE.Box3(
+      new THREE.Vector3(x - 5.5, 0, z - 7.5),
+      new THREE.Vector3(x + 3.2, 6.0, z + 7.5)
+    );
+    this.colliders.push(shopCollider);
+
+    // 2. Daftarkan 3 Kios Interaksi di Meja Depan Toko (Armory, Medbay, Pengepul)
+    this.interactables.push({
+      id: 'armory',
+      type: 'armory',
+      position: new THREE.Vector3(x + 4.0, 1.2, z - 3.2),
+      radius: 3.5,
+      label: 'Pande Besi & Amunisi (Beli Senjata, Peluru & Tas) [E]'
+    });
+
+    this.interactables.push({
+      id: 'medbay',
+      type: 'medbay',
+      position: new THREE.Vector3(x + 4.0, 1.2, z),
+      radius: 3.5,
+      label: 'Tabib Desa (Beli Jamu Herbal & Pulihkan HP) [E]'
+    });
+
+    this.interactables.push({
+      id: 'scrap_exchange',
+      type: 'scrap_exchange',
+      position: new THREE.Vector3(x + 4.0, 1.2, z + 3.2),
+      radius: 3.5,
+      label: 'Pengepul Hasil Buruan (Jual Jarahan Dapat Rp) [E]'
+    });
+
+    // 3. Pencahayaan Toko & Kios
+    const shopLight1 = new THREE.PointLight(0xffe082, 1.5, 14);
+    shopLight1.position.set(x + 2.8, 2.8, z - 2.8);
+    this.lights.add(shopLight1);
+
+    const shopLight2 = new THREE.PointLight(0xffe082, 1.5, 14);
+    shopLight2.position.set(x + 2.8, 2.8, z + 2.8);
+    this.lights.add(shopLight2);
+
+    // 4. Muat Model 3D GLB
+    const loader = new GLTFLoader();
+    loader.load(
+      encodeURI('./asset dead-zone/shop/pan_shop.glb'),
+      (gltf) => {
+        const model = gltf.scene;
+        model.position.set(x, 0, z);
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material) {
+              child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+            }
+          }
+        });
+        this.group.add(model);
+        console.log('✅ [VILLAGE] Pan Shop GLB berhasil dimuat.');
+      },
+      undefined,
+      (err) => {
+        console.error('❌ [VILLAGE] Gagal memuat Pan Shop GLB:', err);
+      }
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // BANGUNAN 1: RUMAH PRIBADI PEMAIN (PLAYER HOUSE - LEGACY)
   // --------------------------------------------------------------------------
   buildPlayerHouse(x, z) {
     const house = new THREE.Group();
@@ -1884,27 +2017,22 @@ export class VillageArchitect {
   }
 
   // --------------------------------------------------------------------------
-  // MASTER BUILD METHOD
+  // MASTER BUILD METHOD (SAFE ZONE: HANYA 2 BANGUNAN - RUMAH & SHOP)
   // --------------------------------------------------------------------------
   static build(env) {
     const arch = new VillageArchitect(env);
 
-    // 1. Rumah Pribadi Pemain (Sesuai Gambar 1)
-    arch.buildPlayerHouse(0, -16);
+    // 1. Bangunan 1: Rumah Pemain (House Model 004 GLB)
+    arch.loadHouseModel(0, -18);
 
-    // 2. Pande Besi & Senjata (Sesuai Gambar 2)
-    arch.buildBlacksmith(-20, 0);
+    // 2. Bangunan 2: Toko Serba Ada / Shop (Pan Shop GLB)
+    // Menggabungkan Pande Besi (Armory), Tabib Herbal (Medbay), dan Pengepul (Scrap Exchange)
+    arch.loadShopModel(-18, 0);
 
-    // 3. Pondok Tabib & Jamu Herbal (Sesuai Gambar 3)
-    arch.buildHerbalistHut(20, 0);
-
-    // 4. Pasar Pengepul Hasil Buruan (Sesuai Gambar 4)
-    arch.buildHunterMarket(-16, 18);
-
-    // 5. Gapura Kayu Perbatasan Hutan (Sesuai Gambar 5)
+    // 3. Gapura Pembatas Hutan Menuju Dead Zone (Forest Gate / Airlock)
     arch.buildForestGate(0, 36);
 
-    // 6. Alun-Alun Tengah Desa (Sesuai Gambar 6)
+    // 4. Alun-Alun Tengah Desa (Village Square, Stone Well, Ancient Tree & Notice Board)
     arch.buildVillageSquare();
 
     return arch;

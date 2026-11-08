@@ -307,7 +307,7 @@ export class EnvironmentDual {
     this.safeZoneLights.add(sun);
   }
 
-  // 🛤️ Cobblestone Walkways connecting the village
+  // 🛤️ Cobblestone Walkways connecting the village (House, Shop, Well, and Forest Gate)
   createVillagePaths() {
     const stoneMat = new THREE.MeshStandardMaterial({
       map: this.createCobblestoneTexture(),
@@ -315,21 +315,21 @@ export class EnvironmentDual {
       metalness: 0.05
     });
 
-    // Main North-South Path: From House (z: -16) through Well (z: 0) to Forest Gate (z: 36)
-    const nsGeo = new THREE.PlaneGeometry(5.0, 56);
+    // Main North-South Path: From House (z: -18) through Well (z: 0) to Forest Gate (z: 36)
+    const nsGeo = new THREE.PlaneGeometry(5.0, 58);
     const nsPath = new THREE.Mesh(nsGeo, stoneMat);
     nsPath.rotation.x = -Math.PI / 2;
-    nsPath.position.set(0, 0.02, 10);
+    nsPath.position.set(0, 0.02, 9);
     nsPath.receiveShadow = true;
     this.safeZoneGroup.add(nsPath);
 
-    // East-West Path: From Blacksmith (x: -20) through Well (x: 0) to Herbalist (x: 20)
-    const ewGeo = new THREE.PlaneGeometry(44, 4.5);
-    const ewPath = new THREE.Mesh(ewGeo, stoneMat);
-    ewPath.rotation.x = -Math.PI / 2;
-    ewPath.position.set(0, 0.03, 0);
-    ewPath.receiveShadow = true;
-    this.safeZoneGroup.add(ewPath);
+    // West Path: From Shop (x: -18) to Central Plaza (x: 0)
+    const westGeo = new THREE.PlaneGeometry(20, 4.5);
+    const westPath = new THREE.Mesh(westGeo, stoneMat);
+    westPath.rotation.x = -Math.PI / 2;
+    westPath.position.set(-10, 0.03, 0);
+    westPath.receiveShadow = true;
+    this.safeZoneGroup.add(westPath);
 
     // Circular Plaza around Village Well at (0, 0)
     const ringGeo = new THREE.RingGeometry(2.0, 7.5, 24);
@@ -338,14 +338,6 @@ export class EnvironmentDual {
     ringPath.position.set(0, 0.04, 0);
     ringPath.receiveShadow = true;
     this.safeZoneGroup.add(ringPath);
-
-    // Branch Path to Scrap Merchant at (-14, 18)
-    const scrapGeo = new THREE.PlaneGeometry(12, 3.8);
-    const scrapPath = new THREE.Mesh(scrapGeo, stoneMat);
-    scrapPath.rotation.x = -Math.PI / 2;
-    scrapPath.position.set(-8, 0.025, 18);
-    scrapPath.receiveShadow = true;
-    this.safeZoneGroup.add(scrapPath);
   }
 
   // 🪵 Rustic Wooden Village Fences
