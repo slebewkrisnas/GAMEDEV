@@ -166,9 +166,50 @@ export class Player {
       case 'KeyQ':
         this.useNanoStim();
         break;
+      case 'Digit1':
+      case 'Numpad1':
+        this.selectSlot(1);
+        break;
+      case 'Digit2':
+      case 'Numpad2':
+        this.selectSlot(2);
+        break;
+      case 'Digit3':
+      case 'Numpad3':
+        this.selectSlot(3);
+        break;
+      case 'Digit4':
+      case 'Numpad4':
+        this.selectSlot(4);
+        break;
+      case 'Digit5':
+      case 'Numpad5':
+        this.selectSlot(5);
+        break;
       case 'Space':
         e.preventDefault();
         this.jump();
+        break;
+    }
+  }
+
+  selectSlot(slot) {
+    if (this.isDead) return;
+    switch (slot) {
+      case 1:
+        if (this.weapons) this.weapons.switchWeapon('pulse_pistol');
+        break;
+      case 2:
+        if (this.weapons) this.weapons.switchWeapon('scatter_blaster');
+        break;
+      case 3:
+        if (this.weapons) this.weapons.switchWeapon('plasma_rifle');
+        break;
+      case 4:
+        this.useNanoStim(this.ui);
+        break;
+      case 5:
+        this.toggleFlashlight();
         break;
     }
   }
@@ -199,6 +240,9 @@ export class Player {
     this.flashlight.visible = this.flashlightEnabled;
     const btnFlash = document.getElementById('btn-mobile-flashlight');
     if (btnFlash) btnFlash.classList.toggle('active', this.flashlightEnabled);
+    if (this.ui) {
+      this.ui.updateQuickSelectBar(this.weapons?.currentWeaponId, this.weapons?.weaponData);
+    }
   }
 
   onKeyUp(e) {
@@ -438,17 +482,18 @@ export class Player {
     this.moveRight = false;
   }
 
-  // Use Nano-Stim Potion to recover HP
+  // Use Nano-Stim Potion (Medkit/Jamu) to recover HP
   useNanoStim(uiManager = null) {
+    const ui = uiManager || this.ui;
     if (this.isDead) return;
     const stimCount = GameState.countItem('nano_stim', true);
     if (stimCount <= 0) {
-      if (uiManager) uiManager.showAnnouncement('STIM HABIS', 'Beli Nano-Stim di Med-Bay Safehouse', 2.0);
+      if (ui) ui.showAnnouncement('MEDKIT HABIS', 'Beli Ramuan Jamu di Toko Serba Ada Desa', 2.0);
       return;
     }
 
     if (this.health >= this.maxHealth) {
-      if (uiManager) uiManager.showAnnouncement('VITAL PRIMA', 'HP Anda sudah maksimal 100%', 1.5);
+      if (ui) ui.showAnnouncement('VITAL PRIMA', 'HP Anda sudah maksimal 100%', 1.5);
       return;
     }
 
@@ -457,10 +502,17 @@ export class Player {
     this.health = Math.min(this.maxHealth, this.health + 40);
     sound.playStimSound();
 
-    if (uiManager) {
-      uiManager.updateHealth(this.health, this.maxHealth);
-      uiManager.updateHUD();
-      uiManager.showAnnouncement('NANO-STIM DIGUNAKAN', '+40 HP Dipulihkan', 1.8);
+    if (ui) {
+      ui.updateHealth(this.health, this.maxHealth);
+      ui.updateHUD();
+      ui.updateQuickSelectBar(this.weapons?.currentWeaponId, this.weapons?.weaponData);
+      ui.showAnnouncement('MEDKIT DIGUNAKAN', '+40 HP Dipulihkan!', 1.8);
+
+      const medkitSlot = document.getElementById('hotbar-slot-4');
+      if (medkitSlot) {
+        medkitSlot.classList.add('healing');
+        setTimeout(() => medkitSlot.classList.remove('healing'), 400);
+      }
     }
   }
 }

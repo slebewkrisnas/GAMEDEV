@@ -344,13 +344,183 @@ html, body {
   transform: rotate(-45deg);
 }
 
-/* --- Bottom Center: Reload Alerts --- */
+/* --- Bottom Center: Reload Alerts & Tactical Hotbar --- */
 .hud-bottom-center {
   grid-area: bottomcenter;
   justify-self: center;
   align-self: end;
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* Quick Select Hotbar Container (Tengah Bawah) */
+.quick-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 15, 24, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 8px;
+  padding: 5px 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(56, 189, 248, 0.08);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.hotbar-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(56, 189, 248, 0.25);
+  margin: 0 2px;
+}
+
+/* Hotbar Slot Button */
+.hotbar-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px 4px 8px;
+  min-width: 96px;
+  height: 46px;
+  cursor: pointer;
+  color: #fff;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.hotbar-slot:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.6);
+  transform: translateY(-2px);
+}
+
+.hotbar-slot:active {
+  transform: scale(0.96);
+}
+
+/* Active Slot Indicator (Pilihan Senjata yang Sedang Digunakan) */
+.hotbar-slot.active {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.45), rgba(15, 23, 42, 0.9));
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.5), inset 0 0 8px rgba(56, 189, 248, 0.25);
+  transform: translateY(-3px);
+}
+
+.hotbar-slot.locked {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+}
+
+.hotbar-slot.locked:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.hotbar-slot.item-medkit:hover {
+  border-color: #4ade80;
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.hotbar-slot.item-medkit.healing {
+  animation: medkitPulse 0.4s ease;
+}
+
+@keyframes medkitPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+  50% { transform: scale(1.08); box-shadow: 0 0 20px rgba(34, 197, 94, 0.8); border-color: #22c55e; }
+  100% { transform: scale(1); }
+}
+
+.hotbar-slot.empty-slot {
+  opacity: 0.5;
+}
+
+.hotbar-slot.item-util.active {
+  border-color: #facc15;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+}
+
+/* Hotbar Slot Elements */
+.slot-badge {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  font-family: monospace;
+  color: #94a3b8;
+  letter-spacing: -0.5px;
+}
+
+.hotbar-slot.active .slot-badge {
+  color: #38bdf8;
+  text-shadow: 0 0 4px #38bdf8;
+}
+
+.slot-icon {
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.slot-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.slot-title {
+  font-family: var(--font-display, sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #f8fafc;
+}
+
+.slot-meta {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.hotbar-slot.locked .slot-meta {
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+@media (max-width: 768px) {
+  .quick-select-bar {
+    gap: 4px;
+    padding: 4px 6px;
+  }
+  .hotbar-slot {
+    min-width: 68px;
+    height: 42px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+  .slot-icon {
+    font-size: 16px;
+  }
+  .slot-title {
+    font-size: 9px;
+  }
+  .slot-meta {
+    font-size: 9px;
+  }
 }
 
 .reload-alert {

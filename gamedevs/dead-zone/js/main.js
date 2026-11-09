@@ -171,6 +171,9 @@ class DeadZoneGame {
       onSwitchZone: (zoneName) => this.switchZone(zoneName),
       onLootCrate: (crateId) => this.lootManager.lootCrate(crateId, this.ui),
       onUseStim: () => this.player.useNanoStim(this.ui),
+      onSelectSlot: (slot) => {
+        if (this.player) this.player.selectSlot(slot);
+      },
       onInteract: () => this.shopManager.interact(),
       onSensitivityChange: (val) => {
         if (this.player) this.player.mouseSensitivity = val;

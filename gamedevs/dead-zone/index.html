@@ -90,7 +90,7 @@
       <div id="hit-marker" class="hit-marker hidden"></div>
     </div>
 
-    <!-- Bottom Center: Weapon Alerts / Reload Notification -->
+    <!-- Bottom Center: Weapon Alerts / Reload Notification & Quick Select Hotbar -->
     <div class="hud-bottom-center">
       <div id="reload-alert" class="reload-alert hidden">PRESS [R] TO RELOAD</div>
       <div id="reload-bar-container" class="reload-bar-container hidden">
@@ -98,6 +98,61 @@
         <div class="reload-bar-track">
           <div id="reload-bar-fill" class="reload-bar-fill"></div>
         </div>
+      </div>
+
+      <!-- Quick-Select Hotbar (Opsi Pilih Senjata & Medkit Tengah Bawah) -->
+      <div id="quick-select-bar" class="quick-select-bar" role="toolbar" aria-label="Hotbar Pilihan Senjata dan Medkit">
+        <!-- Slot 1: Tactical 9mm Pistol -->
+        <button class="hotbar-slot active" data-slot="1" id="hotbar-slot-1" title="Tactical 9mm Pistol [1]">
+          <span class="slot-badge">1</span>
+          <span class="slot-icon">🔫</span>
+          <div class="slot-info">
+            <span class="slot-title">PISTOL</span>
+            <span class="slot-meta" id="hotbar-meta-1">12/60</span>
+          </div>
+        </button>
+
+        <!-- Slot 2: Scatter Shotgun -->
+        <button class="hotbar-slot locked" data-slot="2" id="hotbar-slot-2" title="Scatter Shotgun [2]">
+          <span class="slot-badge">2</span>
+          <span class="slot-icon">💥</span>
+          <div class="slot-info">
+            <span class="slot-title">SHOTGUN</span>
+            <span class="slot-meta" id="hotbar-meta-2">LOCKED 🔒</span>
+          </div>
+        </button>
+
+        <!-- Slot 3: Rifle Otomatis -->
+        <button class="hotbar-slot locked" data-slot="3" id="hotbar-slot-3" title="Rifle Otomatis [3]">
+          <span class="slot-badge">3</span>
+          <span class="slot-icon">⚡</span>
+          <div class="slot-info">
+            <span class="slot-title">RIFLE</span>
+            <span class="slot-meta" id="hotbar-meta-3">LOCKED 🔒</span>
+          </div>
+        </button>
+
+        <div class="hotbar-divider"></div>
+
+        <!-- Slot 4: Medkit / Ramuan Jamu Herbal -->
+        <button class="hotbar-slot item-medkit" data-slot="4" id="hotbar-slot-4" title="Pakai Jamu Herbal (+40 HP) [4 / Q]">
+          <span class="slot-badge">4/Q</span>
+          <span class="slot-icon">🩹</span>
+          <div class="slot-info">
+            <span class="slot-title">MEDKIT</span>
+            <span class="slot-meta" id="hotbar-meta-4">x0</span>
+          </div>
+        </button>
+
+        <!-- Slot 5: Senter Taktis Utility -->
+        <button class="hotbar-slot item-util" data-slot="5" id="hotbar-slot-5" title="Nyalakan/Matikan Senter [5 / F]">
+          <span class="slot-badge">5/F</span>
+          <span class="slot-icon">🔦</span>
+          <div class="slot-info">
+            <span class="slot-title">SENTER</span>
+            <span class="slot-meta" id="hotbar-meta-5">OFF</span>
+          </div>
+        </button>
       </div>
     </div>
 
@@ -118,8 +173,10 @@
         <span>[WASD] Move</span>
         <span>[SPACE] Jump</span>
         <span>[SHIFT] Sprint</span>
-        <span>[F] Flashlight</span>
-        <span>[L-CLICK] Fire</span>
+        <span>[1-3] Pilih Senjata</span>
+        <span>[4/Q] Medkit</span>
+        <span>[5/F] Senter</span>
+        <span>[L-CLICK] Tembak</span>
         <span>[R] Reload</span>
         <span>[ESC] Pause</span>
       </div>

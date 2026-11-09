@@ -42,6 +42,8 @@ export class UIManager {
 
     this.ammoCurrent = document.getElementById('ammo-current');
     this.ammoReserve = document.getElementById('ammo-reserve');
+    this.weaponNameDisplay = document.querySelector('.weapon-name');
+    this.quickSelectBar = document.getElementById('quick-select-bar');
 
     this.announcementBanner = document.getElementById('announcement-banner');
     this.bannerTitle = document.getElementById('banner-title');
@@ -165,6 +167,21 @@ export class UIManager {
         if (this.callbacks.onInteract) this.callbacks.onInteract();
       });
     }
+
+    // Hotbar Quick-Select Slots Click / Touch Handlers
+    const hotbarSlots = document.querySelectorAll('.hotbar-slot');
+    hotbarSlots.forEach(slotBtn => {
+      const handleSlotClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const slot = parseInt(slotBtn.dataset.slot, 10);
+        if (this.callbacks.onSelectSlot) {
+          this.callbacks.onSelectSlot(slot);
+        }
+      };
+      slotBtn.addEventListener('click', handleSlotClick);
+      slotBtn.addEventListener('touchstart', handleSlotClick, { passive: false });
+    });
   }
 
   updateHUD() {
@@ -187,6 +204,89 @@ export class UIManager {
         this.hudZoneBadge.style.color = '#10b981';
         this.hudWaveTitle.textContent = 'BLACKWOOD FOREST';
       }
+    }
+    this.updateQuickSelectBar();
+  }
+
+  updateQuickSelectBar(activeWeaponId = null, weaponData = null) {
+    if (!this.quickSelectBar) {
+      this.quickSelectBar = document.getElementById('quick-select-bar');
+    }
+    if (!this.quickSelectBar) return;
+
+    const wId = activeWeaponId || (this.player && this.player.weapons ? this.player.weapons.currentWeaponId : 'pulse_pistol');
+    const wData = weaponData || (this.player && this.player.weapons ? this.player.weapons.weaponData : null);
+
+    // 1. Slot 1: Tactical 9mm Pistol
+    const meta1 = document.getElementById('hotbar-meta-1');
+    const slot1 = document.getElementById('hotbar-slot-1');
+    if (meta1 && wData && wData.pulse_pistol) {
+      meta1.textContent = `${wData.pulse_pistol.ammoInMag}/${wData.pulse_pistol.reserveAmmo}`;
+    }
+    if (slot1) slot1.classList.toggle('active', wId === 'pulse_pistol');
+
+    // 2. Slot 2: Scatter Shotgun
+    const meta2 = document.getElementById('hotbar-meta-2');
+    const slot2 = document.getElementById('hotbar-slot-2');
+    const hasShotgun = GameState.ownedWeapons.includes('scatter_blaster');
+    if (slot2) {
+      slot2.classList.toggle('locked', !hasShotgun);
+      slot2.classList.toggle('active', hasShotgun && wId === 'scatter_blaster');
+    }
+    if (meta2) {
+      if (hasShotgun && wData && wData.scatter_blaster) {
+        meta2.textContent = `${wData.scatter_blaster.ammoInMag}/${wData.scatter_blaster.reserveAmmo}`;
+      } else {
+        meta2.textContent = 'LOCKED 🔒';
+      }
+    }
+
+    // 3. Slot 3: Plasma / Auto Rifle
+    const meta3 = document.getElementById('hotbar-meta-3');
+    const slot3 = document.getElementById('hotbar-slot-3');
+    const hasRifle = GameState.ownedWeapons.includes('plasma_rifle');
+    if (slot3) {
+      slot3.classList.toggle('locked', !hasRifle);
+      slot3.classList.toggle('active', hasRifle && wId === 'plasma_rifle');
+    }
+    if (meta3) {
+      if (hasRifle && wData && wData.plasma_rifle) {
+        meta3.textContent = `${wData.plasma_rifle.ammoInMag}/${wData.plasma_rifle.reserveAmmo}`;
+      } else {
+        meta3.textContent = 'LOCKED 🔒';
+      }
+    }
+
+    // 4. Slot 4: Medkit / Jamu Herbal (Nano-Stim)
+    const meta4 = document.getElementById('hotbar-meta-4');
+    const slot4 = document.getElementById('hotbar-slot-4');
+    const stimCount = GameState.countItem('nano_stim', true);
+    if (meta4) {
+      meta4.textContent = `x${stimCount}`;
+    }
+    if (slot4) {
+      slot4.classList.toggle('empty-slot', stimCount === 0);
+    }
+
+    // 5. Slot 5: Flashlight Utility
+    const meta5 = document.getElementById('hotbar-meta-5');
+    const slot5 = document.getElementById('hotbar-slot-5');
+    const isFlashOn = !!(this.player && this.player.flashlightEnabled);
+    if (meta5) {
+      meta5.textContent = isFlashOn ? 'ON 💡' : 'OFF';
+      meta5.style.color = isFlashOn ? '#fde047' : '#94a3b8';
+    }
+    if (slot5) {
+      slot5.classList.toggle('active', isFlashOn);
+    }
+  }
+
+  updateWeaponName(name) {
+    if (!this.weaponNameDisplay) {
+      this.weaponNameDisplay = document.querySelector('.weapon-name');
+    }
+    if (this.weaponNameDisplay) {
+      this.weaponNameDisplay.textContent = name;
     }
   }
 
