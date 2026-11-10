@@ -229,6 +229,7 @@ export class Player {
     if (!this.isPointerLocked && !this.isTouchMode) return;
     this.velocityY = this.jumpForce;
     this.isGrounded = false;
+    sound.playJump();
   }
 
   setJoystick(x, z) {
@@ -401,8 +402,15 @@ export class Player {
 
       // Head bobbing effect only when on the ground
       if (this.isGrounded) {
+        const prevBob = Math.sin(this.bobTimer);
         this.bobTimer += delta * (this.isSprinting ? 14 : 9);
-        this.pitchObject.position.y = Math.sin(this.bobTimer) * 0.04;
+        const curBob = Math.sin(this.bobTimer);
+        this.pitchObject.position.y = curBob * 0.04;
+
+        // Suara langkah kaki natural saat puncak hentakan kaki menyentuh tanah
+        if (curBob < -0.80 && prevBob >= -0.80) {
+          sound.playFootstep(this.isSprinting);
+        }
       } else {
         this.pitchObject.position.y += (0 - this.pitchObject.position.y) * Math.min(1, delta * 10);
       }
@@ -432,6 +440,9 @@ export class Player {
       if (currentPos.y <= minCameraY) {
         currentPos.y = minCameraY;
         this.velocityY = 0;
+        if (!this.isGrounded) {
+          sound.playLand();
+        }
         this.isGrounded = true;
       }
     } else {

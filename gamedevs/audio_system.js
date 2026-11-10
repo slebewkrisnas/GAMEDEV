@@ -196,62 +196,105 @@ class WorldAudioSystem {
     this.ensureContext();
 
     const now = this.ctx.currentTime;
-    // Anti-rapid spam guard
-    const minInterval = isSprinting ? 0.22 : 0.34;
+    // Anti-rapid spam guard dengan jeda langkah manusia alami
+    const minInterval = isSprinting ? 0.23 : 0.35;
     if (now - this.lastStepTime < minInterval) return;
     this.lastStepTime = now;
     this.isLeftFoot = !this.isLeftFoot;
 
     try {
-      // Noise component untuk tapak tanah/rumput
-      const bufSize = Math.floor(this.ctx.sampleRate * 0.05);
+      const stepRnd = 0.88 + Math.random() * 0.24;
+      const baseThumpFreq = this.isLeftFoot ? 68 : 62;
+      const baseScuffFreq = this.isLeftFoot ? 490 : 440;
+
+      // 1. Lapisan Hentakan Tumit & Bobot Tubuh (Sub-Thump Meredam)
+      const thumpOsc = this.ctx.createOscillator();
+      const thumpGain = this.ctx.createGain();
+      thumpOsc.type = 'triangle';
+      thumpOsc.frequency.setValueAtTime(baseThumpFreq + (isSprinting ? 12 : 0), now);
+      thumpOsc.frequency.exponentialRampToValueAtTime(26, now + 0.045);
+
+      const thumpVol = (isSprinting ? 0.20 : 0.13) * stepRnd;
+      thumpGain.gain.setValueAtTime(0.001, now);
+      thumpGain.gain.linearRampToValueAtTime(thumpVol, now + 0.003);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+      thumpOsc.connect(thumpGain);
+      thumpGain.connect(this.sfxGain);
+      thumpOsc.start(now);
+      thumpOsc.stop(now + 0.05);
+
+      // 2. Lapisan Gesekan Sol Sepatu pada Permukaan Tanah/Paving (Granular Texture)
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.055);
       const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.012));
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.011));
       }
 
       const noise = this.ctx.createBufferSource();
       noise.buffer = buffer;
 
-      // Filter: variasi pitch kaki kiri vs kaki kanan agar lebih hidup
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      const baseFreq = this.isLeftFoot ? 720 : 660;
-      const pitchJitter = (Math.random() - 0.5) * 60;
-      filter.frequency.setValueAtTime(baseFreq + pitchJitter, now);
-      filter.Q.setValueAtTime(1.4, now);
+      // Filter bandpass alami mensimulasikan tapak karet & butiran tanah
+      const bandFilter = this.ctx.createBiquadFilter();
+      bandFilter.type = 'bandpass';
+      bandFilter.frequency.setValueAtTime(baseScuffFreq + (Math.random() - 0.5) * 50, now);
+      bandFilter.Q.setValueAtTime(1.8, now);
 
-      // Low thump component
-      const osc = this.ctx.createOscillator();
-      osc.type = 'triangle';
-      const thudFreq = this.isLeftFoot ? 110 : 98;
-      osc.frequency.setValueAtTime(thudFreq, now);
-      osc.frequency.exponentialRampToValueAtTime(35, now + 0.04);
+      // Filter lowpass tambahan untuk memotong desisan sintetis yang kaku
+      const lowFilter = this.ctx.createBiquadFilter();
+      lowFilter.type = 'lowpass';
+      lowFilter.frequency.setValueAtTime(1250, now);
 
-      const gain = this.ctx.createGain();
-      const stepVol = (isSprinting ? 0.26 : 0.17) * (0.9 + Math.random() * 0.2);
-      gain.gain.setValueAtTime(stepVol, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.048);
+      const noiseGain = this.ctx.createGain();
+      const scuffVol = (isSprinting ? 0.22 : 0.14) * stepRnd;
+      noiseGain.gain.setValueAtTime(scuffVol, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
-      noise.connect(filter);
-      filter.connect(gain);
-      osc.connect(gain);
-      gain.connect(this.sfxGain);
+      noise.connect(bandFilter);
+      bandFilter.connect(lowFilter);
+      lowFilter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
 
       noise.start(now);
-      osc.start(now);
-      osc.stop(now + 0.05);
+
+      // 3. Lapisan Desiran Lembut Celana / Pakaian Bergerak (Cloth Rustle)
+      const clothBufSize = Math.floor(this.ctx.sampleRate * 0.035);
+      const clothBuf = this.ctx.createBuffer(1, clothBufSize, this.ctx.sampleRate);
+      const clothData = clothBuf.getChannelData(0);
+      for (let i = 0; i < clothBufSize; i++) {
+        clothData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.008));
+      }
+      const clothNoise = this.ctx.createBufferSource();
+      clothNoise.buffer = clothBuf;
+
+      const clothFilter = this.ctx.createBiquadFilter();
+      clothFilter.type = 'highpass';
+      clothFilter.frequency.setValueAtTime(800, now);
+
+      const clothGain = this.ctx.createGain();
+      clothGain.gain.setValueAtTime(0.04 * stepRnd, now);
+      clothGain.gain.exponentialRampToValueAtTime(0.001, now + 0.032);
+
+      clothNoise.connect(clothFilter);
+      clothFilter.connect(clothGain);
+      clothGain.connect(this.sfxGain);
+      clothNoise.start(now);
 
       // Cleanup
       setTimeout(() => {
         try {
+          thumpOsc.disconnect();
+          thumpGain.disconnect();
           noise.disconnect();
-          filter.disconnect();
-          osc.disconnect();
-          gain.disconnect();
+          bandFilter.disconnect();
+          lowFilter.disconnect();
+          noiseGain.disconnect();
+          clothNoise.disconnect();
+          clothFilter.disconnect();
+          clothGain.disconnect();
         } catch (e) {}
-      }, 70);
+      }, 75);
     } catch (e) {}
   }
 
@@ -262,27 +305,90 @@ class WorldAudioSystem {
 
     try {
       const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(160, now);
-      osc.frequency.exponentialRampToValueAtTime(360, now + 0.12);
 
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(0.22, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      // 1. Dorongan & Tolakan Kaki pada Permukaan Tanah (Sub-Spring Launch)
+      // Mensimulasikan kompresi otot kaki & dorongan pegas sol sepatu ke tanah
+      const pushOsc = this.ctx.createOscillator();
+      const pushGain = this.ctx.createGain();
+      pushOsc.type = 'triangle';
+      pushOsc.frequency.setValueAtTime(74, now);
+      pushOsc.frequency.exponentialRampToValueAtTime(26, now + 0.065);
 
-      osc.connect(gain);
-      gain.connect(this.sfxGain);
+      pushGain.gain.setValueAtTime(0.001, now);
+      pushGain.gain.linearRampToValueAtTime(0.24, now + 0.004);
+      pushGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
 
-      osc.start(now);
-      osc.stop(now + 0.15);
+      pushOsc.connect(pushGain);
+      pushGain.connect(this.sfxGain);
+      pushOsc.start(now);
+      pushOsc.stop(now + 0.075);
 
+      // 2. Gesekan Sol Lepas Landas (Sole Tread Friction Scuff)
+      const scuffSize = Math.floor(this.ctx.sampleRate * 0.045);
+      const scuffBuffer = this.ctx.createBuffer(1, scuffSize, this.ctx.sampleRate);
+      const scuffData = scuffBuffer.getChannelData(0);
+      for (let i = 0; i < scuffSize; i++) {
+        scuffData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.012));
+      }
+      const scuffNoise = this.ctx.createBufferSource();
+      scuffNoise.buffer = scuffBuffer;
+
+      const scuffFilter = this.ctx.createBiquadFilter();
+      scuffFilter.type = 'bandpass';
+      scuffFilter.frequency.setValueAtTime(460, now);
+      scuffFilter.Q.setValueAtTime(2.0, now);
+
+      const scuffGain = this.ctx.createGain();
+      scuffGain.gain.setValueAtTime(0.16, now);
+      scuffGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+      scuffNoise.connect(scuffFilter);
+      scuffFilter.connect(scuffGain);
+      scuffGain.connect(this.sfxGain);
+      scuffNoise.start(now);
+
+      // 3. Desiran Udara & Kibasan Pakaian Saat Melompat ke Udara (Body/Cloth Whoosh)
+      // Menggantikan beep nada kartun dengan suara fisik manusia melompat
+      const whooshSize = Math.floor(this.ctx.sampleRate * 0.16);
+      const whooshBuffer = this.ctx.createBuffer(1, whooshSize, this.ctx.sampleRate);
+      const whooshData = whooshBuffer.getChannelData(0);
+      for (let i = 0; i < whooshSize; i++) {
+        const envelope = Math.sin((i / whooshSize) * Math.PI);
+        whooshData[i] = (Math.random() * 2 - 1) * envelope;
+      }
+      const whooshNoise = this.ctx.createBufferSource();
+      whooshNoise.buffer = whooshBuffer;
+
+      const whooshFilter = this.ctx.createBiquadFilter();
+      whooshFilter.type = 'bandpass';
+      // Frekuensi menyapu lembut naik dari 240 Hz ke 520 Hz mengikuti gerakan tubuh melenting ke atas
+      whooshFilter.frequency.setValueAtTime(240, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(520, now + 0.13);
+      whooshFilter.Q.setValueAtTime(1.5, now);
+
+      const whooshGain = this.ctx.createGain();
+      whooshGain.gain.setValueAtTime(0.001, now);
+      whooshGain.gain.linearRampToValueAtTime(0.18, now + 0.03);
+      whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      whooshNoise.connect(whooshFilter);
+      whooshFilter.connect(whooshGain);
+      whooshGain.connect(this.sfxGain);
+      whooshNoise.start(now);
+
+      // Cleanup
       setTimeout(() => {
         try {
-          osc.disconnect();
-          gain.disconnect();
+          pushOsc.disconnect();
+          pushGain.disconnect();
+          scuffNoise.disconnect();
+          scuffFilter.disconnect();
+          scuffGain.disconnect();
+          whooshNoise.disconnect();
+          whooshFilter.disconnect();
+          whooshGain.disconnect();
         } catch (e) {}
-      }, 160);
+      }, 180);
     } catch (e) {}
   }
 
@@ -293,47 +399,82 @@ class WorldAudioSystem {
 
     try {
       const now = this.ctx.currentTime;
-      // Low impact thud
-      const osc = this.ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(85, now);
-      osc.frequency.exponentialRampToValueAtTime(30, now + 0.09);
 
-      // Short noise crunch
-      const bufSize = Math.floor(this.ctx.sampleRate * 0.06);
+      // 1. Hentakan Beban Berat Tubuh Mendarat di Tanah (Heavy Footing Thump)
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(88, now);
+      osc.frequency.exponentialRampToValueAtTime(24, now + 0.095);
+
+      oscGain.gain.setValueAtTime(0.001, now);
+      oscGain.gain.linearRampToValueAtTime(0.32, now + 0.003);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.sfxGain);
+      osc.start(now);
+      osc.stop(now + 0.10);
+
+      // 2. Kerikil & Kompresi Sol Sepatu Dobel Mendarat (Two-Stage Sole Crunch)
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.08);
       const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.015));
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.02));
       }
       const noise = this.ctx.createBufferSource();
       noise.buffer = buffer;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(450, now);
+      filter.frequency.setValueAtTime(480, now);
 
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.28, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
-      osc.connect(gain);
       noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.sfxGain);
-
-      osc.start(now);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
       noise.start(now);
-      osc.stop(now + 0.095);
+
+      // 3. Kibasan Pakaian & Tekuk Lutut Meredam (Cloth Cushion)
+      const cushionBufSize = Math.floor(this.ctx.sampleRate * 0.07);
+      const cushionBuf = this.ctx.createBuffer(1, cushionBufSize, this.ctx.sampleRate);
+      const cData = cushionBuf.getChannelData(0);
+      for (let i = 0; i < cushionBufSize; i++) {
+        cData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.015));
+      }
+      const cNoise = this.ctx.createBufferSource();
+      cNoise.buffer = cushionBuf;
+
+      const cFilter = this.ctx.createBiquadFilter();
+      cFilter.type = 'bandpass';
+      cFilter.frequency.setValueAtTime(360, now);
+      cFilter.Q.setValueAtTime(1.4, now);
+
+      const cGain = this.ctx.createGain();
+      cGain.gain.setValueAtTime(0.12, now);
+      cGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+
+      cNoise.connect(cFilter);
+      cFilter.connect(cGain);
+      cGain.connect(this.sfxGain);
+      cNoise.start(now);
 
       setTimeout(() => {
         try {
           osc.disconnect();
+          oscGain.disconnect();
           noise.disconnect();
           filter.disconnect();
-          gain.disconnect();
+          noiseGain.disconnect();
+          cNoise.disconnect();
+          cFilter.disconnect();
+          cGain.disconnect();
         } catch (e) {}
-      }, 110);
+      }, 120);
     } catch (e) {}
   }
 

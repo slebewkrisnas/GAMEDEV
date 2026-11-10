@@ -380,6 +380,14 @@ Dikelola oleh class SoundManager (audio.js) tanpa ketergantungan file MP3/WAV ek
   dengan pitch slide sawtooth oscillator (260 Hz $\rightarrow$ 45 Hz).
 - Tembakan Shotgun: Ledakan noise tebal ganda berpadu square sub-bass punch 90 Hz.
 - Tembakan Rifle  : Hentakan punchy cepat 0.1s berulang berfrekuensi 180 Hz.
+- Langkah Kaki Natural (`playFootstep`): Lapisan hentakan tumit (sub-thump 62-68 Hz),
+  gesekan sol granular tanah/paving (bandpass 440-490 Hz), dan desiran pakaian taktis
+  bergerak (highpass 800 Hz), bergantian kaki kiri/kanan dan dinamis jalan vs sprint.
+- Lompatan Alami (`playJump`): Tolakan pegas sol kaki ke tanah (sub-spring 74 Hz $\rightarrow$ 26 Hz),
+  gesekan traksi sol lepas landas (bandpass 460 Hz), dan desiran kibasan udara pakaian
+  tubuh yang melambung (sweeping bandpass 240 Hz $\rightarrow$ 520 Hz) tanpa nada sintetis kartun.
+- Pendaratan Alami (`playLand`): Hentakan redam bobot badan di tanah (88 Hz $\rightarrow$ 24 Hz),
+  disertai kompresi sol ganda pada kerikil dan redaman tekukan lutut (480 Hz lowpass + 360 Hz cushion).
 - Tegukan Jamu Herbal (`playHerbalGulp`): Suara cabut tutup gabus botol kaca
   (pop 480 Hz $\rightarrow$ 720 Hz), diikuti 2 tegukan cairan mendalam (160 Hz $\rightarrow$ 110 Hz),
   dan resonansi herbal menenangkan (440 Hz terfilter lowpass). Menggantikan desisan aerosol sci-fi.
@@ -476,6 +484,20 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 10 November 2026 (Sesi Sore — Natural Locomotion Audio Overhaul):
+  - Perombakan Suara Langkah Kaki, Lompatan, dan Pendaratan Natural (Organic Audio):
+    * Suara lompat (`playJump`) lama yang berupa beep osilator kartun diganti dengan
+      suara fisik manusia melompat: tolakan pegas sol sepatu di tanah (74 Hz -> 26 Hz),
+      gesekan traksi sol lepas landas (bandpass 460 Hz), dan desiran kibasan pakaian/udara
+      yang melambung (sweeping bandpass 240 Hz -> 520 Hz).
+    * Suara langkah kaki (`playFootstep`) diperkaya dengan 3 lapisan akustik: hentakan tumit
+      (sub-thump 62-68 Hz), tekstur butiran tanah/kerikil (bandpass 440-490 Hz), dan
+      desiran kain pakaian bergerak (highpass 800 Hz) dengan variasi alami kaki kiri/kanan.
+    * Suara mendarat (`playLand`) ditingkatkan dengan hentakan redam bobot tubuh di tanah
+      (88 Hz -> 24 Hz), kompresi sol dua tahap pada permukaan tanah, dan tekukan lutut meredam impact.
+    * Diintegrasikan secara serentak ke dalam 3D Walking Game Hub (`audio_system.js`) dan
+      game Dead Zone (`audio.js` & `player.js`).
+
 * 10 November 2026 (Rilis Pembaruan V2 — Tactical Survival & Economy Overhaul):
   - Keseimbangan Kecepatan & Sistem Stamina 5 Detik:
     * Kecepatan jalan pemain diturunkan dari 6.0 m/s ke 4.2 m/s (seimbang dengan Runner 3.9 m/s).

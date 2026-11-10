@@ -9,6 +9,8 @@ class SoundManager {
     this.masterGain = null;
     this.volume = 0.8;
     this.isMuted = false;
+    this.lastStepTime = 0;
+    this.isLeftFoot = false;
   }
 
   init() {
@@ -631,6 +633,241 @@ class SoundManager {
     const now = this.ctx.currentTime;
     this._playClick(now, 1100, 0.04, 0.4);
     this._playClick(now + 0.05, 1600, 0.05, 0.5);
+  }
+
+  // Natural Human Footsteps (Langkah Kaki Natural Taktis)
+  playFootstep(isSprinting = false) {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+    const minInterval = isSprinting ? 0.23 : 0.35;
+    if (now - this.lastStepTime < minInterval) return;
+    this.lastStepTime = now;
+    this.isLeftFoot = !this.isLeftFoot;
+
+    try {
+      const stepRnd = 0.88 + Math.random() * 0.24;
+      const baseThumpFreq = this.isLeftFoot ? 68 : 62;
+      const baseScuffFreq = this.isLeftFoot ? 490 : 440;
+
+      // 1. Lapisan Hentakan Tumit Sepatu & Bobot Tubuh (Sub-Thump)
+      const thumpOsc = this.ctx.createOscillator();
+      const thumpGain = this.ctx.createGain();
+      thumpOsc.type = 'triangle';
+      thumpOsc.frequency.setValueAtTime(baseThumpFreq + (isSprinting ? 12 : 0), now);
+      thumpOsc.frequency.exponentialRampToValueAtTime(26, now + 0.045);
+
+      const thumpVol = (isSprinting ? 0.20 : 0.13) * stepRnd;
+      thumpGain.gain.setValueAtTime(0.001, now);
+      thumpGain.gain.linearRampToValueAtTime(thumpVol, now + 0.003);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+      thumpOsc.connect(thumpGain);
+      thumpGain.connect(this.masterGain);
+      thumpOsc.start(now);
+      thumpOsc.stop(now + 0.05);
+
+      // 2. Lapisan Gesekan Sol Sepatu pada Permukaan Tanah/Hutan (Granular Texture)
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.055);
+      const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.011));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const bandFilter = this.ctx.createBiquadFilter();
+      bandFilter.type = 'bandpass';
+      bandFilter.frequency.setValueAtTime(baseScuffFreq + (Math.random() - 0.5) * 50, now);
+      bandFilter.Q.setValueAtTime(1.8, now);
+
+      const lowFilter = this.ctx.createBiquadFilter();
+      lowFilter.type = 'lowpass';
+      lowFilter.frequency.setValueAtTime(1250, now);
+
+      const noiseGain = this.ctx.createGain();
+      const scuffVol = (isSprinting ? 0.22 : 0.14) * stepRnd;
+      noiseGain.gain.setValueAtTime(scuffVol, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+      noise.connect(bandFilter);
+      bandFilter.connect(lowFilter);
+      lowFilter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+      noise.start(now);
+
+      // 3. Lapisan Desiran Celana & Pakaian Taktis (Cloth Rustle)
+      const clothBufSize = Math.floor(this.ctx.sampleRate * 0.035);
+      const clothBuf = this.ctx.createBuffer(1, clothBufSize, this.ctx.sampleRate);
+      const clothData = clothBuf.getChannelData(0);
+      for (let i = 0; i < clothBufSize; i++) {
+        clothData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.008));
+      }
+      const clothNoise = this.ctx.createBufferSource();
+      clothNoise.buffer = clothBuf;
+
+      const clothFilter = this.ctx.createBiquadFilter();
+      clothFilter.type = 'highpass';
+      clothFilter.frequency.setValueAtTime(800, now);
+
+      const clothGain = this.ctx.createGain();
+      clothGain.gain.setValueAtTime(0.04 * stepRnd, now);
+      clothGain.gain.exponentialRampToValueAtTime(0.001, now + 0.032);
+
+      clothNoise.connect(clothFilter);
+      clothFilter.connect(clothGain);
+      clothGain.connect(this.masterGain);
+      clothNoise.start(now);
+    } catch (e) {}
+  }
+
+  // Natural Jump Launch (Tolakan Lompatan Alami)
+  playJump() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      // 1. Dorongan & Tolakan Kaki pada Permukaan Tanah (Sub-Spring Launch)
+      const pushOsc = this.ctx.createOscillator();
+      const pushGain = this.ctx.createGain();
+      pushOsc.type = 'triangle';
+      pushOsc.frequency.setValueAtTime(74, now);
+      pushOsc.frequency.exponentialRampToValueAtTime(26, now + 0.065);
+
+      pushGain.gain.setValueAtTime(0.001, now);
+      pushGain.gain.linearRampToValueAtTime(0.24, now + 0.004);
+      pushGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      pushOsc.connect(pushGain);
+      pushGain.connect(this.masterGain);
+      pushOsc.start(now);
+      pushOsc.stop(now + 0.075);
+
+      // 2. Gesekan Sol Lepas Landas (Sole Traction Friction)
+      const scuffSize = Math.floor(this.ctx.sampleRate * 0.045);
+      const scuffBuffer = this.ctx.createBuffer(1, scuffSize, this.ctx.sampleRate);
+      const scuffData = scuffBuffer.getChannelData(0);
+      for (let i = 0; i < scuffSize; i++) {
+        scuffData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.012));
+      }
+      const scuffNoise = this.ctx.createBufferSource();
+      scuffNoise.buffer = scuffBuffer;
+
+      const scuffFilter = this.ctx.createBiquadFilter();
+      scuffFilter.type = 'bandpass';
+      scuffFilter.frequency.setValueAtTime(460, now);
+      scuffFilter.Q.setValueAtTime(2.0, now);
+
+      const scuffGain = this.ctx.createGain();
+      scuffGain.gain.setValueAtTime(0.16, now);
+      scuffGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+      scuffNoise.connect(scuffFilter);
+      scuffFilter.connect(scuffGain);
+      scuffGain.connect(this.masterGain);
+      scuffNoise.start(now);
+
+      // 3. Desiran Udara & Kibasan Pakaian Saat Melompat (Body Whoosh)
+      const whooshSize = Math.floor(this.ctx.sampleRate * 0.16);
+      const whooshBuffer = this.ctx.createBuffer(1, whooshSize, this.ctx.sampleRate);
+      const whooshData = whooshBuffer.getChannelData(0);
+      for (let i = 0; i < whooshSize; i++) {
+        const envelope = Math.sin((i / whooshSize) * Math.PI);
+        whooshData[i] = (Math.random() * 2 - 1) * envelope;
+      }
+      const whooshNoise = this.ctx.createBufferSource();
+      whooshNoise.buffer = whooshBuffer;
+
+      const whooshFilter = this.ctx.createBiquadFilter();
+      whooshFilter.type = 'bandpass';
+      whooshFilter.frequency.setValueAtTime(240, now);
+      whooshFilter.frequency.exponentialRampToValueAtTime(520, now + 0.13);
+      whooshFilter.Q.setValueAtTime(1.5, now);
+
+      const whooshGain = this.ctx.createGain();
+      whooshGain.gain.setValueAtTime(0.001, now);
+      whooshGain.gain.linearRampToValueAtTime(0.18, now + 0.03);
+      whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      whooshNoise.connect(whooshFilter);
+      whooshFilter.connect(whooshGain);
+      whooshGain.connect(this.masterGain);
+      whooshNoise.start(now);
+    } catch (e) {}
+  }
+
+  // Natural Landing Impact (Hentakan Mendarat Alami)
+  playLand() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      // 1. Hentakan Beban Berat Tubuh Mendarat di Tanah (Heavy Footing Thump)
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(88, now);
+      osc.frequency.exponentialRampToValueAtTime(24, now + 0.095);
+
+      oscGain.gain.setValueAtTime(0.001, now);
+      oscGain.gain.linearRampToValueAtTime(0.32, now + 0.003);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.10);
+
+      // 2. Kerikil & Kompresi Sol Sepatu Dobel Mendarat (Two-Stage Sole Crunch)
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.08);
+      const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.02));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(480, now);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.28, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+      noise.start(now);
+
+      // 3. Kibasan Pakaian & Tekuk Lutut Meredam (Cloth Cushion)
+      const cushionBufSize = Math.floor(this.ctx.sampleRate * 0.07);
+      const cushionBuf = this.ctx.createBuffer(1, cushionBufSize, this.ctx.sampleRate);
+      const cData = cushionBuf.getChannelData(0);
+      for (let i = 0; i < cushionBufSize; i++) {
+        cData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.015));
+      }
+      const cNoise = this.ctx.createBufferSource();
+      cNoise.buffer = cushionBuf;
+
+      const cFilter = this.ctx.createBiquadFilter();
+      cFilter.type = 'bandpass';
+      cFilter.frequency.setValueAtTime(360, now);
+      cFilter.Q.setValueAtTime(1.4, now);
+
+      const cGain = this.ctx.createGain();
+      cGain.gain.setValueAtTime(0.12, now);
+      cGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+
+      cNoise.connect(cFilter);
+      cFilter.connect(cGain);
+      cGain.connect(this.masterGain);
+      cNoise.start(now);
+    } catch (e) {}
   }
 }
 
