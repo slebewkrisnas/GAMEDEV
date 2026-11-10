@@ -7,8 +7,8 @@ Proyek      : Dead Zone (3D FPS Zombie Survival & Rural Economic Ecosystem)
 Engine      : Native Three.js WebGL (Web-Based Game Engine)
 Bahasa      : JavaScript (ES6+ Modules), HTML5 Canvas, CSS3
 Audio       : Procedural Web Audio API Synthesizer (Zero External Audio Files)
-Status      : Aktif Dikembangkan (Playable Stable Release — V3 Tactical Survival, Melee & Economy Deflation Update)
-Terakhir Diperbarui : 10 November 2026
+Status      : Aktif Dikembangkan (Playable Stable Release — V5 Major Economy, 60-Slot Inventory, Dynamic Marketplace & Player Profile System)
+Terakhir Diperbarui : 11 November 2026
 
 ================================================================================
 DAFTAR ISI
@@ -501,6 +501,154 @@ Dikelola oleh `GameState` (gameState.js) dan `ShopManager` (shops.js) via modal 
   * Persistensi Penyimpanan: Seluruh slot etalase dan saldo uang di kasir disimpan permanen di LocalStorage
     browser (`SCIFI_SURVIVAL_STATE`).
 
+8.6 SISTEM INVENTARIS PEMAIN BERKAPASITAS TINGGI (PLAYER INVENTORY 60-SLOT)
+Dikelola oleh `GameState` (gameState.js) dan antarmuka UI modal `#modal-inventory` (shops.js / style.css):
+- Kapasitas & Slot Penyimpanan:
+  * 60 Slot Inventaris Awal (`inventoryCapacity = 60`, siap diperluas melalui upgrade).
+  * Tampilan Status Kapasitas Real-Time: Label badge taktis di bagian header antarmuka
+    menampilkan informasi slot aktual, contoh: "12 / 60 Terpakai (48 Kosong)".
+  * Penyimpanan Barang Bertumpuk (Stackable): Setiap slot dapat menampung barang sejenis
+    hingga batas stack limit spesifik (`stackLimit`), misalnya peluru (120 - 150 butir per slot),
+    material rongsokan/besi (50 unit per slot), ramuan jamu (10 botol per slot).
+  * Koeksistensi Ransel Ekspedisi: Sistem ransel ekspedisi bawaan (Backpack 6 slot) tetap didukung
+    dan otomatis tersinkronisasi ke dalam sistem 60-slot inventaris utama, menjamin kompatibilitas
+    penuh dengan seluruh sistem permainan terdahulu.
+- 6 Kategori Barang Terorganisir:
+  1. `Weapons`     : Pistol 9mm, Senapan Taktis 7.62mm, Shotgun 12-Gauge, Golok Pedesaan.
+  2. `Ammunition`  : Amunisi Pistol 9mm, Amunisi Shotgun 12-Gauge, Amunisi Rifle 7.62mm.
+  3. `Medical`     : Ramuan Jamu Herbal (+40 HP), Jamu Beras Kencur (Stamina Buff), Jamu Kunyit Asam (Antiracun).
+  4. `Materials`   : Kayu & Besi Tempa, Komponen Mesin Desa, Keping Logam Rongsokan, Ranjau Paku Bambu.
+  5. `Zombie Drops`: Daging Mutan Hutan, Gigi Taring Zombi, Cakar Zombi, Jaringan Mutasi, Inti Titan Raksasa.
+  6. `Miscellaneous`: Batu Permata Hutan dan aneka cinderamata berharga.
+- Fitur Pencarian Cerdas & Filter Antarmuka:
+  * Kolom Pencarian Cepat (`#inv-search-input`): Menyaring daftar barang secara instan saat pemain mengetik nama item.
+  * Tombol Filter Kategori (Pill Buttons): Memfilter tampilan barang berdasarkan tab (Semua, Senjata, Amunisi, Medis, Material, Zombie Drops, Lainnya).
+  * Pengurutan Fleksibel (Dropdown `#inv-sort-select`): Menyortir item berdasarkan Nama (A-Z & Z-A), Jumlah Terbanyak, Harga Jual Tertinggi, dan Tingkat Kelangkaan (Rarity).
+- Tingkat Kelangkaan Visual (Item Rarity Hierarchy):
+  * Diberi penanda warna visual elegan dan border bercahaya sesuai kelasnya:
+    - Common (`#9ca3af` Abu-abu Netral): Peluru, rongsokan kayu dan besi.
+    - Uncommon (`#22c55e` Hijau Zamrud): Jamu herbal, daging mutan, ranjau bambu.
+    - Rare (`#3b82f6` Biru Safir): Senapan taktis, jamu kencur, jamu kunyit, batu permata hutan.
+    - Epic (`#a855f7` Ungu Amethyst): Komponen mesin desa, taring/cakar spesimen langka.
+    - Legendary (`#eab308` Emas Mulia): Inti Titan Raksasa (Titan Core).
+- Kartu Detail & Aksi Terpadu (`#inv-detail-panel`):
+  * Memilih salah satu slot inventaris akan membuka panel informasi detail di sisi kanan: nama lengkap,
+    ikon besar 3D, badge kategori & kelangkaan, deskripsi naratif fungsi, kuantitas saat ini, dan nilai jual satuan.
+  * 3 Tombol Aksi Langsung:
+    - "Gunakan" (Use): Mengonsumsi jamu pemulih darah instan atau meminum jamu buff stamina/antiracun.
+    - "Jual di Pasar" (Sell): Mengalihkan item secara instan ke tab Penjualan Marketplace.
+    - "Buang" (Drop): Membuang kuantitas item dari slot inventaris jika pemain membutuhkan ruang kosong darurat.
+- Akses Cepat & Integrasi Kontrol:
+  * Tombol Keyboard: Tekan [I] atau [Tab].
+  * Tombol HUD: Tombol cepat `#btn-hud-inventory` di panel kiri atas layar.
+  * Tombol HP / Mobile: Tombol `#btn-mobile-inventory` pada overlay kontrol sentuh.
+
+8.7 SISTEM MARKETPLACE & PENJUALAN GLOBAL DINAMIS (DYNAMIC 4-TAB MARKETPLACE)
+Dikelola oleh `GameState` (gameState.js) dan antarmuka UI modal `#modal-marketplace` (shops.js / style.css):
+- Tab 1: JUAL BARANG (SELL ITEMS):
+  * Pemain memilih item yang ingin dijual dari slot inventaris 60-slot.
+  * Penghitung Kuantitas Interaktif: Tombol [-], [+], dan tombol pintas [MAX] untuk menentukan jumlah barang.
+  * Input Harga Jual Satuan Mandiri: Pemain bebas memasukkan harga jual per unit dalam Rupiah (Rp).
+  * Kalkulator Estimasi Total: Menampilkan tinjauan perolehan kotor yang akan didapat saat barang laku.
+  * Tombol "Pasang Iklan Penjualan": Memindahkan barang dari inventaris ke etalase listing pasar global berstatus `LISTED`.
+- Tab 2: DAFTAR DAGANGAN SAYA (MY LISTINGS):
+  * Menampilkan seluruh barang yang sedang aktif dipasarkan oleh pemain.
+  * Kartu Dagangan Lengkap: Nama item, ikon, badge kelangkaan, jumlah listing, harga satuan, dan total nilai.
+  * Live Progress Bar Durasi Penjualan: Menampilkan bilah progres animasi waktu nyata yang mengindikasikan
+    minat pembeli pasar yang sedang berjalan menuju konfirmasi transaksi.
+  * Tombol "Batalkan": Membatalkan listing aktif dan mengembalikan barang 100% utuh ke inventaris pemain.
+- Tab 3: BARANG TERJUAL (SOLD ITEMS):
+  * Menampilkan rekam jejak barang yang telah berhasil dibeli oleh pembeli pasar (`SOLD`).
+  * Status Klaim Transparan: Penanda status "Menunggu Klaim" (kuning terang) vs "Sudah Diklaim" (abu-abu tenang).
+  * Tombol "Klaim Hasil" per Item: Mencairkan dana perolehan Rupiah dari satu item spesifik ke saldo dompet pemain.
+- Tab 4: DOMPET & KAS (WALLET & TRANSACTION LEDGER):
+  * 3 Kartu Metrik Finansial Utama:
+    1. "Saldo Dompet": Saldo likuid Rupiah aktif yang dapat digunakan berbelanja di Desa Asri.
+    2. "Hasil Belum Diklaim": Total dana penjualan barang di pasar yang belum dicairkan.
+    3. "Total Penjualan": Akumulasi seluruh omzet kotor penjualan pemain sepanjang waktu.
+  * Tombol Aksi Cepat "💰 KLAIM SEMUA HASIL (CLAIM ALL)": Menyetorkan seluruh saldo yang tertunda dari semua
+    barang terjual langsung ke dompet dalam satu klik tanpa perlu klaim manual satu per satu.
+  * Tabel Riwayat Transaksi Lengkap: Menampilkan waktu transaksi (Jam:Menit:Detik), jenis aksi (Listing, Terjual,
+    Klaim Saldo, Pembatalan), nama barang, jumlah kuantitas, dan mutasi saldo Rupiah (+/- Rp).
+- Mesin Simulasi Pasar Real-Time (Marketplace Dynamic Simulation Engine):
+  * Berjalan secara deterministik setiap frame pada metode `GameState.updateMarketplace(delta)` di dalam
+    loop animasi utama Three.js tanpa alokasi objek/garbage collection di hot loop.
+  * Waktu Penjualan Berdasarkan Tingkat Kelangkaan:
+    - Common        : ~15 - 20 detik (rata-rata 18 detik).
+    - Uncommon      : ~30 - 40 detik (rata-rata 35 detik).
+    - Rare          : ~60 - 80 detik (rata-rata 70 detik).
+    - Epic/Legendary: ~100 - 140 detik (rata-rata 120 detik).
+  * Mekanik Elastisitas Harga (Competitive Pricing Algorithm):
+    - Jika pemain memasang harga bersahabat di bawah harga pasar acuan, pembeli pasar berebut membeli
+      lebih cepat (durasi penjualan dipercepat hingga 0.6x lipat).
+    - Jika pemain mematok harga mahal di atas harga pasar acuan, minat pembeli menurun dan memerlukan
+      durasi pertimbangan lebih lama (durasi penjualan melambat hingga 1.8x lipat).
+  * Umpan Balik Instan: Saat transaksi selesai, sistem menampilkan banner pop-up HUD notifikasi hijau
+    dan membunyikan denting koin Web Audio API (`sound.playCoinSound()`).
+- Akses Cepat & Integrasi Kontrol:
+  * Tombol Keyboard: Tekan [M].
+  * Tombol HUD: Tombol cepat `#btn-hud-marketplace` di panel kiri atas layar.
+  * Tombol HP / Mobile: Tombol `#btn-mobile-marketplace` pada kontrol sentuh.
+
+8.8 SISTEM PROFIL PEMAIN, STATISTIK LENGKAP & PENCAPAIAN (PROFILE & ACHIEVEMENTS)
+Dikelola oleh `GameState` (gameState.js) dan antarmuka UI modal `#modal-profile` (shops.js / style.css):
+- Hero Header Profil Pemain:
+  * Avatar Taktis Survivor Pedesaan.
+  * Nama Survivor: "Survivor #7" (Penyintas Utama Desa Asri).
+  * Level & Gelar Kehormatan (Survivor Rank Titles):
+    - Level 1: "Rookie Scavenger" (Pencari Rongsok Pemula)
+    - Level 2: "Forest Hunter" (Pemburu Rimba)
+    - Level 3: "Sector Veteran" (Veteran Sektor-7)
+    - Level 4: "Apocalypse Stalker" (Penyusup Kiamat)
+    - Level 5: "Elite Slayer" (Pembantai Elit)
+    - Level 6+: "Titan Master" (Penakluk Titan Agung)
+  * Bar Progres Pengalaman (XP Progression Engine):
+    - Formula XP Akumulatif: Dihitung secara matematis dari kontribusi seluruh aksi permainan:
+      `Total XP = (Kills * 25) + (Boss Kills * 250) + (Headshots * 15) + (Waves * 100) + (Items Sold * 10) + (Total Earned / 1000)`.
+    - Menampilkan informasi XP saat ini / XP menuju level berikutnya serta bar visual progresivitas.
+  * Total Waktu Bermain: Format Jam:Menit:Detik (`00:00:00`) yang dicatat real-time selama sesi permainan aktif.
+- 3 Panel Statistik Terperinci (Comprehensive Survival Stat Panels):
+  1. Statistik Tempur Zombi (Zombie Combat Record):
+     - Total Eliminasi Zombi, Akurasi Tembakan Headshot, Persentase Akurasi Headshot (%), Rekor Kill Streak Tertinggi,
+       serta rincian kuota eliminasi per varian zombi (Walker, Runner, Brute, Stalker, Titan Boss).
+  2. Statistik Ekonomi & Perdagangan (Economic & Trading Record):
+     - Saldo Rupiah Saat Ini, Total Pendapatan Sepanjang Waktu, Total Belanja di Toko/Desa, Total Listing Dagangan,
+       Total Barang Laku Terjual, Total Dana Berhasil Dicairkan, Dana Penjualan Menunggu Klaim.
+  3. Statistik Ketahanan Hidup (Survival & Resource Record):
+     - Total Waktu Bertahan Aktif, Jumlah Kematian Pemain, Rekor Waktu Bertahan Hidup Terlama dalam Satu Sesi Ekspedisi,
+       Total Gelombang Survival Dilewati, Total Darah HP Dipulihkan Ramuan Jamu, Total Peluru Ditembakkan & Amunisi Diambil dari Alam.
+- 10 Pencapaian Bergengsi (Milestone Achievements):
+  * Dilengkapi status Terkunci / Terbuka, medali visual, deskripsi syarat, dan bilah progresivitas dinamis:
+    1. "Tumpahkan Darah Pertama" (`first_blood`)   : Basmi 1 zombi pertama di Sector-7.
+    2. "Pemburu Zombi" (`zombie_hunter`)           : Basmi 25 zombi di Sector-7.
+    3. "Pembantai Zombi" (`zombie_slayer`)         : Basmi 100 zombi di Sector-7.
+    4. "Penembak Jitu" (`headshot_master`)         : Daratkan 20 tembakan tepat di kepala zombi (Headshot).
+    5. "Penakluk Titan" (`titan_slayer`)           : Tundukkan 1 Boss Titan Raksasa di Sector-7.
+    6. "Penyintas Ulung" (`survivor`)              : Bertahan hidup selama minimal 10 menit (600 detik) dalam 1 sesi ekspedisi.
+    7. "Pedagang Pemula" (`merchant`)              : Sukses menjual 5 barang hingga laku di Marketplace.
+    8. "Juragan Pedesaan" (`rich_survivor`)        : Kumpulkan total omzet pendapatan mencapai Rp 500.000.
+    9. "Kolektor Jarahan" (`collector`)            : Kumpulkan 30 item jarahan dan material dari Sector-7.
+    10. "Tabib Tradisional" (`medicine_man`)       : Pulihkan total 200 HP kesehatan menggunakan Jamu Herbal.
+  * Umpan Balik Prestasi: Saat achievement terbuka, sistem memunculkan banner pengumuman emas di tengah layar
+    disertai nada fanfar Web Audio API (`sound.playExtractionSuccess()`).
+- Akses Cepat & Integrasi Kontrol:
+  * Tombol Keyboard: Tekan [P].
+  * Tombol HUD: Tombol cepat `#btn-hud-profile` di panel kiri atas layar.
+  * Tombol HP / Mobile: Tombol `#btn-mobile-profile` pada overlay kontrol sentuh.
+
+8.9 Persistensi Penyimpanan & Migrasi Data Otomatis (LocalStorage V5)
+Dikelola oleh `GameState` (gameState.js):
+- Kunci Penyimpanan: `localStorage.getItem('SCIFI_SURVIVAL_STATE')`.
+- Nomor Versi Format: `version: 5` dan `saveVersion: 5`.
+- Mesin Migrasi Otomatis (Seamless Backward Migration):
+  * Mendeteksi data simpanan lama pemain versi 1, 2, 3, atau 4.
+  * Mengonversi isi tas ransel lama secara transparan ke dalam sistem 60-slot inventaris baru tanpa kehilangan barang.
+  * Menginisialisasi struktur data marketplace (listings, soldListings, transactionHistory) dan profil (stats, unlockedAchievements)
+    secara otomatis jika belum ada sebelumnya.
+- Ketahanan Refresh Browser:
+  * Seluruh data inventaris, status listing barang di pasar, saldo kas belum diklaim, level XP pemain, rekor statistik tempur,
+    dan pencapaian tersimpan aman secara permanen dan tidak akan hilang saat halaman browser direfresh atau ditutup.
+
 ===============================================================================
 9. SISTEM AUDIO PROSEDURAL (SYNTHETIC WEB AUDIO ENGINE)
 ===============================================================================
@@ -537,25 +685,25 @@ Dikelola oleh class SoundManager (audio.js) tanpa ketergantungan file MP3/WAV ek
 Seluruh kode Dead Zone bertempat di folder `gamedevs/dead-zone/`:
 
 gamedevs/dead-zone/
-├── index.html              -> Entri HTML, struktur canvas, HUD, stamina bar, modal toko/bounty/craft
+├── index.html              -> Entri HTML, canvas, HUD, stamina bar, modal toko/bounty/craft/inventory/marketplace/profile
 ├── css/
-│   └── style.css           -> Styling Pedesaan Taktis, font Cinzel/Rajdhani/Inter, kantong aman
+│   └── style.css           -> Styling Pedesaan Taktis, 60-slot grid, marketplace tabs, wallet metrics, profile hero, stat panels, achievements
 ├── js/
-│   ├── main.js             -> Main Orchestrator, Zone Switcher, Dynamic Beacon Proximity, Game Loop
-│   ├── gameState.js        -> Central State, Dompet, Stash, Kantong Aman, Lapak Dagang, Etalase, Kasir
+│   ├── main.js             -> Main Orchestrator, Zone Switcher, Game Loop, Marketplace Loop updateMarketplace(delta), Playtime Tracker, HUD Notif & Fanfare
+│   ├── gameState.js        -> Central State, Inventaris 60 Slot, Marketplace (Listings, Sales, Wallet), Profil, Statistik, 10 Achievements, LocalStorage V5
 │   ├── environment_dual.js -> Dual-Zone Manager, 4 Situs Pondok, VillageNPCManager, Dynamic Beacon
 │   ├── village_architect.js-> Arsitektur 3D Desa, Rumah 3D, Toko 3D, Lapak FBX, Meja Perakit, Papan Kontrak
 │   ├── village_npc.js      -> Sistem NPC Warga Pembeli (Mang Ujang, Bu Siti, Kang Dimas), Balon Dialog 3D
-│   ├── player.js           -> FPS Controller, Jalan 4.2m/s, Sprint 7.8m/s, Stamina 5s System
-│   ├── weapons.js          -> Arsenal Senjata, Kaliber Terpisah, Resupply 1 Kotak Terbatas
-│   ├── zombies.js          -> AI Zombi, Jangkauan Serang Boss 3.8m, Roar Summon, Toxic PoisonCloud
+│   ├── player.js           -> FPS Controller, Jalan 4.2m/s, Sprint 7.8m/s, Stamina 5s, Hotkey [I]/[Tab] Inv, [M] Market, [P] Profile, [Esc] Close Modals
+│   ├── weapons.js          -> Arsenal Senjata, Kaliber Terpisah, Logging Tembakan, Amunisi, Damage & Headshot Tracker
+│   ├── zombies.js          -> AI Zombi, Jangkauan Serang Boss 3.8m, Roar Summon, Toxic PoisonCloud, Headshot Hitmarker Detection
 │   ├── zombieAssets.js     -> Loader FBX Zombi, Material PBR, Skeletal Animations
-│   ├── waves.js            -> Generator Gelombang, Inti Titan Boss Drop Fisik, Bounty Kill Tracker
-│   ├── loot.js             -> Drop 3D Berputar, Proximity Pickup, Peti Pondok, Specific Drops
-│   ├── shops.js            -> Modal Toko Terpadu, Modal Lapak Pribadi Pemain, Meja Perakit, Kontrak Buruan
-│   ├── audio.js            -> Web Audio API Synthesizer murni, Efek Tegukan Jamu Herbal, Denting Koin Emas
-│   ├── ui.js               -> Render HUD, Bar Darah, Bar Stamina, Hitmarker, Quick Select Hotbar
-│   ├── touchControls.js    -> Virtual Joystick & Tombol Aksi Sentuh Mode HP
+│   ├── waves.js            -> Generator Gelombang, Inti Titan Boss Drop Fisik, Bounty Kill Tracker, Zombie Kill & Headshot Stat Recorder
+│   ├── loot.js             -> Drop 3D Berputar, Proximity Pickup, Peti Pondok, Specific Drops, Loot Collection Stat Recorder
+│   ├── shops.js            -> Controller UI: Toko Desa, Lapak Pribadi FBX, Inventaris 60-Slot, Marketplace 4-Tab, Profil & Pencapaian, Crafting, Bounty
+│   ├── audio.js            -> Web Audio API Synthesizer murni, Efek Tegukan Jamu Herbal, Denting Koin Emas, Fanfare Kemenangan
+│   ├── ui.js               -> Render HUD, Bar Darah, Bar Stamina, Hitmarker, Quick Select Hotbar, Tombol Cepat HUD [I][M][P]
+│   ├── touchControls.js    -> Virtual Joystick & Tombol Aksi Sentuh Mode HP (Termasuk Tombol Sentuh Inv, Market, Profile)
 │   ├── tests/              -> Automated Unit & Integration Tests:
 │   │   ├── collision.test.js      -> Verifikasi collider dinding dan pagar
 │   │   ├── gameState.test.js      -> Verifikasi kapasitas dompet, tas, stash, death penalty
@@ -563,7 +711,8 @@ gamedevs/dead-zone/
 │   │   ├── terrain_combat.test.js -> Verifikasi terrain elevation, tembakan, dan boss
 │   │   ├── new_mechanics_v2.test.js-> Verifikasi komprehensif 10 fitur v2
 │   │   ├── v3_tactical_mechanics.test.js-> Verifikasi komprehensif 10 fitur v3 (Golok, aggro, holdout, buffs, jebakan)
-│   │   └── player_shop_npc.test.js -> Verifikasi sistem Lapak Dagang FBX, Etalase, Kasir & NPC Pembeli
+│   │   ├── player_shop_npc.test.js -> Verifikasi sistem Lapak Dagang FBX, Etalase, Kasir & NPC Pembeli
+│   │   └── inventory_marketplace_profile.test.js -> Verifikasi komprehensif 60-slot inventaris, marketplace 4-tab, simulasi pembeli, profil, stats & V5 migration
 │   └── libs/               -> Three.js library modules (GLTFLoader, FBXLoader, SkeletonUtils)
 └── asset dead-zone/
     ├── house/
@@ -583,7 +732,7 @@ Untuk mencegah lag, patah-patah, atau dunia belum ter-render saat pemain masuk:
    - `initZombieAssets()` melacak pemuatan base mesh FBX dan 10 animasi FBX.
 2. GPU Shader Pre-Compilation:
    - Memanggil `renderer.compile(scene, camera)` sebelum menutup layar loading
-     untuk mengompilasi program GLSL shader ke VRAM kartu grafis.
+   - untuk mengompilasi program GLSL shader ke VRAM kartu grafis.
 3. Multi-Frame Warmup Rendering:
    - Merender 3 frame offscreen berurutan saat layar loading masih menutupi 100%.
 4. Ultra-Optimized Model Assets:
@@ -593,7 +742,7 @@ Untuk mencegah lag, patah-patah, atau dunia belum ter-render saat pemain masuk:
 ================================================================================
 12. STATUS FITUR SAAT INI (CURRENT IMPLEMENTATION STATUS)
 ================================================================================
-Per 10 November 2026, status implementasi aktual dalam kode adalah:
+Per 11 November 2026, status implementasi aktual dalam kode adalah:
 [v] Selesai & Berjalan Sempurna (100% Production Ready & Verified by Automated Tests):
 - Dual-Zone Environment: Desa Asri (Safe Zone malam) & Sector-7 (Hutan 230mx230m).
 - 2 Bangunan Utama 3D Desa Terkompresi: Rumah 1.96 MB GLB & Toko 1.99 MB GLB (Total 3.96 MB).
@@ -610,8 +759,20 @@ Per 10 November 2026, status implementasi aktual dalam kode adalah:
 - Rumah Desa Tingkat 3: 2 Slot Kantong Aman (100% Kebal Hangus saat gugur) & Stash 64 Slot.
 - HUD Quick Select 7 Slot: Terpadu di bagian tengah bawah layar lengkap dengan banner indikator buff aktif.
 - Lapak Dagang Pribadi Pemain & Sistem NPC Pembeli Desa Asri: Bangunan kios FBX 3D asli (`shop.fbx`), fitur jual segala macam barang dari ransel ("Bisa jual apa saja"), 4 slot etalase toko dengan margin keuntungan +25%, kotak kasir lapak terpisah, dan 3 NPC warga (Mang Ujang, Bu Siti, Kang Dimas) yang berjalan bolak-balik berbelanja dengan balon dialog 3D dinamis dan denting koin Web Audio.
-- Sintesis Audio Prosedural Lengkap: Heartbeat HP kritis, tebasan & benturan golok, ranjau bambu, sirine & kemenangan evakuasi, denting koin emas belanja NPC.
-- Seluruh 7 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2, v3_tactical_mechanics, player_shop_npc).
+- Sistem Inventaris Pemain 60-Slot (Player Inventory 60-Slot): Kapasitas tinggi, item stacking cerdas, 6 kategori rapi, kolom pencarian cepat real-time, pill filter kategori, dropdown sorting (nama, kuantitas, harga, kelangkaan), 5 tingkat kelangkaan visual (Common s/d Legendary), kartu detail item terpadu, dan 3 tombol aksi (Gunakan, Jual di Pasar, Buang). Tombol akses [I] / [Tab] dan tombol HUD/Mobile.
+- Sistem Marketplace & Penjualan Global Dinamis (4-Tab Dynamic Marketplace):
+  * Tab 1 (Jual Barang): Pilih item inventaris, counter jumlah interaktif (- / + / MAX), input harga jual kustom, kalkulator total estimasi, konfirmasi listing pasar.
+  * Tab 2 (Daftar Dagangan): Kartu dagangan aktif, kuantitas, harga satuan, live progress bar durasi penjualan real-time, tombol batalkan listing (kembali utuh ke inventaris).
+  * Tab 3 (Barang Terjual): Daftar barang laku berstatus Menunggu Klaim vs Sudah Diklaim, tombol klaim perolehan per item.
+  * Tab 4 (Dompet & Kas): 3 kartu metrik finansial (Saldo Dompet, Hasil Belum Diklaim, Total Penjualan), tombol cepat "Klaim Semua Hasil (Claim All)", dan tabel riwayat transaksi lengkap.
+- Mesin Simulasi Pembeli Dinamis (Dynamic Market Simulation): Transaksi laku real-time di loop render 60 FPS dipengaruhi tingkat kelangkaan (18s s/d 120s) dan rasio harga bersaing (0.6x s/d 1.8x multiplier). Banner pop-up HUD hijau dan denting koin saat barang laku. Tombol akses [M].
+- Sistem Profil Pemain, Statistik Terinci & 10 Pencapaian:
+  * Hero Header Profil: Avatar survivor, Survivor Name ("Survivor #7"), Level badge & gelar peringkat (Rookie Scavenger s/d Titan Master), bar progresivitas XP dinamis, total playtime aktif.
+  * 3 Panel Statistik Terinci: Rekor Tempur Zombi (kills, headshots, akurasi %, kill streak, eliminasi per varian), Rekor Ekonomi (saldo, pendapatan, belanja, listing, penjualan, klaim), Rekor Bertahan Hidup (playtime, kematian, rekor survival terlama, wave dilewati, HP dipulihkan, peluru dipakai/diambil).
+  * 10 Pencapaian Bergengsi (Achievements): Dilengkapi pelacakan status terbuka/terkunci, bar progresivitas, banner pengumuman emas di HUD, dan nada fanfar Web Audio. Tombol akses [P].
+- Persistensi Penyimpanan LocalStorage V5: Penyimpanan permanen anti hilang saat refresh/tutup browser dengan mesin migrasi mundur otomatis (backward migration) dari versi sebelumnya.
+- Sintesis Audio Prosedural Lengkap: Heartbeat HP kritis, tebasan & benturan golok, ranjau bambu, sirine & kemenangan evakuasi, denting koin emas belanja, nada fanfar pencapaian.
+- Seluruh 8 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2, v3_tactical_mechanics, player_shop_npc, inventory_marketplace_profile).
 
 ================================================================================
 13. ARAH PENGEMBANGAN MASA DEPAN (FUTURE DEVELOPMENT ROADMAP)
@@ -629,6 +790,55 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 11 November 2026 (Rilis Pembaruan V5 — Major Economy, 60-Slot Inventory, Dynamic Marketplace & Player Profile System):
+  - Sistem Inventaris Pemain Berkapasitas Tinggi (60-Slot High-Capacity Inventory):
+    * Kapasitas awal 60 slot penyimpanan terstruktur dengan indikator kapasitas real-time "X / 60 Terpakai (Y Kosong)".
+    * Dukungan penumpukan barang (stackable) hingga batas per-item (`stackLimit`): peluru (120-150), material (50), jamu (10).
+    * Sinkronisasi otomatis dua arah dengan tas ransel ekspedisi (Backpack 6 slot) dan slot kantong aman (Secure Pouch).
+    * Pengorganisasian ke dalam 6 kategori resmi: Weapons, Ammunition, Medical, Materials, Zombie Drops, Miscellaneous.
+    * Fitur penyaringan cerdas: Kolom pencarian real-time (`#inv-search-input`), tombol filter kategori (Category Pills),
+      dan dropdown pengurutan fleksibel (`#inv-sort-select`: Nama A-Z / Z-A, Jumlah, Harga, Kelangkaan).
+    * Hierarki 5 kelas kelangkaan visual: Common (Abu-abu), Uncommon (Hijau), Rare (Biru), Epic (Ungu), Legendary (Emas).
+    * Kartu detail interaktif dengan panel statistik item dan 3 aksi langsung: Gunakan (Use), Jual di Pasar (Sell), Buang (Drop).
+    * Aksesibilitas cepat: Hotkey keyboard [I] atau [Tab], tombol HUD kiri atas `#btn-hud-inventory`, dan tombol sentuh mobile.
+  - Sistem Pasar & Penjualan Global Dinamis (4-Tab Dynamic Marketplace):
+    * Tab 1 (Jual Barang): Pemilihan item langsung dari inventaris 60-slot, counter kuantitas interaktif (- / + / MAX),
+      input harga jual satuan kustom (Rp), kalkulator pratinjau estimasi total pendapatan, dan tombol konfirmasi listing pasar.
+    * Tab 2 (Daftar Dagangan Saya): Daftar listing aktif pemain berstatus `LISTED`, kuantitas, harga satuan, total nilai Rupiah,
+      live progress bar durasi penjualan real-time, dan tombol pembatalan (mengembalikan barang 100% utuh ke inventaris).
+    * Tab 3 (Barang Terjual): Daftar barang laku berstatus `SOLD` (Menunggu Klaim) dan `CLAIMED` (Sudah Diklaim),
+      disertai tombol klaim perolehan per item.
+    * Tab 4 (Dompet & Kas): 3 kartu metrik finansial (Saldo Dompet Saat Ini, Hasil Belum Diklaim, Total Akumulasi Penjualan),
+      tombol cepat "💰 KLAIM SEMUA HASIL (CLAIM ALL)", dan tabel riwayat transaksi (waktu, jenis aksi, item, mutasi Rp).
+    * Mesin Simulasi Pembeli Dinamis (Real-Time Market Simulation): Berjalan deterministik di render loop `animate()` tanpa alokasi memori berlebih.
+      Durasi transaksi dipengaruhi tingkat kelangkaan (Common ~18s s/d Legendary ~120s) dan algoritma elastisitas harga bersaing (0.6x - 1.8x).
+      Disertai banner notifikasi pop-up HUD hijau dan denting koin Web Audio API saat barang terjual.
+    * Aksesibilitas cepat: Hotkey keyboard [M], tombol HUD kiri atas `#btn-hud-marketplace`, dan tombol sentuh mobile.
+  - Sistem Profil Pemain, Statistik Terinci & 10 Pencapaian (Player Profile & Achievements):
+    * Hero Header Profil: Avatar taktis survivor, nama "Survivor #7", Level badge dan 6 tingkatan gelar kehormatan
+      (Rookie Scavenger, Forest Hunter, Sector Veteran, Apocalypse Stalker, Elite Slayer, Titan Master).
+    * Formula Progresivitas XP Komprehensif: Menghitung kontribusi dari kills, boss kills, headshots, waves, items sold, dan total earnings.
+      Dilengkapi indikator XP aktual / target XP level berikutnya dan bilah progresivitas visual.
+    * Pencatatan Total Playtime: Format Jam:Menit:Detik (`00:00:00`) yang dicatat real-time selama sesi permainan aktif.
+    * 3 Panel Statistik Terinci:
+      1. Rekor Tempur Zombi: Total Kills, Headshots, Akurasi Headshot %, Kill Streak Tertinggi, dan eliminasi per varian (Walker, Runner, Brute, Stalker, Titan Boss).
+      2. Rekor Ekonomi & Perdagangan: Saldo Saat Ini, Total Pendapatan, Total Belanja Toko, Total Listing, Total Terjual, Total Klaim, Menunggu Klaim.
+      3. Rekor Bertahan Hidup: Total Waktu Bermain, Jumlah Kematian, Rekor Survival Terlama 1 Sesi, Gelombang Terlewati, Total HP Dipulihkan, Peluru Ditembakkan & Amunisi Diambil.
+    * 10 Pencapaian Bergengsi (Milestone Achievements): `first_blood`, `zombie_hunter`, `zombie_slayer`, `headshot_master`,
+      `titan_slayer`, `survivor`, `merchant`, `rich_survivor`, `collector`, `medicine_man`.
+      Dilengkapi pelacakan status terbuka/terkunci, bar progresivitas real-time, banner emas HUD dan nada fanfar Web Audio saat terbuka.
+    * Aksesibilitas cepat: Hotkey keyboard [P], tombol HUD kiri atas `#btn-hud-profile`, dan tombol sentuh mobile.
+  - Persistensi Data LocalStorage Versi 5 & Migrasi Otomatis (LocalStorage V5 Backward Compatibility):
+    * Struktur penyimpanan data ditingkatkan ke versi 5 (`version: 5`, `saveVersion: 5`).
+    * Mesin migrasi otomatis mendeteksi simpanan versi terdahulu (V1 - V4) dan mengonversi isi tas ke inventaris 60-slot
+      tanpa menghilangkan satu pun barang atau saldo pemain.
+    * Seluruh data inventaris, listing pasar, hasil penjualan belum diklaim, profil, statistik, dan pencapaian tersimpan aman dari refresh browser.
+  - Suite Pengujian Otomatis Komprehensif V5:
+    * Pembuatan test suite `inventory_marketplace_profile.test.js` memverifikasi 9 pengujian otomatis (kapasitas 60-slot,
+      stacking, kategori, filter/sort, aksi use/drop, simulasi pasar, klaim perolehan, profil level XP, dan migrasi V5).
+    * Seluruh 8 test suite (`collision`, `gameState`, `integration`, `terrain_combat`, `new_mechanics_v2`, `v3_tactical_mechanics`,
+      `player_shop_npc`, `inventory_marketplace_profile`) lulus 100% tanpa error.
+
 * 10 November 2026 (Rilis Pembaruan V4 — Lapak Dagang Pribadi FBX & Sistem NPC Pembeli Desa Asri):
   - Integrasi Model 3D Kios Lapak Dagang Pribadi Pemain (`tempat jualan/shop.fbx`):
     * Memuat model FBX 3D asli kios pasar pedesaan dari folder `asset dead-zone/tempat jualan/shop.fbx`.

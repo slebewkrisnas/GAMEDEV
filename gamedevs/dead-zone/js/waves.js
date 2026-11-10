@@ -212,6 +212,10 @@ export class WaveManager {
 
     const zType = zombieInstance ? zombieInstance.type : (isBoss ? 'boss' : 'walker');
     const activeWep = this.weaponManager ? this.weaponManager.currentWeaponId : null;
+    const wasHead = zombieInstance ? (zombieInstance.lastHitWasHeadshot || false) : false;
+
+    // Catat statistik profil & pencapaian eliminasi zombie
+    GameState.recordZombieKill(zType, activeWep, wasHead);
 
     // Catat progress kontrak buruan bertingkat di papan desa (termasuk verifikasi senjata)
     if (zType === 'runner') {

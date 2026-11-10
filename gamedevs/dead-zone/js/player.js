@@ -170,6 +170,22 @@ export class Player {
       case 'KeyF':
         this.toggleFlashlight();
         break;
+      case 'KeyI':
+        if (this.onToggleInventoryCallback) this.onToggleInventoryCallback();
+        break;
+      case 'Tab':
+        e.preventDefault();
+        if (this.onToggleInventoryCallback) this.onToggleInventoryCallback();
+        break;
+      case 'KeyM':
+        if (this.onToggleMarketplaceCallback) this.onToggleMarketplaceCallback();
+        break;
+      case 'KeyP':
+        if (this.onToggleProfileCallback) this.onToggleProfileCallback();
+        break;
+      case 'Escape':
+        if (this.onEscapeCallback) this.onEscapeCallback();
+        break;
       case 'KeyE':
         if (this.onInteractCallback) this.onInteractCallback();
         break;

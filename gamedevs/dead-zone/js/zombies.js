@@ -285,6 +285,7 @@ export class Zombie {
   takeDamage(amount, isHeadshot) {
     if (!this.isAlive) return;
 
+    this.lastHitWasHeadshot = !!isHeadshot;
     this.health -= amount;
 
     // Recoil flinch

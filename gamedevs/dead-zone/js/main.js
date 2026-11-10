@@ -245,6 +245,32 @@ class DeadZoneGame {
     this.ui.player = this.player;
     this.player.onInteractCallback = () => this.shopManager.interact();
 
+    // Wire Player Inventory, Marketplace & Profile Hotkeys [I, M, P, Esc]
+    this.player.onToggleInventoryCallback = () => this.shopManager.toggleInventoryModal();
+    this.player.onToggleMarketplaceCallback = () => this.shopManager.toggleMarketplaceModal();
+    this.player.onToggleProfileCallback = () => this.shopManager.toggleProfileModal();
+    this.player.onEscapeCallback = () => {
+      if (this.shopManager.modalActive) {
+        this.shopManager.closeAllModals();
+      } else {
+        this.pauseGame();
+      }
+    };
+
+    // Real-Time Notification Callbacks for Market Sales & Milestone Achievements
+    GameState.onItemSoldCallback = (listing) => {
+      sound.playCoinSound();
+      this.ui.showAnnouncement('BARANG TERJUAL DI PASAR! 🏪', `${listing.item.icon || '📦'} ${listing.item.name} (${GameState.formatRp(listing.totalPrice)})`, 2.5);
+      if (this.shopManager.modalActive && (this.shopManager.activeMarketTab === 'listings' || this.shopManager.activeMarketTab === 'sold' || this.shopManager.activeMarketTab === 'wallet')) {
+        this.shopManager.renderMarketplaceModal();
+      }
+    };
+
+    GameState.onAchievementUnlockedCallback = (ach) => {
+      sound.playBossRoar();
+      this.ui.showAnnouncement(`🏆 PENCAPAIAN TERBUKA: ${ach.title}!`, ach.desc, 4.0);
+    };
+
     // Start in Safe Zone with weapons holstered
     this.environment.setZoneActive('safe_zone', this.player);
     GameState.activeZone = 'safe_zone';
@@ -629,6 +655,8 @@ class DeadZoneGame {
 
   // HIGH-STAKES DEATH PENALTY
   onPlayerDeath() {
+    GameState.recordPlayerDeath();
+
     if (this.isHoldoutActive) {
       this.cancelHoldoutExtraction('Pemain gugur saat bertahan evakuasi!');
     }
@@ -668,6 +696,9 @@ class DeadZoneGame {
   }
 
   onVictory() {
+    if (this.waveManager) {
+      GameState.recordWaveSurvived(this.waveManager.currentWave);
+    }
     this.ui.showAnnouncement('HUTAN TELAH DIBERSIHKAN!', 'Kembali ke Suar Evakuasi untuk membawa semua jarahan pulang ke Desa Asri!', 4.0);
   }
 
@@ -677,6 +708,10 @@ class DeadZoneGame {
 
     let delta = this.clock.getDelta();
     delta = Math.min(delta, this.maxDelta);
+
+    // Update real-time survival playtime & simulated dynamic marketplace
+    GameState.updatePlaytime(delta);
+    GameState.updateMarketplace(delta);
 
     if (this.environment) {
       this.environment.update(delta);

@@ -78,6 +78,12 @@
         <div id="hud-backpack" class="hud-backpack">🎒 <span id="hud-backpack-val">0 / 6</span></div>
         <div id="hud-stim" class="hud-stim">🌿 JAMU: <span id="hud-stim-val">0</span> [Q]</div>
       </div>
+      <!-- Tactical System Quick Buttons [I, M, P] -->
+      <div class="hud-action-bar">
+        <button id="btn-hud-inventory" class="hud-quick-btn" title="Buka Inventaris 60 Slot [I / Tab]">🎒 INVENTARIS [I]</button>
+        <button id="btn-hud-marketplace" class="hud-quick-btn" title="Buka Pasar Desa [M]">🏪 PASAR [M]</button>
+        <button id="btn-hud-profile" class="hud-quick-btn" title="Buka Profil & Statistik [P]">👤 PROFIL [P]</button>
+      </div>
     </div>
 
     <!-- Top Center: Wave & Threat Info -->
@@ -255,6 +261,20 @@
 
       <!-- Cluster Tombol Aksi Kanan Bawah -->
       <div class="mobile-action-buttons">
+        <div class="action-row">
+          <button id="btn-mobile-inventory" class="mobile-btn" title="Buka Inventaris 60 Slot">
+            <span class="btn-icon">🎒</span>
+            <span class="btn-text">INVENTARIS</span>
+          </button>
+          <button id="btn-mobile-marketplace" class="mobile-btn" title="Buka Pasar Desa">
+            <span class="btn-icon">🏪</span>
+            <span class="btn-text">PASAR</span>
+          </button>
+          <button id="btn-mobile-profile" class="mobile-btn" title="Buka Profil & Statistik">
+            <span class="btn-icon">👤</span>
+            <span class="btn-text">PROFIL</span>
+          </button>
+        </div>
         <div class="action-row">
           <button id="btn-mobile-interact" class="mobile-btn" title="Tombol Interaksi / Masuk">
             <span class="btn-icon">🖐️</span>
@@ -625,6 +645,118 @@
       <div class="modal-body"></div>
       <div class="modal-footer">
         <button class="btn btn-secondary btn-close-shop">TUTUP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Sistem Inventaris Pemain (60 Slot Stackable & Manajemen Barang) -->
+  <div id="modal-inventory" class="modal-backdrop hidden">
+    <div class="modal-box modal-xl">
+      <div class="modal-header">
+        <div class="store-header-title">
+          <h3 style="margin: 0; color: #f8fafc; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+            🎒 INVENTARIS PEMAIN
+          </h3>
+          <span style="font-size: 12px; color: #38bdf8;">Manajemen 60 Slot Penyimpanan Barang & Perlengkapan Tempur</span>
+        </div>
+        <button class="btn-close btn-close-shop" id="btn-close-inventory">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="inv-header-bar">
+          <div class="inv-capacity-box">
+            <div class="inv-capacity-text">
+              <span id="inv-capacity-label">0 / 60 Slot Terpakai</span>
+              <span id="inv-free-label" style="color: #34d399;">60 Kosong</span>
+            </div>
+            <div class="inv-capacity-track">
+              <div id="inv-capacity-fill" class="inv-capacity-fill"></div>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: #94a3b8;">
+            Tekan <span class="key-badge">I</span> atau <span class="key-badge">TAB</span> untuk buka/tutup cepat
+          </div>
+        </div>
+
+        <div class="inv-controls-row">
+          <input type="text" id="inv-search-input" class="inv-search-input" placeholder="🔍 Cari nama barang...">
+          <div class="inv-category-pills" id="inv-cat-pills">
+            <button class="inv-cat-pill active" data-cat="all">Semua</button>
+            <button class="inv-cat-pill" data-cat="weapons">Senjata</button>
+            <button class="inv-cat-pill" data-cat="ammunition">Amunisi</button>
+            <button class="inv-cat-pill" data-cat="medical">Medis</button>
+            <button class="inv-cat-pill" data-cat="materials">Material</button>
+            <button class="inv-cat-pill" data-cat="zombie_drops">Hasil Buruan</button>
+            <button class="inv-cat-pill" data-cat="misc">Lainnya</button>
+          </div>
+          <select id="inv-sort-select" class="inv-sort-select">
+            <option value="name_asc">Nama (A-Z)</option>
+            <option value="name_desc">Nama (Z-A)</option>
+            <option value="qty_desc">Jumlah (Banyak)</option>
+            <option value="price_desc">Harga (Tertinggi)</option>
+            <option value="rarity_desc">Kelangkaan (Rarity)</option>
+          </select>
+        </div>
+
+        <div class="inv-main-layout">
+          <div class="inv-grid-container">
+            <div class="inv-grid-60" id="inv-grid-slots"></div>
+          </div>
+          <div class="inv-detail-card" id="inv-detail-panel"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-close-shop" id="btn-footer-close-inv">TUTUP INVENTARIS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Sistem Pasar Terbuka (Marketplace & Selling System) -->
+  <div id="modal-marketplace" class="modal-backdrop hidden">
+    <div class="modal-box modal-xl">
+      <div class="modal-header">
+        <div class="store-header-title">
+          <h3 style="margin: 0; color: #f8fafc; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+            🏪 PASAR DESA & LAPAK TERBUKA
+          </h3>
+          <span style="font-size: 12px; color: #fbbf24;">Jual Beli Bebas, Pasang Dagangan & Pantau Penjualan Real-Time</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div id="market-wallet-badge" style="font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: bold; color: #34d399; background: rgba(34,197,94,0.15); border: 1px solid #22c55e; padding: 4px 12px; border-radius: 6px;">
+            💳 Rp 50.000
+          </div>
+          <button class="btn-close btn-close-shop" id="btn-close-marketplace">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="market-nav-tabs">
+          <button class="market-tab-btn active" data-market-tab="sell">📦 JUAL BARANG (SELL ITEMS)</button>
+          <button class="market-tab-btn" data-market-tab="listings">📋 DAFTAR DAGANGAN SAYA (MY LISTINGS)</button>
+          <button class="market-tab-btn" data-market-tab="sold">✅ BARANG TERJUAL (SOLD ITEMS)</button>
+          <button class="market-tab-btn" data-market-tab="wallet">💰 DOMPET & KAS (WALLET)</button>
+        </div>
+        <div id="market-tab-content"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-close-shop" id="btn-footer-close-market">TUTUP PASAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Sistem Profil & Statistik Survivor (Player Profile) -->
+  <div id="modal-profile" class="modal-backdrop hidden">
+    <div class="modal-box modal-xl">
+      <div class="modal-header">
+        <div class="store-header-title">
+          <h3 style="margin: 0; color: #f8fafc; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+            👤 PROFIL SURVIVOR & PENCAPAIAN
+          </h3>
+          <span style="font-size: 12px; color: #38bdf8;">Statistik Tempur, Riwayat Ekonomi, dan Milestone Bertahan Hidup</span>
+        </div>
+        <button class="btn-close btn-close-shop" id="btn-close-profile">&times;</button>
+      </div>
+      <div class="modal-body" id="profile-content"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-close-shop" id="btn-footer-close-profile">TUTUP PROFIL</button>
       </div>
     </div>
   </div>

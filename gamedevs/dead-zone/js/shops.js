@@ -24,8 +24,21 @@ export class ShopManager {
     this.modalMedbay = document.getElementById('modal-medbay');
     this.modalScrap = document.getElementById('modal-scrap');
     this.modalPlayerShop = document.getElementById('modal-player-shop');
+    this.modalInventory = document.getElementById('modal-inventory');
+    this.modalMarketplace = document.getElementById('modal-marketplace');
+    this.modalProfile = document.getElementById('modal-profile');
     this.activeStoreTab = 'all';
     this.activePlayerShopTab = 'sell'; // 'sell' | 'showcase'
+
+    // Inventory & Marketplace UI State
+    this.selectedInvSlot = null;
+    this.invCategory = 'all';
+    this.invSearchQuery = '';
+    this.invSortBy = 'name_asc';
+    this.activeMarketTab = 'sell'; // 'sell' | 'listings' | 'sold' | 'wallet'
+    this.selectedMarketSellSlot = null;
+    this.marketSellQty = 1;
+    this.marketSellPrice = null;
 
     this.bindEvents();
   }
@@ -489,6 +502,195 @@ export class ShopManager {
             this.ui.updateHUD();
           } else {
             alert(res.message);
+          }
+        }
+      });
+    }
+
+    // --- HUD & MOBILE ACTION BUTTONS ---
+    const btnHudInv = document.getElementById('btn-hud-inventory');
+    const btnMobInv = document.getElementById('btn-mobile-inventory');
+    if (btnHudInv) btnHudInv.addEventListener('click', () => this.toggleInventoryModal());
+    if (btnMobInv) btnMobInv.addEventListener('click', () => this.toggleInventoryModal());
+
+    const btnHudMarket = document.getElementById('btn-hud-marketplace');
+    const btnMobMarket = document.getElementById('btn-mobile-marketplace');
+    if (btnHudMarket) btnHudMarket.addEventListener('click', () => this.toggleMarketplaceModal());
+    if (btnMobMarket) btnMobMarket.addEventListener('click', () => this.toggleMarketplaceModal());
+
+    const btnHudProf = document.getElementById('btn-hud-profile');
+    const btnMobProf = document.getElementById('btn-mobile-profile');
+    if (btnHudProf) btnHudProf.addEventListener('click', () => this.toggleProfileModal());
+    if (btnMobProf) btnMobProf.addEventListener('click', () => this.toggleProfileModal());
+
+    // --- INVENTORY MODAL CONTROLS & EVENTS ---
+    const searchInput = document.getElementById('inv-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.invSearchQuery = e.target.value.trim();
+        this.renderInventoryModal();
+      });
+    }
+
+    const sortSelect = document.getElementById('inv-sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', (e) => {
+        this.invSortBy = e.target.value;
+        this.renderInventoryModal();
+      });
+    }
+
+    const catPills = document.getElementById('inv-cat-pills');
+    if (catPills) {
+      catPills.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-cat]');
+        if (!btn) return;
+        this.invCategory = btn.dataset.cat;
+        catPills.querySelectorAll('.inv-cat-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.renderInventoryModal();
+      });
+    }
+
+    if (this.modalInventory) {
+      this.modalInventory.addEventListener('click', (e) => {
+        const slotEl = e.target.closest('[data-inv-slot]');
+        if (slotEl) {
+          const sIdx = parseInt(slotEl.dataset.invSlot, 10);
+          this.selectedInvSlot = sIdx;
+          this.renderInventoryModal();
+          return;
+        }
+
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        if (target.dataset.action === 'use-inv-item') {
+          const sIdx = parseInt(target.dataset.slot, 10);
+          const res = GameState.useItemFromInventory(sIdx, this.ui ? this.ui.player : null);
+          alert(res.message);
+          if (res.success) {
+            this.renderInventoryModal();
+            if (this.ui) this.ui.updateHUD();
+          }
+        } else if (target.dataset.action === 'sell-to-market-direct') {
+          const sIdx = parseInt(target.dataset.slot, 10);
+          this.selectedMarketSellSlot = sIdx;
+          this.marketSellQty = 1;
+          this.marketSellPrice = null;
+          this.openMarketplaceModal('sell');
+        } else if (target.dataset.action === 'drop-inv-item') {
+          const sIdx = parseInt(target.dataset.slot, 10);
+          if (confirm('Yakin ingin membuang barang ini dari inventaris?')) {
+            GameState.dropItemFromInventory(sIdx, 1);
+            this.selectedInvSlot = null;
+            this.renderInventoryModal();
+          }
+        }
+      });
+    }
+
+    // --- MARKETPLACE MODAL CONTROLS & EVENTS ---
+    if (this.modalMarketplace) {
+      this.modalMarketplace.addEventListener('input', (e) => {
+        if (e.target.id === 'market-qty-input') {
+          this.marketSellQty = Math.max(1, parseInt(e.target.value, 10) || 1);
+          this.updateMarketplaceCalc();
+        } else if (e.target.id === 'market-unit-price-input') {
+          this.marketSellPrice = Math.max(100, parseInt(e.target.value, 10) || 100);
+          this.updateMarketplaceCalc();
+        }
+      });
+
+      this.modalMarketplace.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        // Tab Navigation
+        if (target.dataset.marketTab) {
+          this.activeMarketTab = target.dataset.marketTab;
+          this.renderMarketplaceModal();
+          return;
+        }
+
+        // Select item in sell tab
+        const sellRow = e.target.closest('[data-action="select-market-sell-item"]');
+        if (sellRow) {
+          this.selectedMarketSellSlot = parseInt(sellRow.dataset.slot, 10);
+          this.marketSellQty = 1;
+          this.marketSellPrice = null;
+          this.renderMarketplaceModal();
+          return;
+        }
+
+        // Qty controls
+        if (target.dataset.action === 'qty-minus') {
+          this.marketSellQty = Math.max(1, (this.marketSellQty || 1) - 1);
+          const inp = document.getElementById('market-qty-input');
+          if (inp) inp.value = this.marketSellQty;
+          this.updateMarketplaceCalc();
+        } else if (target.dataset.action === 'qty-plus') {
+          const inv = GameState.inventory || [];
+          const maxQ = (this.selectedMarketSellSlot !== null && inv[this.selectedMarketSellSlot]) ? inv[this.selectedMarketSellSlot].count : 99;
+          this.marketSellQty = Math.min(maxQ, (this.marketSellQty || 1) + 1);
+          const inp = document.getElementById('market-qty-input');
+          if (inp) inp.value = this.marketSellQty;
+          this.updateMarketplaceCalc();
+        } else if (target.dataset.action === 'qty-max') {
+          const inv = GameState.inventory || [];
+          const maxQ = (this.selectedMarketSellSlot !== null && inv[this.selectedMarketSellSlot]) ? inv[this.selectedMarketSellSlot].count : 1;
+          this.marketSellQty = maxQ;
+          const inp = document.getElementById('market-qty-input');
+          if (inp) inp.value = this.marketSellQty;
+          this.updateMarketplaceCalc();
+        }
+        // Submit listing
+        else if (target.dataset.action === 'submit-marketplace-listing') {
+          if (this.selectedMarketSellSlot === null) return;
+          const qty = this.marketSellQty || 1;
+          const price = this.marketSellPrice;
+          const res = GameState.listItemToMarketplace(this.selectedMarketSellSlot, qty, price);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.selectedMarketSellSlot = null;
+            this.marketSellQty = 1;
+            this.marketSellPrice = null;
+            this.activeMarketTab = 'listings';
+            this.renderMarketplaceModal();
+            this.ui.updateHUD();
+          }
+        }
+        // Cancel listing
+        else if (target.dataset.action === 'cancel-listing') {
+          const lid = target.dataset.listingId;
+          const res = GameState.cancelMarketplaceListing(lid);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderMarketplaceModal();
+            this.ui.updateHUD();
+          }
+        }
+        // Claim single listing earnings
+        else if (target.dataset.action === 'claim-listing') {
+          const lid = target.dataset.listingId;
+          const res = GameState.claimListingEarnings(lid);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderMarketplaceModal();
+            this.ui.updateHUD();
+          }
+        }
+        // Claim all earnings
+        else if (target.dataset.action === 'claim-all-earnings') {
+          const res = GameState.claimAllEarnings();
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderMarketplaceModal();
+            this.ui.updateHUD();
           }
         }
       });
@@ -1269,6 +1471,609 @@ export class ShopManager {
     `;
   }
 
+  updateMarketplaceCalc() {
+    const inv = GameState.inventory || [];
+    if (this.selectedMarketSellSlot === null || !inv[this.selectedMarketSellSlot]) return;
+    const slot = inv[this.selectedMarketSellSlot];
+    const unitPrice = (this.marketSellPrice !== null) ? this.marketSellPrice : (slot.item.value || 10000);
+    const qty = Math.max(1, Math.min(this.marketSellQty || 1, slot.count));
+    const totalCalc = document.getElementById('market-total-calc');
+    if (totalCalc) {
+      totalCalc.textContent = GameState.formatRp(unitPrice * qty);
+    }
+  }
+
+  // --- INVENTORY MODAL CONTROLLER ---
+  openInventoryModal() {
+    this.closeAllModals();
+    if (!this.modalInventory) return;
+    this.modalActive = true;
+    this.modalInventory.classList.remove('hidden');
+    if (this.ui && this.ui.player && !this.ui.player.isTouchMode) {
+      if (document.exitPointerLock) document.exitPointerLock();
+    }
+    this.renderInventoryModal();
+  }
+
+  toggleInventoryModal() {
+    if (this.modalInventory && !this.modalInventory.classList.contains('hidden')) {
+      this.closeAllModals();
+    } else {
+      this.openInventoryModal();
+    }
+  }
+
+  renderInventoryModal() {
+    if (!this.modalInventory) return;
+
+    const used = GameState.getInventoryUsedSlots();
+    const cap = GameState.getInventoryCapacity();
+    const free = GameState.getInventoryFreeSlots();
+    const pct = Math.min(100, Math.round((used / cap) * 100));
+
+    const capLabel = document.getElementById('inv-capacity-label');
+    const freeLabel = document.getElementById('inv-free-label');
+    const fillEl = document.getElementById('inv-capacity-fill');
+
+    if (capLabel) capLabel.textContent = `${used} / ${cap} Slot Terpakai`;
+    if (freeLabel) freeLabel.textContent = `${free} Slot Kosong`;
+    if (fillEl) {
+      fillEl.style.width = `${pct}%`;
+      if (pct >= 85) fillEl.classList.add('danger');
+      else fillEl.classList.remove('danger');
+    }
+
+    const filteredItems = GameState.getInventoryItems(this.invCategory, this.invSearchQuery, this.invSortBy);
+
+    const gridEl = document.getElementById('inv-grid-slots');
+    if (gridEl) {
+      let slotsHtml = '';
+      for (let i = 0; i < cap; i++) {
+        const slotData = filteredItems.find(s => s.slotIndex === i);
+        if (slotData && slotData.item) {
+          const itm = slotData.item;
+          const rarity = itm.rarity || 'common';
+          const isSelected = (this.selectedInvSlot === i) ? 'selected' : '';
+          slotsHtml += `
+            <div class="inv-slot rarity-${rarity} ${isSelected}" data-inv-slot="${i}" title="${itm.name} (${slotData.count}x)">
+              <span class="inv-slot-idx">${i + 1}</span>
+              <span class="inv-slot-icon">${itm.icon || '📦'}</span>
+              <span class="inv-slot-count">x${slotData.count}</span>
+            </div>
+          `;
+        } else {
+          const actualSlot = (Array.isArray(GameState.inventory) && i < GameState.inventory.length) ? GameState.inventory[i] : null;
+          if (actualSlot && actualSlot.item) {
+            slotsHtml += `
+              <div class="inv-slot" style="opacity: 0.25;" data-inv-slot="${i}" title="${actualSlot.item.name} (terfilter)">
+                <span class="inv-slot-idx">${i + 1}</span>
+                <span class="inv-slot-icon">${actualSlot.item.icon || '📦'}</span>
+              </div>
+            `;
+          } else {
+            slotsHtml += `
+              <div class="inv-slot empty" data-inv-slot="${i}" title="Slot Kosong">
+                <span class="inv-slot-idx">${i + 1}</span>
+              </div>
+            `;
+          }
+        }
+      }
+      gridEl.innerHTML = slotsHtml;
+    }
+
+    const detailEl = document.getElementById('inv-detail-panel');
+    if (detailEl) {
+      const selectedData = (this.selectedInvSlot !== null && Array.isArray(GameState.inventory) && this.selectedInvSlot < GameState.inventory.length)
+        ? GameState.inventory[this.selectedInvSlot]
+        : null;
+
+      if (!selectedData || !selectedData.item) {
+        detailEl.innerHTML = `
+          <div class="inv-detail-empty">
+            <div style="font-size: 40px; opacity: 0.35;">🎒</div>
+            <div style="font-weight: 600; color: #94a3b8;">Pilih salah satu item di inventaris</div>
+            <div style="font-size: 11px; color: #64748b;">Klik pada slot berisi barang untuk melihat detail spesifikasi, khasiat medis, amunisi, atau menjualnya ke pasar.</div>
+          </div>
+        `;
+      } else {
+        const itm = selectedData.item;
+        const count = selectedData.count;
+        const unitVal = itm.value || 0;
+        const totalVal = unitVal * count;
+        const rarity = itm.rarity || 'common';
+
+        let rarityBadgeColor = '#94a3b8';
+        if (rarity === 'uncommon') rarityBadgeColor = '#22c55e';
+        else if (rarity === 'rare') rarityBadgeColor = '#3b82f6';
+        else if (rarity === 'epic') rarityBadgeColor = '#a855f7';
+        else if (rarity === 'legendary') rarityBadgeColor = '#eab308';
+
+        const isUsable = (itm.category === 'medical' || itm.category === 'ammunition' || itm.category === 'weapons' || itm.id === 'bamboo_trap' || itm.type === 'consumable');
+
+        detailEl.innerHTML = `
+          <div class="inv-detail-icon-wrap">
+            <span>${itm.icon || '📦'}</span>
+          </div>
+          <div class="inv-detail-title">${itm.name}</div>
+          <div class="inv-detail-badges">
+            <span class="inv-badge-pill" style="background: rgba(255,255,255,0.08); color: #cbd5e1;">${(itm.category || 'misc').toUpperCase()}</span>
+            <span class="inv-badge-pill" style="background: ${rarityBadgeColor}22; color: ${rarityBadgeColor}; border: 1px solid ${rarityBadgeColor};">${rarity.toUpperCase()}</span>
+          </div>
+          <div class="inv-detail-desc">${itm.description || 'Barang survival dari ekspedisi hutan Sector-7.'}</div>
+          <div class="inv-detail-stats">
+            <div class="inv-detail-stat-row">
+              <span>Jumlah Dimiliki:</span>
+              <strong>${count} / ${itm.maxStack || 99}</strong>
+            </div>
+            <div class="inv-detail-stat-row">
+              <span>Harga Acuan Pasar:</span>
+              <strong style="color: #34d399;">${GameState.formatRp(unitVal)}</strong>
+            </div>
+            <div class="inv-detail-stat-row">
+              <span>Total Estimasi Nilai:</span>
+              <strong style="color: #38bdf8;">${GameState.formatRp(totalVal)}</strong>
+            </div>
+            ${itm.heal ? `<div class="inv-detail-stat-row"><span>Efek Pemulihan:</span><strong style="color: #22c55e;">+${itm.heal} HP Vitalitas</strong></div>` : ''}
+            ${itm.buffType ? `<div class="inv-detail-stat-row"><span>Efek Khusus:</span><strong style="color: #fbbf24;">${itm.buffType === 'stamina_boost' ? 'Stamina Boost +30%' : 'Kebal Racun Stalker'}</strong></div>` : ''}
+          </div>
+          <div class="inv-detail-actions">
+            ${isUsable ? `<button class="btn-inv-use" data-action="use-inv-item" data-slot="${this.selectedInvSlot}">⚡ GUNAKAN BARANG</button>` : ''}
+            <button class="btn-inv-sell" data-action="sell-to-market-direct" data-slot="${this.selectedInvSlot}">🏪 JUAL KE PASAR DESA</button>
+            <button class="btn-inv-drop" data-action="drop-inv-item" data-slot="${this.selectedInvSlot}">🗑️ BUANG DARI INVENTARIS</button>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // --- MARKETPLACE MODAL CONTROLLER ---
+  openMarketplaceModal(initialTab = 'sell') {
+    this.closeAllModals();
+    if (!this.modalMarketplace) return;
+    this.modalActive = true;
+    this.activeMarketTab = initialTab;
+    this.modalMarketplace.classList.remove('hidden');
+    if (this.ui && this.ui.player && !this.ui.player.isTouchMode) {
+      if (document.exitPointerLock) document.exitPointerLock();
+    }
+    this.renderMarketplaceModal();
+  }
+
+  toggleMarketplaceModal() {
+    if (this.modalMarketplace && !this.modalMarketplace.classList.contains('hidden')) {
+      this.closeAllModals();
+    } else {
+      this.openMarketplaceModal();
+    }
+  }
+
+  renderMarketplaceModal() {
+    if (!this.modalMarketplace) return;
+
+    const walletBadge = document.getElementById('market-wallet-badge');
+    if (walletBadge) {
+      walletBadge.innerHTML = `💳 ${GameState.formatRp(GameState.wallet)}`;
+    }
+
+    document.querySelectorAll('[data-market-tab]').forEach(btn => {
+      if (btn.dataset.marketTab === this.activeMarketTab) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+
+    const contentEl = document.getElementById('market-tab-content');
+    if (!contentEl) return;
+
+    if (this.activeMarketTab === 'sell') {
+      const invItems = Array.isArray(GameState.inventory) ? GameState.inventory : [];
+      let itemsListHtml = '';
+
+      if (invItems.length === 0) {
+        itemsListHtml = '<p style="color: #94a3b8; text-align: center; padding: 30px;">Inventaris Anda kosong. Kumpulkan jarahan dari Sector-7 untuk dijual di pasar!</p>';
+      } else {
+        itemsListHtml = invItems.map((slot, idx) => {
+          const itm = slot.item;
+          const isSelected = (this.selectedMarketSellSlot === idx) ? 'selected' : '';
+          return `
+            <div class="market-sell-row ${isSelected}" data-action="select-market-sell-item" data-slot="${idx}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">${itm.icon || '📦'}</span>
+                <div>
+                  <div style="font-weight: 700; color: #f8fafc; font-size: 14px;">${itm.name}</div>
+                  <div style="font-size: 11px; color: #94a3b8;">Stok di tas: <strong style="color: #f1f5f9;">${slot.count}x</strong> &bull; ${(itm.category || 'misc').toUpperCase()}</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: bold; color: #34d399;">${GameState.formatRp(itm.value || 0)}</div>
+                <span style="font-size: 10px; color: #38bdf8;">Harga Acuan</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      let formHtml = '';
+      if (this.selectedMarketSellSlot !== null && this.selectedMarketSellSlot < invItems.length) {
+        const slot = invItems[this.selectedMarketSellSlot];
+        const itm = slot.item;
+        const maxQty = slot.count;
+        const currentQty = Math.max(1, Math.min(this.marketSellQty || 1, maxQty));
+        this.marketSellQty = currentQty;
+        const basePrice = itm.value || 10000;
+        const unitPrice = (this.marketSellPrice !== null) ? this.marketSellPrice : basePrice;
+        this.marketSellPrice = unitPrice;
+        const totalEst = unitPrice * currentQty;
+
+        formHtml = `
+          <div class="market-form-card">
+            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+              <span style="font-size: 32px;">${itm.icon || '📦'}</span>
+              <div>
+                <div style="font-weight: bold; color: #f8fafc; font-size: 15px;">${itm.name}</div>
+                <div style="font-size: 11px; color: #fbbf24;">Tersedia di Tas: ${maxQty} unit</div>
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size: 12px; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 6px;">Kuantitas yang Dijual:</label>
+              <div class="market-counter-row">
+                <button class="market-qty-btn" data-action="qty-minus">-</button>
+                <input type="number" id="market-qty-input" class="market-qty-input" value="${currentQty}" min="1" max="${maxQty}">
+                <button class="market-qty-btn" data-action="qty-plus">+</button>
+                <button class="btn btn-secondary" data-action="qty-max" style="padding: 6px 12px; font-size: 12px; font-weight: bold;">MAX</button>
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size: 12px; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 6px;">Harga Jual Satuan (Rp):</label>
+              <input type="number" id="market-unit-price-input" class="market-qty-input" style="text-align: left; padding: 0 12px;" value="${unitPrice}" min="100">
+              <span style="font-size: 10px; color: #94a3b8; display: block; margin-top: 4px;">Harga standar acuan: ${GameState.formatRp(basePrice)}</span>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; color: #cbd5e1;">Total Pendapatan:</span>
+              <span style="font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: bold; color: #34d399;" id="market-total-calc">${GameState.formatRp(totalEst)}</span>
+            </div>
+
+            <button class="btn btn-primary" data-action="submit-marketplace-listing" style="font-weight: bold; padding: 10px; margin-top: 4px;">
+              🚀 PASANG DI PASAR DESA
+            </button>
+          </div>
+        `;
+      } else {
+        formHtml = `
+          <div class="market-form-card" style="align-items: center; justify-content: center; min-height: 280px; text-align: center; color: #64748b;">
+            <div style="font-size: 42px; opacity: 0.35;">🏷️</div>
+            <div style="font-weight: 600; color: #94a3b8; margin-top: 8px;">Pilih Barang untuk Dijual</div>
+            <div style="font-size: 11px; margin-top: 4px;">Klik salah satu barang di daftar inventaris sebelah kiri untuk menentukan kuantitas dan harga jual.</div>
+          </div>
+        `;
+      }
+
+      contentEl.innerHTML = `
+        <div class="market-sell-layout">
+          <div>
+            <h4 class="market-section-title">Barang di Ransel yang Siap Dijual</h4>
+            <div class="market-item-selector">${itemsListHtml}</div>
+          </div>
+          <div>
+            <h4 class="market-section-title">Formulir Penjualan Pasar</h4>
+            ${formHtml}
+          </div>
+        </div>
+      `;
+    } else if (this.activeMarketTab === 'listings') {
+      const activeListings = (Array.isArray(GameState.marketplaceListings) ? GameState.marketplaceListings : []).filter(l => l.status === 'LISTED');
+
+      if (activeListings.length === 0) {
+        contentEl.innerHTML = `
+          <div style="text-align: center; padding: 48px 20px; color: #94a3b8;">
+            <div style="font-size: 48px; opacity: 0.35;">📋</div>
+            <h4 style="font-family: 'Cinzel', serif; color: #f8fafc; margin: 12px 0 6px 0;">Tidak Ada Barang yang Sedang Dijual</h4>
+            <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">Pasang barang jarahan dari tab "JUAL BARANG" untuk mulai menghasilkan keuntungan!</p>
+            <button class="btn btn-primary" data-market-tab="sell">Mulai Pasang Barang</button>
+          </div>
+        `;
+      } else {
+        const cardsHtml = activeListings.map(l => {
+          const pct = Math.min(100, Math.round((l.timeElapsed / l.duration) * 100));
+          const secRem = Math.max(0, Math.ceil(l.duration - l.timeElapsed));
+          return `
+            <div class="listing-card listed">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 30px;">${l.item.icon || '📦'}</span>
+                  <div>
+                    <div style="font-weight: 700; color: #f8fafc; font-size: 15px;">${l.item.name}</div>
+                    <div style="font-size: 11px; color: #38bdf8;">Kuantitas: <strong style="color: #ffffff;">${l.quantity} unit</strong></div>
+                  </div>
+                </div>
+                <span class="inv-badge-pill" style="background: rgba(56,189,248,0.18); color: #38bdf8; border: 1px solid #38bdf8;">SEDANG DIJUAL</span>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; font-size: 13px; background: rgba(0,0,0,0.3); padding: 8px 10px; border-radius: 6px;">
+                <span>Harga Satuan: <strong>${GameState.formatRp(l.unitPrice)}</strong></span>
+                <span style="color: #34d399; font-weight: bold;">Total: ${GameState.formatRp(l.totalPrice)}</span>
+              </div>
+
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1; margin-bottom: 4px;">
+                  <span>Minat Pembeli: ${pct}%</span>
+                  <span>Estimasi Transaksi: ~${secRem}s</span>
+                </div>
+                <div class="listing-progress-track">
+                  <div class="listing-progress-fill" style="width: ${pct}%;"></div>
+                </div>
+              </div>
+
+              <button class="btn-inv-drop" data-action="cancel-listing" data-listing-id="${l.id}" style="margin-top: 4px; padding: 6px 10px;">
+                ✖️ Batalkan Penjualan (Kembalikan ke Tas)
+              </button>
+            </div>
+          `;
+        }).join('');
+
+        contentEl.innerHTML = `
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <h4 class="market-section-title" style="margin: 0;">Daftar Barang Dagangan Anda yang Sedang Aktif (${activeListings.length} Barang)</h4>
+            <span style="font-size: 12px; color: #94a3b8;">Item otomatis dibeli secara periodik oleh warga desa</span>
+          </div>
+          <div class="market-listings-grid">${cardsHtml}</div>
+        `;
+      }
+    } else if (this.activeMarketTab === 'sold') {
+      const soldListings = (Array.isArray(GameState.marketplaceListings) ? GameState.marketplaceListings : []).filter(l => l.status === 'SOLD' || l.status === 'CLAIMED');
+
+      if (soldListings.length === 0) {
+        contentEl.innerHTML = `
+          <div style="text-align: center; padding: 48px 20px; color: #94a3b8;">
+            <div style="font-size: 48px; opacity: 0.35;">🏷️</div>
+            <h4 style="font-family: 'Cinzel', serif; color: #f8fafc; margin: 12px 0 6px 0;">Belum Ada Barang yang Terjual</h4>
+            <p style="font-size: 13px; color: #64748b;">Barang yang Anda pasang di pasar akan muncul di sini setelah pembeli membelinya.</p>
+          </div>
+        `;
+      } else {
+        const cardsHtml = soldListings.map(l => {
+          const isClaimed = (l.status === 'CLAIMED');
+          return `
+            <div class="listing-card ${isClaimed ? '' : 'sold'}">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 30px;">${l.item.icon || '📦'}</span>
+                  <div>
+                    <div style="font-weight: 700; color: #f8fafc; font-size: 15px;">${l.item.name}</div>
+                    <div style="font-size: 11px; color: #94a3b8;">Terjual: <strong style="color: #ffffff;">${l.quantity} unit</strong></div>
+                  </div>
+                </div>
+                ${isClaimed
+                  ? `<span class="inv-badge-pill" style="background: rgba(148,163,184,0.18); color: #94a3b8; border: 1px solid #64748b;">✅ SUDAH DIKLAIM</span>`
+                  : `<span class="inv-badge-pill" style="background: rgba(34,197,94,0.22); color: #86efac; border: 1px solid #22c55e;">💰 HASIL SIAP KLAIM</span>`
+                }
+              </div>
+
+              <div style="display: flex; justify-content: space-between; font-size: 14px; background: rgba(0,0,0,0.3); padding: 8px 10px; border-radius: 6px;">
+                <span>Total Hasil Penjualan:</span>
+                <span style="color: #34d399; font-weight: bold; font-family: 'Rajdhani', sans-serif; font-size: 17px;">${GameState.formatRp(l.totalPrice)}</span>
+              </div>
+
+              ${!isClaimed
+                ? `<button class="btn btn-primary" data-action="claim-listing" data-listing-id="${l.id}" style="font-weight: bold; padding: 8px;">
+                    💵 KLAIM PENDAPATAN (${GameState.formatRp(l.totalPrice)})
+                   </button>`
+                : `<div style="font-size: 11px; color: #64748b; text-align: center;">Uang telah masuk ke dompet Anda</div>`
+              }
+            </div>
+          `;
+        }).join('');
+
+        contentEl.innerHTML = `
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <h4 class="market-section-title" style="margin: 0;">Riwayat Barang Terjual (${soldListings.length} Transaksi)</h4>
+          </div>
+          <div class="market-listings-grid">${cardsHtml}</div>
+        `;
+      }
+    } else if (this.activeMarketTab === 'wallet') {
+      const unclaimed = GameState.getUnclaimedEarnings();
+      const totalEarned = GameState.stats.totalMoneyEarned || 0;
+      const history = Array.isArray(GameState.transactionHistory) ? GameState.transactionHistory : [];
+
+      const txRowsHtml = (history.length === 0)
+        ? `<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 20px;">Belum ada catatan riwayat transaksi keuangan.</td></tr>`
+        : history.slice(0, 30).map(tx => {
+            const dateStr = new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const amountColor = tx.amount >= 0 ? '#34d399' : '#ef4444';
+            const sign = tx.amount >= 0 ? '+' : '';
+            return `
+              <tr>
+                <td>${dateStr}</td>
+                <td><strong style="color: #e2e8f0;">${tx.type}</strong></td>
+                <td>${tx.detail || '-'}</td>
+                <td style="font-family: 'Rajdhani', sans-serif; font-weight: bold; color: ${amountColor};">${sign}${GameState.formatRp(Math.abs(tx.amount))}</td>
+                <td><span class="inv-badge-pill" style="background: rgba(34,197,94,0.15); color: #86efac;">${tx.status || 'BERHASIL'}</span></td>
+              </tr>
+            `;
+          }).join('');
+
+      contentEl.innerHTML = `
+        <div class="wallet-cards-grid">
+          <div class="wallet-metric-card">
+            <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">💳 SALDO DOMPET AKTIF</span>
+            <div class="wallet-metric-val">${GameState.formatRp(GameState.wallet)}</div>
+            <span style="font-size: 11px; color: #64748b;">Dapat dibelanjakan di toko serba ada & upgrade rumah</span>
+          </div>
+          <div class="wallet-metric-card" style="border-color: rgba(34,197,94,0.4);">
+            <span style="font-size: 12px; color: #86efac; font-weight: 600;">💰 PENDAPATAN BELUM DIKLAIM</span>
+            <div class="wallet-metric-val green">${GameState.formatRp(unclaimed)}</div>
+            <span style="font-size: 11px; color: #64748b;">Dari hasil penjualan barang di pasar desa</span>
+          </div>
+          <div class="wallet-metric-card">
+            <span style="font-size: 12px; color: #fbbf24; font-weight: 600;">📈 TOTAL AKUMULASI PENDAPATAN</span>
+            <div class="wallet-metric-val amber">${GameState.formatRp(totalEarned)}</div>
+            <span style="font-size: 11px; color: #64748b;">Total omset penjualan sepanjang permainan</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
+          <button class="btn btn-primary" data-action="claim-all-earnings" ${unclaimed <= 0 ? 'disabled style="opacity: 0.5;"' : ''} style="font-weight: bold; font-size: 14px; padding: 10px 20px;">
+            💰 KLAIM SEMUA HASIL (CLAIM ALL ${GameState.formatRp(unclaimed)})
+          </button>
+        </div>
+
+        <div>
+          <h4 class="market-section-title">Riwayat Catatan Transaksi Keuangan</h4>
+          <div style="max-height: 240px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+            <table class="tx-history-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Jenis Transaksi</th>
+                  <th>Deskripsi Barang</th>
+                  <th>Nominal Rupiah</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${txRowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // --- PROFILE MODAL CONTROLLER ---
+  openProfileModal() {
+    this.closeAllModals();
+    if (!this.modalProfile) return;
+    this.modalActive = true;
+    this.modalProfile.classList.remove('hidden');
+    if (this.ui && this.ui.player && !this.ui.player.isTouchMode) {
+      if (document.exitPointerLock) document.exitPointerLock();
+    }
+    this.renderProfileModal();
+  }
+
+  toggleProfileModal() {
+    if (this.modalProfile && !this.modalProfile.classList.contains('hidden')) {
+      this.closeAllModals();
+    } else {
+      this.openProfileModal();
+    }
+  }
+
+  renderProfileModal() {
+    const container = document.getElementById('profile-content');
+    if (!container) return;
+
+    const lvlData = GameState.getPlayerLevel();
+    const stats = GameState.stats || {};
+    const zStats = GameState.zombieStats || {};
+    const profile = GameState.playerProfile || { name: 'Survivor #07', avatar: '🪖' };
+
+    const achs = GameState.achievements || {};
+    const achCardsHtml = Object.values(achs).map(a => {
+      const isUnlocked = a.unlocked;
+      let currentVal = 0;
+      if (a.id === 'first_blood' || a.id === 'zombie_hunter' || a.id === 'zombie_slayer') currentVal = zStats.total || 0;
+      else if (a.id === 'headshot_master') currentVal = zStats.headshots || 0;
+      else if (a.id === 'titan_slayer') currentVal = zStats.boss || 0;
+      else if (a.id === 'survivor') currentVal = zStats.wavesSurvived || 0;
+      else if (a.id === 'merchant') currentVal = stats.totalItemsSold || 0;
+      else if (a.id === 'rich_survivor') currentVal = stats.totalMoneyEarned || 0;
+      else if (a.id === 'collector') currentVal = stats.totalItemsCollected || 0;
+      else if (a.id === 'medicine_man') currentVal = stats.totalHealthRestored || 0;
+
+      const pct = Math.min(100, Math.round((currentVal / a.target) * 100));
+
+      return `
+        <div class="achievement-card ${isUnlocked ? 'unlocked' : ''}">
+          <div class="achievement-icon">${a.icon}</div>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 700; color: ${isUnlocked ? '#fbbf24' : '#f8fafc'}; font-size: 13px;">${a.title}</span>
+              <span style="font-size: 10px; font-weight: bold; color: ${isUnlocked ? '#34d399' : '#94a3b8'};">
+                ${isUnlocked ? 'TERCAPAI ✅' : `${currentVal} / ${a.target}`}
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin: 2px 0 4px 0;">${a.desc}</div>
+            <div class="achievement-progress-track">
+              <div class="achievement-progress-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="profile-hero">
+        <div class="profile-avatar-box">${profile.avatar || '🪖'}</div>
+        <div style="flex: 1;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h3 style="margin: 0; font-family: 'Cinzel', serif; color: #f8fafc; font-size: 20px;">${profile.name}</h3>
+              <span style="font-size: 12px; color: #94a3b8;">Status: Korps Survivor Hutan Sector-7</span>
+            </div>
+            <span class="inv-badge-pill" style="background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 12px; padding: 4px 10px;">
+              LEVEL ${lvlData.level} &bull; ${lvlData.title}
+            </span>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #cbd5e1;">
+              <span>Progress XP Level Berikutnya:</span>
+              <span><strong>${lvlData.xpInLevel}</strong> / ${lvlData.xpNeededForNext} XP (${lvlData.progressPercent}%)</span>
+            </div>
+            <div class="profile-xp-track">
+              <div class="profile-xp-fill" style="width: ${lvlData.progressPercent}%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-sections-grid">
+        <div class="profile-stat-box">
+          <h4 class="profile-stat-title">⚔️ Eliminasi Zombi Mutan</h4>
+          <div class="stat-metric-row"><span>Total Zombi Dibasmi:</span><span>${zStats.total || 0}</span></div>
+          <div class="stat-metric-row"><span>Normal (Walker):</span><span>${zStats.walker || 0}</span></div>
+          <div class="stat-metric-row"><span>Fast (Runner):</span><span>${zStats.runner || 0}</span></div>
+          <div class="stat-metric-row"><span>Tank (Brute):</span><span>${zStats.tank || 0}</span></div>
+          <div class="stat-metric-row"><span>Toxic Stalker:</span><span>${zStats.stalker || 0}</span></div>
+          <div class="stat-metric-row"><span>Colossal Titan Boss:</span><span style="color: #fbbf24;">${zStats.boss || 0}</span></div>
+          <div class="stat-metric-row"><span>Tembakan Headshot:</span><span style="color: #ef4444;">${zStats.headshots || 0}</span></div>
+          <div class="stat-metric-row"><span>Kill Streak Tertinggi:</span><span style="color: #38bdf8;">${zStats.highestKillStreak || 0}</span></div>
+        </div>
+
+        <div class="profile-stat-box">
+          <h4 class="profile-stat-title">💰 Statistik Ekonomi & Pasar</h4>
+          <div class="stat-metric-row"><span>Saldo Dompet:</span><span style="color: #34d399;">${GameState.formatRp(GameState.wallet)}</span></div>
+          <div class="stat-metric-row"><span>Total Pendapatan:</span><span>${GameState.formatRp(stats.totalMoneyEarned || 0)}</span></div>
+          <div class="stat-metric-row"><span>Total Pengeluaran:</span><span>${GameState.formatRp(stats.totalMoneySpent || 0)}</span></div>
+          <div class="stat-metric-row"><span>Transaksi Penjualan:</span><span>${stats.totalSalesCount || 0}x</span></div>
+          <div class="stat-metric-row"><span>Total Item Terjual:</span><span>${stats.totalItemsSold || 0} unit</span></div>
+          <div class="stat-metric-row"><span>Hasil Diklaim:</span><span style="color: #38bdf8;">${GameState.formatRp(stats.totalClaimedEarnings || 0)}</span></div>
+          <div class="stat-metric-row"><span>Hasil Tertunda:</span><span style="color: #fbbf24;">${GameState.formatRp(GameState.getUnclaimedEarnings())}</span></div>
+        </div>
+
+        <div class="profile-stat-box">
+          <h4 class="profile-stat-title">🛡️ Catatan Ketahanan Hidup</h4>
+          <div class="stat-metric-row"><span>Total Waktu Bermain:</span><span>${GameState.formatTime(stats.totalPlaytimeSec || 0)}</span></div>
+          <div class="stat-metric-row"><span>Jumlah Kematian:</span><span>${stats.totalDeaths || 0}</span></div>
+          <div class="stat-metric-row"><span>Survival Terlama:</span><span>${GameState.formatTime(stats.longestSurvivalSec || 0)}</span></div>
+          <div class="stat-metric-row"><span>Gelombang Bertahan:</span><span>${zStats.wavesSurvived || 0} Waves</span></div>
+          <div class="stat-metric-row"><span>Vitalitas Dipulihkan:</span><span style="color: #22c55e;">+${stats.totalHealthRestored || 0} HP</span></div>
+          <div class="stat-metric-row"><span>Peluru Ditembakkan:</span><span>${stats.totalShotsFired || 0}</span></div>
+          <div class="stat-metric-row"><span>Amunisi Diambil:</span><span>${stats.totalAmmoCollected || 0}</span></div>
+          <div class="stat-metric-row"><span>Jarahan Dikumpulkan:</span><span>${stats.totalItemsCollected || 0} Item</span></div>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="profile-stat-title" style="margin-bottom: 10px;">🏆 Pencapaian & Rekor Survivor (10 Milestones)</h4>
+        <div class="achievements-grid">${achCardsHtml}</div>
+      </div>
+    `;
+  }
+
   closeAllModals() {
     if (this.modalSafehouse) this.modalSafehouse.classList.add('hidden');
     if (this.modalGeneralStore) this.modalGeneralStore.classList.add('hidden');
@@ -1278,6 +2083,9 @@ export class ShopManager {
     if (this.modalMedbay) this.modalMedbay.classList.add('hidden');
     if (this.modalScrap) this.modalScrap.classList.add('hidden');
     if (this.modalPlayerShop) this.modalPlayerShop.classList.add('hidden');
+    if (this.modalInventory) this.modalInventory.classList.add('hidden');
+    if (this.modalMarketplace) this.modalMarketplace.classList.add('hidden');
+    if (this.modalProfile) this.modalProfile.classList.add('hidden');
     this.modalActive = false;
     if (this.ui && this.ui.player && !this.ui.player.isTouchMode) {
       this.ui.player.requestPointerLock();

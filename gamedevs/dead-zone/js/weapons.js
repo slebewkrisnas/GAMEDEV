@@ -603,6 +603,7 @@ export class WeaponManager {
 
     this.fireCooldown = cfg.fireRate;
     this.totalShots++;
+    GameState.recordShotsFired(1);
 
     // Play blade whoosh sound
     sound.playMacheteSwing();
@@ -640,9 +641,11 @@ export class WeaponManager {
         if (zombie && zombie.isAlive) {
           const dmg = isHead ? cfg.headshotDamage : cfg.bodyDamage;
           this.totalHits++;
+          GameState.recordDamageDealt(dmg);
           sound.playMacheteHit();
           if (isHead) {
             this.totalHeadshots++;
+            GameState.recordHeadshot();
             sound.playHeadshot();
             if (this.uiManager) {
               this.uiManager.showHitMarker(true);
@@ -688,6 +691,8 @@ export class WeaponManager {
     this.weaponData[this.currentWeaponId].ammoInMag = this.ammoInMag;
     this.totalShots++;
     this.fireCooldown = this.fireRate;
+    GameState.recordShotsFired(1);
+    GameState.recordAmmoUsed(1);
 
     // Play gunshot sound according to weapon
     if (cfg.sound === 'shotgun') {
@@ -764,8 +769,10 @@ export class WeaponManager {
         const damage = isHead ? headDmg : bodyDmg;
 
         this.totalHits++;
+        GameState.recordDamageDealt(damage);
         if (isHead) {
           this.totalHeadshots++;
+          GameState.recordHeadshot();
           sound.playHeadshot();
           this.uiManager.showHitMarker(true);
           this.uiManager.showAnnouncement("CRITICAL HEADSHOT!", `+${damage} DAMAGE`, 1.0);
