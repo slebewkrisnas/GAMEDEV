@@ -232,6 +232,10 @@ class StateManager {
     this.ownedWeapons = ['pulse_pistol', 'machete'];
     this.currentWeaponIndex = 0;
 
+    // Lapak Dagang Pribadi Pemain (Player Market Stall & Showcase)
+    this.playerShopStall = [null, null, null, null]; // 4 slot etalase toko
+    this.playerShopRegister = 0; // Kasir uang hasil penjualan NPC pembeli
+
     // Status Buff Ramuan Tradisional Aktif (dalam detik)
     this.activeBuffs = {
       staminaBoostTimer: 0, // Jamu Beras Kencur: 2x Stamina Regen
@@ -529,6 +533,129 @@ class StateManager {
   }
 
   // =========================================================================
+  // LAPAK DAGANG PRIBADI PEMAIN (PLAYER MARKET STALL & NPC SALES)
+  // =========================================================================
+  sellItemFromBackpack(backpackIndex) {
+    if (backpackIndex < 0 || backpackIndex >= this.backpack.length) {
+      return { success: false, message: 'Barang tidak ditemukan di ransel.' };
+    }
+    const item = this.backpack.splice(backpackIndex, 1)[0];
+    const price = item.value || 10000;
+    this.wallet += price;
+    this.saveToStorage();
+    return { success: true, earnedRp: price, itemName: item.name, icon: item.icon };
+  }
+
+  sellAllScrap() {
+    const scrapIds = ['scrap_metal', 'power_converter', 'bio_tissue', 'xenon_core', 'titan_core'];
+    const kept = [];
+    let soldCount = 0;
+    let totalEarned = 0;
+
+    for (const itm of this.backpack) {
+      if (scrapIds.includes(itm.id)) {
+        soldCount++;
+        totalEarned += (itm.value || 0);
+      } else {
+        kept.push(itm);
+      }
+    }
+
+    if (soldCount === 0) {
+      return { success: false, message: 'Tidak ada material jarahan/rongsokan di ransel untuk dijual.' };
+    }
+
+    this.backpack = kept;
+    this.wallet += totalEarned;
+    this.saveToStorage();
+    return { success: true, count: soldCount, totalEarned };
+  }
+
+  stockItemToStall(backpackIndex, targetSlot = -1) {
+    if (!Array.isArray(this.playerShopStall)) this.playerShopStall = [null, null, null, null];
+    if (backpackIndex < 0 || backpackIndex >= this.backpack.length) {
+      return { success: false, message: 'Barang tidak ditemukan di ransel.' };
+    }
+
+    let slot = targetSlot;
+    if (slot < 0 || slot >= 4 || this.playerShopStall[slot] !== null) {
+      slot = this.playerShopStall.findIndex(s => s === null);
+    }
+
+    if (slot === -1) {
+      return { success: false, message: 'Seluruh 4 etalase lapak sudah penuh!' };
+    }
+
+    const item = this.backpack.splice(backpackIndex, 1)[0];
+    this.playerShopStall[slot] = item;
+    this.saveToStorage();
+    return { success: true, slot, item, message: `Berhasil memajang ${item.name} di etalase lapak!` };
+  }
+
+  unstockItemFromStall(slotIndex) {
+    if (!Array.isArray(this.playerShopStall)) this.playerShopStall = [null, null, null, null];
+    if (slotIndex < 0 || slotIndex >= 4 || !this.playerShopStall[slotIndex]) {
+      return { success: false, message: 'Etalase kosong.' };
+    }
+    if (this.backpack.length >= this.backpackMaxSlots) {
+      return { success: false, message: 'Ransel Anda sudah penuh!' };
+    }
+    const item = this.playerShopStall[slotIndex];
+    this.playerShopStall[slotIndex] = null;
+    this.backpack.push(item);
+    this.saveToStorage();
+    return { success: true, item, message: `Mengambil ${item.name} dari etalase kembali ke ransel.` };
+  }
+
+  collectRegisterCash() {
+    const amount = this.playerShopRegister || 0;
+    if (amount <= 0) {
+      return { success: false, message: 'Kotak kasir lapak masih kosong.' };
+    }
+    this.wallet += amount;
+    this.playerShopRegister = 0;
+    this.saveToStorage();
+    return { success: true, collected: amount, message: `Berhasil mengambil ${this.formatRp(amount)} dari kasir toko!` };
+  }
+
+  npcPurchaseFromStall(buyerName = 'Warga Desa') {
+    if (!Array.isArray(this.playerShopStall)) this.playerShopStall = [null, null, null, null];
+    const filledIndices = [];
+    this.playerShopStall.forEach((item, idx) => {
+      if (item !== null) filledIndices.push(idx);
+    });
+
+    if (filledIndices.length > 0) {
+      const chosenIdx = filledIndices[Math.floor(Math.random() * filledIndices.length)];
+      const item = this.playerShopStall[chosenIdx];
+      // Harga jual di etalase mendapat margin laba +25%
+      const price = Math.round((item.value || 15000) * 1.25);
+      this.playerShopStall[chosenIdx] = null;
+      this.playerShopRegister = (this.playerShopRegister || 0) + price;
+      this.saveToStorage();
+      return {
+        type: 'item',
+        itemName: item.name,
+        icon: item.icon,
+        price,
+        buyerName
+      };
+    } else {
+      // Jika etalase kosong, NPC berbelanja perbekalan suvenir desa
+      const tipAmount = 2500 + Math.floor(Math.random() * 2500); // Rp 2.500 - Rp 5.000
+      this.playerShopRegister = (this.playerShopRegister || 0) + tipAmount;
+      this.saveToStorage();
+      return {
+        type: 'tip',
+        itemName: 'Perbekalan Pedesaan',
+        icon: '🧺',
+        price: tipAmount,
+        buyerName
+      };
+    }
+  }
+
+  // =========================================================================
   // MEJA PERAKIT AMUNISI & JAMU (WORKBENCH CRAFTING) — MULAI DARI RUMAH LV 2
   // =========================================================================
   craftRecipe(recipeId) {
@@ -646,7 +773,9 @@ class StateManager {
         backpackMaxSlots: this.backpackMaxSlots,
         houseLevel: this.houseLevel,
         stashMaxSlots: this.stashMaxSlots,
-        ownedWeapons: this.ownedWeapons
+        ownedWeapons: this.ownedWeapons,
+        playerShopStall: this.playerShopStall,
+        playerShopRegister: this.playerShopRegister
       };
       localStorage.setItem('SCIFI_SURVIVAL_STATE', JSON.stringify(data));
     } catch (e) {
@@ -680,6 +809,8 @@ class StateManager {
         if (data.houseLevel) this.houseLevel = data.houseLevel;
         if (data.stashMaxSlots) this.stashMaxSlots = data.stashMaxSlots;
         if (Array.isArray(data.ownedWeapons)) this.ownedWeapons = data.ownedWeapons;
+        if (Array.isArray(data.playerShopStall)) this.playerShopStall = data.playerShopStall;
+        if (typeof data.playerShopRegister === 'number') this.playerShopRegister = data.playerShopRegister;
       }
     } catch (e) {
       console.warn('Gagal memuat state dari localStorage:', e);

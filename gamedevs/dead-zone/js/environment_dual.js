@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { VillageArchitect } from './village_architect.js';
+import { VillageNPCManager } from './village_npc.js';
 
 export class EnvironmentDual {
   constructor(scene) {
@@ -298,6 +299,9 @@ export class EnvironmentDual {
 
     // 4. Bangun Seluruh Bangunan & Alun-Alun Sesuai 6 Gambar Referensi
     this.villageArchitect = VillageArchitect.build(this);
+
+    // 4b. Sistem NPC Warga Pembeli yang Berbelanja di Lapak Dagang Pemain
+    this.villageNPCManager = new VillageNPCManager(this.safeZoneGroup);
 
     // 5. Nuansa Malam Pedesaan: Cahaya Bulan Sejuk & Lentera Hangat
     const amb = new THREE.AmbientLight(0x1a263d, 0.9);
@@ -1261,6 +1265,11 @@ export class EnvironmentDual {
   }
 
   update(delta) {
+    // Perbarui NPC Warga Pembeli di Safe Zone
+    if (this.villageNPCManager && this.activeZone === 'safe_zone') {
+      this.villageNPCManager.update(delta);
+    }
+
     // Animate crystals, dome, vortex, extraction beam, and burning barrels
     const time = performance.now() * 0.001;
     for (const anim of this.animatedObjects) {

@@ -93,7 +93,7 @@ Area permukiman aman berukuran radius 45 meter (-45 s/d +45 koordinat X/Z).
   * Starfield Langit Malam: 450 partikel bintang bercahaya di atas cakrawala.
   * Pencahayaan Lentera Amber: Lentera teras rumah (0xf59e0b), lentera toko
     (0xfbbf24), lentera sumur desa, dan 4 tiang lampu jalan batu.
-- Struktur Bangunan Utama (2 Bangunan Resmi Beraset GLB Ringan):
+- Struktur Bangunan Utama (3 Bangunan Resmi di Desa Asri):
   1. Rumah Pribadi Pemain (Player Safehouse):
      - Model 3D: House+Model+004.glb (Dikompresi ke 1.96 MB, posisi X=0, Z=-18).
      - Beranda Depan:
@@ -108,6 +108,18 @@ Area permukiman aman berukuran radius 45 meter (-45 s/d +45 koordinat X/Z).
          dan beli senjata (Shotgun & Rifle).
        * Tabib Desa (Medbay): Beli jamu herbal (+40 HP), pemulihan darah penuh.
        * Pengepul Jarahan (Scrap Merchant): Jual seluruh hasil jarahan ekspedisi.
+  3. Lapak Dagang Pribadi Pemain (Player Market Stall & Showcase):
+     - Model 3D: `asset dead-zone/tempat jualan/shop.fbx` & tekstur web-compatible di
+       `shop+texture/` (Dikonversi dari TIFF ke format web JPG, posisi X=18, Z=0).
+     - Menghadap ke barat ke arah alun-alun desa, berseberangan dengan Toko Serba Ada.
+     - Fasilitas & Interaksi:
+       * Box Collider solid (panjang 10.4m x lebar 11m x tinggi 6m) memblokir dinding kios.
+       * Lentera amber hangat (0xffb74d) dengan tiang lampu besi di depan teras kios.
+       * Titik Interaksi Meja Kios (X=13.8, Z=0) [E]: Membuka UI Lapak Dagang Pribadi
+         untuk menjual apa saja ("Bisa jual apa saja") dari ransel pemain, memajang 4 barang
+         di Etalase Dagang dengan margin laba +25%, dan menarik saldo kotak kasir toko.
+       * Dikunjungi secara rutin oleh 3 NPC Warga Desa yang berjalan bolak-balik untuk
+         berbelanja dan meninggalkan uang di kasir pemain.
 - Fasilitas Alun-Alun Tengah Desa (Village Square):
   * Pohon Rindang Kuno raksasa di tengah alun-alun dengan dedaunan bertekstur.
   * Papan Kontrak Buruan Desa (Bounty Board) di posisi (9, 0, 3) [E]: Misi harian
@@ -359,6 +371,32 @@ Untuk mencegah hutan terasa sepi di peta seluas 230m x 230m dengan batas 8 zombi
 - Efek Pemicuan: Ketika zombi melangkah dalam radius 1.4 meter, ranjau patah menjepret,
   menimbulkan 50 Kerusakan instan dan efek melambat (Slow 50%) selama 5.0 detik.
 
+6.4 Sistem NPC Warga Desa Asri & Pelanggan Lapak (Village Customers AI Engine)
+Dikelola oleh `VillageNPCManager` dan `VillageNPC` di `village_npc.js`:
+- Roster 3 Karakter Warga Desa Unik:
+  1. Mang Ujang (Pemburu Rimba): Pakaian hijau lumut hutan (0x4a5d4e), celana cokelat, caping jerami.
+  2. Bu Siti (Kolektor Pedesaan): Busana merah marun batik (0x9b2226), selendang, pembeli antusias.
+  3. Kang Dimas (Prajurit Patroli): Seragam taktis abu-abu (0x334155), baret militer, pembeli disiplin.
+- Artikulasi Humanoid 3D Prosedural:
+  * Dibangun secara prosedural dengan Three.js primitives (badan, kepala, topi caping, lengan, kaki).
+  * Sistem locomotion: Ayunan kaki dan lengan berlawanan arah (`Math.sin(walkCycle)`), rotasi Y halus
+    menuju arah waypoint, serta bobbing vertikal alami saat melangkah (60 FPS hemat draw-call).
+- State Machine AI Pelanggan:
+  * `IDLE`: Berdiam di sekitar rumah warga (jeda 12 - 27 detik).
+  * `WALKING_TO_STALL`: Memilih jalur waypoint melintasi alun-alun desa menuju meja kios pemain (X=13.8, Z=0).
+  * `BROWSING`: Tiba di depan meja kios, menatap etalase (animasi menggelengkan kepala), dan
+    memunculkan Balon Dialog 3D interaktif.
+  * `BUYING`: Menjelang akhir sesi belanja (durasi 5.5 - 8.0 detik), NPC mengeksekusi pembelian:
+    - Jika ada barang di etalase: Membeli secara acak dengan margin keuntungan +25%, mengosongkan slot,
+      dan menyetor uang ke kotak kasir lapak.
+    - Jika etalase kosong: Membeli cinderamata suvenir desa dan memberikan tip Rp 2.500 - Rp 5.000 ke kasir.
+    - Efek Suara: Memicu denting koin emas Web Audio API (`sound.playCoinSound()`).
+  * `WALKING_AWAY`: Berpamitan via dialog hijau sukses dan berjalan kembali ke permukiman desa.
+- Balon Dialog Dinamis 3D (`THREE.Sprite` Canvas Texture):
+  * Menggunakan canvas 512x140 ter-render real-time dengan sudut membulat, bayangan, nama & ikon avatar NPC,
+    serta teks kutipan dialog tematik pedesaan taktis.
+  * Otomatis memudar keluar (fade out) setelah 3.8 detik.
+
 ================================================================================
 7. SISTEM GELOMBANG & SURVIVAL (WAVE & BOSS ENCOUNTER ENGINE)
 ================================================================================
@@ -436,6 +474,33 @@ Terletak di Alun-Alun Desa Asri (posisi X=9, Z=3). Pemain dapat mengambil 5 vari
 - Kontrak 5: Penjarah Kargo Pondok    (Buka 3 Peti Kargo Terbengkalai)     $\rightarrow$ Hadiah Rp 80.000
 Sistem otomatis melacak jenis senjata aktif yang digunakan saat eliminasi musuh.
 
+8.5 Sistem Lapak Dagang Pribadi Pemain & Kasir Etalase (Player Market Stall & Showcase Trading)
+Dikelola oleh `GameState` (gameState.js) dan `ShopManager` (shops.js) via modal `#modal-player-shop`:
+- Lokasi & Akses:
+  * Terletak di Kios FBX 3D asli (`shop.fbx`) di sisi timur alun-alun Desa Asri (X=18, Z=0).
+  * Tekan tombol interaksi [E] di depan meja counter (X=13.8, Z=0) untuk membuka antarmuka lapak.
+- Tab 1: "Jual Cepat Ransel" ("Bisa Jual Apa Saja"):
+  * Menampilkan seluruh isi ransel pemain saat ini (material, kargo, permata, inti titan, jamu herbal, peluru).
+  * Tombol "Jual 1": Menjual item tunggal dari slot ransel yang dipilih langsung ke pedagang desa
+    dengan nilai Rupiah penuh sesuai harga pasar.
+  * Tombol "Jual Semua Jarahan": Menjual instan seluruh kategori material jarahan/rongsokan sekaligus
+    (`scrap_metal`, `power_converter`, `bio_tissue`, `xenon_core`, `titan_core`) dalam satu klik.
+- Tab 2: "Etalase Toko Pribadi" (4 Slot Pajangan dengan Keuntungan +25%):
+  * Pemain memiliki 4 slot etalase (`playerShopStall = [null, null, null, null]`) untuk memajang barang
+    favorit dari ranselnya.
+  * Bonus Margin Keuntungan (+25% Markup): Barang yang ditaruh di etalase toko akan dibeli oleh NPC Warga
+    Desa Asri dengan harga 1.25x lipat lebih mahal daripada harga jual biasa (contoh: Permata Hutan Rp 80.000
+    terjual seharga Rp 100.000)!
+  * Tombol "Ambil ke Ransel": Pemain sewaktu-waktu dapat membatalkan pajangan dan mengembalikan barang ke ransel.
+- Sistem Kotak Kasir Lapak (`playerShopRegister`):
+  * Uang hasil penjualan barang etalase otomatis disetorkan oleh NPC pembeli ke dalam kotak kasir lapak.
+  * Jika etalase sedang kosong, NPC yang datang tetap berbelanja cinderamata suvenir desa dan memberikan
+    tip belanja sebesar Rp 2.500 - Rp 5.000 ke kasir.
+  * Tombol "Tarik Saldo Kasir": Mencairkan seluruh tabungan uang di kotak kasir toko langsung ke saldo
+    dompet Rupiah utama pemain.
+  * Persistensi Penyimpanan: Seluruh slot etalase dan saldo uang di kasir disimpan permanen di LocalStorage
+    browser (`SCIFI_SURVIVAL_STATE`).
+
 ===============================================================================
 9. SISTEM AUDIO PROSEDURAL (SYNTHETIC WEB AUDIO ENGINE)
 ===============================================================================
@@ -477,17 +542,18 @@ gamedevs/dead-zone/
 │   └── style.css           -> Styling Pedesaan Taktis, font Cinzel/Rajdhani/Inter, kantong aman
 ├── js/
 │   ├── main.js             -> Main Orchestrator, Zone Switcher, Dynamic Beacon Proximity, Game Loop
-│   ├── gameState.js        -> Central State, Dompet, Stash, Kantong Aman, Kontrak Buruan, Crafting
-│   ├── environment_dual.js -> Dual-Zone Manager, 4 Situs Pondok, Randomize Extraction Beacon
-│   ├── village_architect.js-> Arsitektur 3D Desa, Rumah 3D, Toko 3D, Meja Perakit, Papan Kontrak
+│   ├── gameState.js        -> Central State, Dompet, Stash, Kantong Aman, Lapak Dagang, Etalase, Kasir
+│   ├── environment_dual.js -> Dual-Zone Manager, 4 Situs Pondok, VillageNPCManager, Dynamic Beacon
+│   ├── village_architect.js-> Arsitektur 3D Desa, Rumah 3D, Toko 3D, Lapak FBX, Meja Perakit, Papan Kontrak
+│   ├── village_npc.js      -> Sistem NPC Warga Pembeli (Mang Ujang, Bu Siti, Kang Dimas), Balon Dialog 3D
 │   ├── player.js           -> FPS Controller, Jalan 4.2m/s, Sprint 7.8m/s, Stamina 5s System
 │   ├── weapons.js          -> Arsenal Senjata, Kaliber Terpisah, Resupply 1 Kotak Terbatas
 │   ├── zombies.js          -> AI Zombi, Jangkauan Serang Boss 3.8m, Roar Summon, Toxic PoisonCloud
 │   ├── zombieAssets.js     -> Loader FBX Zombi, Material PBR, Skeletal Animations
 │   ├── waves.js            -> Generator Gelombang, Inti Titan Boss Drop Fisik, Bounty Kill Tracker
 │   ├── loot.js             -> Drop 3D Berputar, Proximity Pickup, Peti Pondok, Specific Drops
-│   ├── shops.js            -> Modal Toko Terpadu, Modal Meja Perakit, Modal Kontrak Buruan
-│   ├── audio.js            -> Web Audio API Synthesizer murni, Efek Tegukan Jamu Herbal
+│   ├── shops.js            -> Modal Toko Terpadu, Modal Lapak Pribadi Pemain, Meja Perakit, Kontrak Buruan
+│   ├── audio.js            -> Web Audio API Synthesizer murni, Efek Tegukan Jamu Herbal, Denting Koin Emas
 │   ├── ui.js               -> Render HUD, Bar Darah, Bar Stamina, Hitmarker, Quick Select Hotbar
 │   ├── touchControls.js    -> Virtual Joystick & Tombol Aksi Sentuh Mode HP
 │   ├── tests/              -> Automated Unit & Integration Tests:
@@ -496,13 +562,17 @@ gamedevs/dead-zone/
 │   │   ├── integration.test.js    -> Verifikasi siklus ekspedisi dan ekonomi
 │   │   ├── terrain_combat.test.js -> Verifikasi terrain elevation, tembakan, dan boss
 │   │   ├── new_mechanics_v2.test.js-> Verifikasi komprehensif 10 fitur v2
-│   │   └── v3_tactical_mechanics.test.js-> Verifikasi komprehensif 10 fitur v3 (Golok, aggro, holdout, buffs, jebakan)
+│   │   ├── v3_tactical_mechanics.test.js-> Verifikasi komprehensif 10 fitur v3 (Golok, aggro, holdout, buffs, jebakan)
+│   │   └── player_shop_npc.test.js -> Verifikasi sistem Lapak Dagang FBX, Etalase, Kasir & NPC Pembeli
 │   └── libs/               -> Three.js library modules (GLTFLoader, FBXLoader, SkeletonUtils)
 └── asset dead-zone/
     ├── house/
     │   └── House+Model+004.glb (1.96 MB — Dikompresi 94.7% dari 37.25 MB)
-    └── shop/
-        └── pan_shop.glb        (1.99 MB — Dikompresi 80.2% dari 10.03 MB)
+    ├── shop/
+    │   └── pan_shop.glb        (1.99 MB — Dikompresi 80.2% dari 10.03 MB)
+    └── tempat jualan/
+        ├── shop.fbx            (149 KB — Model 3D Lapak Kios Dagang Pribadi Pemain)
+        └── shop+texture/       (8 Tekstur Lapak Kios format web JPG)
 
 ================================================================================
 11. SISTEM LOADING & GPU PRE-RENDER PIPELINE (PERFORMANCE & RENDERING)
@@ -539,8 +609,9 @@ Per 10 November 2026, status implementasi aktual dalam kode adalah:
 - Papan Kontrak Buruan 5 Tingkat: Dilengkapi pengecekan jenis senjata spesifik (Golok, Shotgun, Rifle, Bebas).
 - Rumah Desa Tingkat 3: 2 Slot Kantong Aman (100% Kebal Hangus saat gugur) & Stash 64 Slot.
 - HUD Quick Select 7 Slot: Terpadu di bagian tengah bawah layar lengkap dengan banner indikator buff aktif.
-- Sintesis Audio Prosedural Lengkap: Heartbeat HP kritis, tebasan & benturan golok, ranjau bambu, sirine & kemenangan evakuasi.
-- Seluruh 6 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2, v3_tactical_mechanics).
+- Lapak Dagang Pribadi Pemain & Sistem NPC Pembeli Desa Asri: Bangunan kios FBX 3D asli (`shop.fbx`), fitur jual segala macam barang dari ransel ("Bisa jual apa saja"), 4 slot etalase toko dengan margin keuntungan +25%, kotak kasir lapak terpisah, dan 3 NPC warga (Mang Ujang, Bu Siti, Kang Dimas) yang berjalan bolak-balik berbelanja dengan balon dialog 3D dinamis dan denting koin Web Audio.
+- Sintesis Audio Prosedural Lengkap: Heartbeat HP kritis, tebasan & benturan golok, ranjau bambu, sirine & kemenangan evakuasi, denting koin emas belanja NPC.
+- Seluruh 7 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2, v3_tactical_mechanics, player_shop_npc).
 
 ================================================================================
 13. ARAH PENGEMBANGAN MASA DEPAN (FUTURE DEVELOPMENT ROADMAP)
@@ -558,6 +629,33 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 10 November 2026 (Rilis Pembaruan V4 — Lapak Dagang Pribadi FBX & Sistem NPC Pembeli Desa Asri):
+  - Integrasi Model 3D Kios Lapak Dagang Pribadi Pemain (`tempat jualan/shop.fbx`):
+    * Memuat model FBX 3D asli kios pasar pedesaan dari folder `asset dead-zone/tempat jualan/shop.fbx`.
+    * Mengonversi 3 tekstur mentah TIFF (`.tif`) menjadi format web JPG standar berkecepatan tinggi di `shop+texture/`.
+    * Memasang `LoadingManager.setURLModifier` di `village_architect.js` untuk mengalihkan pemanggilan tekstur TIFF secara otomatis.
+    * Menempatkan kios di sisi timur alun-alun Desa Asri (X=18, Z=0) menghadap ke barat dengan pencahayaan lentera amber hangat (0xffb74d) dan Box Collider fisik solid (10.4m x 11m x 6m).
+  - Mekanik Perdagangan "Bisa Jual Apa Saja" (Tab 1: Jual Cepat Ransel):
+    * Pemain dapat menjual item apa pun dari isi tas ranselnya ke pedagang desa (material bangunan, daging mutan, komponen mesin, batu permata, inti titan, jamu herbal, amunisi).
+    * Penambahan tombol "Jual Semua Jarahan" (`sellAllScrap`) untuk mencairkan seluruh jarahan ekspedisi dalam 1 kali klik.
+  - Etalase Dagang 4 Slot dengan Margin Keuntungan +25% (Tab 2: Etalase Pribadi):
+    * Pemain memiliki 4 slot etalase (`playerShopStall = [null, null, null, null]`) untuk memajang barang dari tas ranselnya.
+    * Barang yang dipajang di etalase dibeli oleh NPC warga desa dengan keuntungan +25% di atas harga pasar standar!
+    * Pemain dapat sewaktu-waktu menarik kembali barang yang dipajang ke tas ransel jika membutuhkan.
+  - Kotak Kasir Lapak Mandiri (`playerShopRegister`):
+    * Uang hasil transaksi belanja NPC warga desa otomatis terkumpul di dalam kotak kasir kios lapak.
+    * Jika etalase sedang kosong, NPC warga yang datang tetap membeli cinderamata suvenir desa dan memberikan tip Rp 2.500 - Rp 5.000 ke kasir.
+    * Pemain dapat menekan tombol "Tarik Saldo Kasir" untuk mencairkan seluruh tabungan uang kasir langsung ke saldo dompet Rupiah pemain.
+  - Sistem NPC Warga Pembeli Desa Asri (`VillageNPC` & `VillageNPCManager` di `village_npc.js`):
+    * Menghadirkan 3 warga desa dengan kepribadian unik: `Mang Ujang` (Pemburu Rimba), `Bu Siti` (Kolektor Pedesaan), dan `Kang Dimas` (Prajurit Patroli).
+    * Model humanoid 3D berartikulasi penuh: badan, kepala, topi caping tradisional, tangan, kaki, dan sepatu.
+    * Animasi pergerakan (locomotion) prosedural: ayunan kaki dan lengan dinamis, rotasi sudut halus, dan bobbing vertikal saat melangkah (60 FPS hemat memori).
+    * AI State Machine otonom: `IDLE` di pemukiman -> `WALKING_TO_STALL` menuju counter lapak -> `BROWSING` melihat etalase -> `BUYING` mengeksekusi pembelian & memicu denting koin emas Web Audio API -> `WALKING_AWAY` pulang ke desa.
+    * Balon Dialog Dinamis 3D (`THREE.Sprite` Canvas Texture): menampilkan ucapan ramah warga saat melihat barang dan notifikasi uang masuk kasir.
+  - Pengujian Otomatis Komprehensif:
+    * Pembuatan test suite `player_shop_npc.test.js` memverifikasi 61 assertions tanpa cacat.
+    * Seluruh 7 suite pengujian otomatis (`player_shop_npc`, `v3_tactical_mechanics`, `new_mechanics_v2`, `integration`, `terrain_combat`, `collision`, `gameState`) lulus 100%.
+
 * 10 November 2026 (Rilis Pembaruan V3 — Tactical Survival, Emergency Melee & Economy Deflation Overhaul):
   - Penyeimbangan Ulang Kerusakan Headshot (Headshot Ballistics Rebalance):
     * Pistol 9mm diturunkan dari 100 HP ke 70 HP (hanya 1-hit kill Runner 55 HP, membutuhkan 2 tembakan untuk Walker 80 HP).

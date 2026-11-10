@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from './libs/GLTFLoader.js';
+import { FBXLoader } from './libs/FBXLoader.js';
 
 export class VillageArchitect {
   constructor(env) {
@@ -901,6 +902,101 @@ export class VillageArchitect {
     });
     this.loadPromises.push(shopPromise);
     return shopPromise;
+  }
+
+  // --------------------------------------------------------------------------
+  // BANGUNAN 3: KIOS / LAPAK DAGANG PRIBADI PEMAIN (3D FBX - shop.fbx)
+  // Tempat jualan pribadi pemain untuk menjual barang jarahan & etalase kasir
+  // Aset: asset dead-zone/tempat jualan/shop.fbx & shop+texture/
+  // --------------------------------------------------------------------------
+  loadPlayerShopModel(x = 18, z = 0) {
+    // 1. Daftarkan Box Collider fisik segera agar pemain tidak menembus bangunan kios
+    const stallCollider = new THREE.Box3(
+      new THREE.Vector3(x - 5.2, 0, z - 5.5),
+      new THREE.Vector3(x + 5.2, 6.0, z + 5.5)
+    );
+    this.colliders.push(stallCollider);
+
+    // 2. Daftarkan Titik Interaksi di Depan Meja Kios (Lapak Dagang Pemain)
+    this.interactables.push({
+      id: 'player_shop',
+      type: 'player_shop',
+      position: new THREE.Vector3(x - 4.2, 1.2, z),
+      radius: 4.8,
+      label: '🏪 Lapak Dagang Pribadi (Jual Segala Barang Jarahan & Kasir Etalase) [E]'
+    });
+
+    // 3. Pencahayaan Lentera Amber Hangat di Teras Kios
+    const stallLantern = new THREE.PointLight(0xffb74d, 1.8, 14);
+    stallLantern.position.set(x - 3.8, 2.6, z);
+    this.lights.add(stallLantern);
+
+    // Tiang lampu lentera gantung pemanis di sudut kios
+    const poleMat = this.materials.ironFittings || new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+    const poleGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
+    const pole = new THREE.Mesh(poleGeom, poleMat);
+    pole.position.set(x - 3.8, 1.6, z - 3.2);
+    pole.castShadow = true;
+    this.group.add(pole);
+
+    // 4. Muat Model 3D FBX dengan Custom LoadingManager (Texture Redirect)
+    const manager = new THREE.LoadingManager();
+    manager.setURLModifier((url) => {
+      let mapped = url.replace(/\.tif$/i, '.jpg');
+      if (mapped.includes('istockphoto-1264052147-170667a.jpg')) {
+        mapped = mapped.replace('istockphoto-1264052147-170667a.jpg', 'shop-now-sign-or-stamp-vector-32356680.jpg');
+      }
+      return mapped;
+    });
+
+    const loader = new FBXLoader(manager);
+    loader.setResourcePath('./asset dead-zone/tempat jualan/shop+texture/');
+
+    const playerShopPromise = new Promise((resolve) => {
+      loader.load(
+        encodeURI('./asset dead-zone/tempat jualan/shop.fbx'),
+        (fbx) => {
+          // Buat wrapper pivot group agar model berpusat di (x, 0, z) dengan dasar di tanah
+          const pivotGroup = new THREE.Group();
+          pivotGroup.position.set(x, 0, z);
+          // Hadapkan bagian depan kios ke arah barat (menghadap alun-alun desa)
+          pivotGroup.rotation.y = -Math.PI / 2;
+
+          // Skala proporsional agar serasi dengan rumah dan toko serba ada
+          const scale = 0.0055;
+          fbx.scale.set(scale, scale, scale);
+
+          // Geser offset pusat bounding box FBX (-287.53, minY: -29.33, -369.56)
+          fbx.position.set(287.53 * scale, 29.33 * scale, 369.56 * scale);
+
+          fbx.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              if (child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(m => {
+                  m.roughness = Math.max(m.roughness || 0.5, 0.65);
+                });
+              }
+            }
+          });
+
+          pivotGroup.add(fbx);
+          this.group.add(pivotGroup);
+          console.log('✅ [VILLAGE] Lapak Dagang Pribadi (shop.fbx) berhasil dimuat.');
+          resolve(pivotGroup);
+        },
+        undefined,
+        (err) => {
+          console.error('❌ [VILLAGE] Gagal memuat shop.fbx:', err);
+          resolve(null);
+        }
+      );
+    });
+
+    this.loadPromises.push(playerShopPromise);
+    return playerShopPromise;
   }
 
   // --------------------------------------------------------------------------
@@ -2094,10 +2190,14 @@ export class VillageArchitect {
     // Menggabungkan Pande Besi (Armory), Tabib Herbal (Medbay), dan Pengepul (Scrap Exchange)
     arch.loadShopModel(-18, 0);
 
-    // 3. Gapura Pembatas Hutan Menuju Dead Zone (Forest Gate / Airlock)
+    // 3. Bangunan 3: Lapak Dagang Pribadi Pemain (Tempat Jualan 3D FBX - shop.fbx)
+    // Tempat pemain menjual hasil jarahan dan melayani NPC pembeli yang berkunjung
+    arch.loadPlayerShopModel(18, 0);
+
+    // 4. Gapura Pembatas Hutan Menuju Dead Zone (Forest Gate / Airlock)
     arch.buildForestGate(0, 36);
 
-    // 4. Alun-Alun Tengah Desa (Village Square, Stone Well, Ancient Tree & Notice Board)
+    // 5. Alun-Alun Tengah Desa (Village Square, Stone Well, Ancient Tree & Notice Board)
     arch.buildVillageSquare();
 
     return arch;

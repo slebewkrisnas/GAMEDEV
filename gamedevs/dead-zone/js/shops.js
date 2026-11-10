@@ -23,7 +23,9 @@ export class ShopManager {
     this.modalArmory = document.getElementById('modal-armory');
     this.modalMedbay = document.getElementById('modal-medbay');
     this.modalScrap = document.getElementById('modal-scrap');
+    this.modalPlayerShop = document.getElementById('modal-player-shop');
     this.activeStoreTab = 'all';
+    this.activePlayerShopTab = 'sell'; // 'sell' | 'showcase'
 
     this.bindEvents();
   }
@@ -412,6 +414,85 @@ export class ShopManager {
         }
       });
     }
+
+    // Delegasi klik Modal Lapak Dagang Pribadi Pemain
+    if (this.modalPlayerShop) {
+      this.modalPlayerShop.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        // 1. Pergantian Tab Lapak
+        if (target.dataset.action === 'tab-player-shop') {
+          this.activePlayerShopTab = target.dataset.tab;
+          this.renderPlayerShopModal();
+          return;
+        }
+
+        // 2. Jual 1 Item dari Ransel
+        if (target.dataset.action === 'sell-item') {
+          const idx = parseInt(target.dataset.index, 10);
+          const res = GameState.sellItemFromBackpack(idx);
+          if (res.success) {
+            sound.playCoinSound();
+            alert(`Berhasil menjual ${res.itemName} seharga ${GameState.formatRp(res.earnedRp)}!`);
+            this.renderPlayerShopModal();
+            this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        }
+        // 3. Jual Seluruh Jarahan / Rongsokan
+        else if (target.dataset.action === 'sell-all-scrap') {
+          const res = GameState.sellAllScrap();
+          if (res.success) {
+            sound.playCoinSound();
+            alert(`Berhasil menjual ${res.count} barang jarahan sekaligus senilai ${GameState.formatRp(res.totalEarned)}!`);
+            this.renderPlayerShopModal();
+            this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        }
+        // 4. Pajang Item dari Ransel ke Etalase Toko
+        else if (target.dataset.action === 'stock-from-backpack') {
+          const idx = parseInt(target.dataset.index, 10);
+          const res = GameState.stockItemToStall(idx);
+          if (res.success) {
+            sound.playCoinSound();
+            alert(res.message);
+            this.renderPlayerShopModal();
+            this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        }
+        // 5. Tarik Item dari Etalase kembali ke Ransel
+        else if (target.dataset.action === 'unstock-slot') {
+          const slot = parseInt(target.dataset.slot, 10);
+          const res = GameState.unstockItemFromStall(slot);
+          if (res.success) {
+            sound.playCoinSound();
+            alert(res.message);
+            this.renderPlayerShopModal();
+            this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        }
+        // 6. Ambil Uang Tunai dari Kotak Kasir Toko
+        else if (target.dataset.action === 'collect-cash') {
+          const res = GameState.collectRegisterCash();
+          if (res.success) {
+            sound.playCoinSound();
+            alert(res.message);
+            this.renderPlayerShopModal();
+            this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        }
+      });
+    }
   }
 
   // Cek interaksi dari jarak dekat
@@ -465,6 +546,9 @@ export class ShopManager {
       case 'medbay':
       case 'scrap_exchange':
         this.openGeneralStoreModal();
+        break;
+      case 'player_shop':
+        this.openPlayerShopModal();
         break;
       case 'airlock':
         if (this.ui && this.ui.callbacks && this.ui.callbacks.onSwitchZone) {
@@ -1045,6 +1129,146 @@ export class ShopManager {
     `;
   }
 
+  // --------------------------------------------------------------------------
+  // MODAL LAPAK DAGANG PRIBADI PEMAIN (KIOS JUALAN DESA)
+  // --------------------------------------------------------------------------
+  openPlayerShopModal() {
+    this.closeAllModals();
+    this.modalActive = true;
+    if (document.exitPointerLock) document.exitPointerLock();
+    this.renderPlayerShopModal();
+    if (this.modalPlayerShop) this.modalPlayerShop.classList.remove('hidden');
+  }
+
+  renderPlayerShopModal() {
+    if (!this.modalPlayerShop) return;
+    const body = this.modalPlayerShop.querySelector('.shop-modal-body');
+    if (!body) return;
+
+    const walletFmt = GameState.formatRp(GameState.wallet);
+    const registerFmt = GameState.formatRp(GameState.playerShopRegister || 0);
+    const isSellTab = (this.activePlayerShopTab === 'sell');
+
+    // Tab Navigasi & Status Bar
+    const tabsHtml = `
+      <div class="player-shop-tabs">
+        <button class="btn-shop-tab ${isSellTab ? 'active' : ''}" data-action="tab-player-shop" data-tab="sell">📦 JUAL BARANG (Ransel)</button>
+        <button class="btn-shop-tab ${!isSellTab ? 'active' : ''}" data-action="tab-player-shop" data-tab="showcase">🪟 ETALASE & KASIR TOKO</button>
+      </div>
+      <div class="player-shop-status-bar">
+        <span>Saldo Dompet: <strong style="color:#34d399;">${walletFmt}</strong></span>
+        <span>Uang di Kotak Kasir: <strong style="color:#fbbf24;">${registerFmt}</strong></span>
+      </div>
+    `;
+
+    let contentHtml = '';
+
+    if (isSellTab) {
+      // 1. Tombol Cepat Jual Seluruh Rongsokan / Jarahan
+      const quickSellBtn = `
+        <div class="quick-sell-bar">
+          <div>
+            <div style="font-weight: bold; color: #f59e0b;">⚡ Jual Seluruh Jarahan Sekaligus</div>
+            <div style="font-size: 13px; color: #cbd5e1;">Menjual semua Kayu & Besi, Daging Mutan, Permata & Inti Titan di ransel secara instan.</div>
+          </div>
+          <button data-action="sell-all-scrap" class="btn btn-warning btn-sm" style="font-weight: bold;">JUAL SEMUA JARAHAN</button>
+        </div>
+      `;
+
+      // 2. Daftar seluruh item di Ransel yang bisa dijual
+      let itemsListHtml = '';
+      if (!GameState.backpack || GameState.backpack.length === 0) {
+        itemsListHtml = '<p class="empty-hint" style="padding: 24px 0; text-align: center; color: #94a3b8;">Ransel Anda kosong. Masuk ke Sector-7 untuk mengumpulkan jarahan berharga!</p>';
+      } else {
+        itemsListHtml = GameState.backpack.map((itm, idx) => {
+          const val = itm.value || 10000;
+          return `
+            <div class="inventory-row" style="align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.04); margin-bottom: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 22px;">${itm.icon || '📦'}</span>
+                <div>
+                  <div style="font-weight: 600; color: #f1f5f9;">${itm.name}</div>
+                  <div style="font-size: 12px; color: #94a3b8;">${itm.description || 'Barang inventaris'}</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: bold; color: #34d399; font-family: 'Rajdhani', sans-serif; font-size: 17px;">${GameState.formatRp(val)}</span>
+                <button data-action="sell-item" data-index="${idx}" class="btn-xfer" style="background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; font-weight: bold;" title="Jual item ini ke lapak">JUAL</button>
+                <button data-action="stock-from-backpack" data-index="${idx}" class="btn-pouch" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fde68a;" title="Pajang di etalase lapak untuk NPC pembeli">PAJANG</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      contentHtml = `
+        ${quickSellBtn}
+        <div style="margin-top: 14px;">
+          <h4 style="margin: 0 0 10px 0; color: #e2e8f0; font-family: 'Cinzel', serif;">Isi Ransel Anda (${GameState.backpack.length} / ${GameState.backpackMaxSlots} Slot)</h4>
+          <div class="items-list" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+            ${itemsListHtml}
+          </div>
+        </div>
+      `;
+    } else {
+      // TAB 2: ETALASE & KASIR TOKO
+      if (!Array.isArray(GameState.playerShopStall)) GameState.playerShopStall = [null, null, null, null];
+
+      const stallCardsHtml = GameState.playerShopStall.map((slotItem, sIdx) => {
+        if (slotItem) {
+          const retailVal = Math.round((slotItem.value || 15000) * 1.25);
+          return `
+            <div class="stall-slot-card filled">
+              <div class="stall-slot-badge">Etalase #${sIdx + 1}</div>
+              <div style="font-size: 32px; margin: 4px 0;">${slotItem.icon || '📦'}</div>
+              <div style="font-weight: bold; color: #f8fafc; font-size: 14px; text-align: center;">${slotItem.name}</div>
+              <div style="color: #fbbf24; font-weight: bold; font-family: 'Rajdhani', sans-serif; font-size: 16px; margin: 4px 0;">${GameState.formatRp(retailVal)} (+25%)</div>
+              <button data-action="unstock-slot" data-slot="${sIdx}" class="btn-xfer" style="font-size: 12px; padding: 4px 10px;">⬅️ Tarik ke Tas</button>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="stall-slot-card empty">
+              <div class="stall-slot-badge">Etalase #${sIdx + 1}</div>
+              <div style="font-size: 28px; opacity: 0.35; margin: 6px 0;">🪟</div>
+              <div style="color: #94a3b8; font-size: 13px;">Kosong</div>
+              <div style="color: #64748b; font-size: 11px; margin-top: 4px;">Pajang barang dari Tab Ransel</div>
+            </div>
+          `;
+        }
+      }).join('');
+
+      const cashAmount = GameState.playerShopRegister || 0;
+      const collectDisabled = cashAmount <= 0 ? 'disabled style="opacity: 0.5;"' : '';
+
+      contentHtml = `
+        <div style="margin-bottom: 14px;">
+          <h4 style="margin: 0 0 8px 0; color: #fcd34d; font-family: 'Cinzel', serif;">4 Slot Etalase Dagang Pribadi (Margin Laba +25%)</h4>
+          <p style="margin: 0 0 12px 0; font-size: 13px; color: #94a3b8;">Barang yang dipajang di etalase akan dibeli oleh NPC warga desa (Mang Ujang, Bu Siti, Kang Dimas) yang datang bolak-balik ke kios.</p>
+          <div class="stall-grid">
+            ${stallCardsHtml}
+          </div>
+        </div>
+
+        <div class="cash-register-box">
+          <div>
+            <div style="font-weight: bold; color: #fbbf24; font-size: 16px;">💰 Kotak Kasir Toko Pemain</div>
+            <div style="font-size: 13px; color: #cbd5e1; margin-top: 2px;">Total pendapatan penjualan dari NPC pembeli yang berkunjung.</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="font-size: 26px; font-weight: bold; color: #34d399; font-family: 'Rajdhani', sans-serif;">${GameState.formatRp(cashAmount)}</div>
+            <button data-action="collect-cash" class="btn btn-primary" ${collectDisabled} style="font-weight: bold;">AMBIL UANG</button>
+          </div>
+        </div>
+      `;
+    }
+
+    body.innerHTML = `
+      ${tabsHtml}
+      ${contentHtml}
+    `;
+  }
+
   closeAllModals() {
     if (this.modalSafehouse) this.modalSafehouse.classList.add('hidden');
     if (this.modalGeneralStore) this.modalGeneralStore.classList.add('hidden');
@@ -1053,6 +1277,7 @@ export class ShopManager {
     if (this.modalArmory) this.modalArmory.classList.add('hidden');
     if (this.modalMedbay) this.modalMedbay.classList.add('hidden');
     if (this.modalScrap) this.modalScrap.classList.add('hidden');
+    if (this.modalPlayerShop) this.modalPlayerShop.classList.add('hidden');
     this.modalActive = false;
     if (this.ui && this.ui.player && !this.ui.player.isTouchMode) {
       this.ui.player.requestPointerLock();
