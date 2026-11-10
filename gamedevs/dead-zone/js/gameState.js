@@ -38,17 +38,45 @@ export const ITEMS = {
     id: 'titan_core',
     name: 'Inti Titan Raksasa',
     type: 'loot',
-    value: 200000,
+    value: 100000, // Rebalanced: Rp 100.000 agar rifle Rp 500.000 tetap prestisius
     icon: '👑',
-    description: 'Inti energi titan langka dari Boss Titan Sector-7, bernilai jual Rp 200.000 di Toko Desa.'
+    description: 'Inti energi titan langka dari Boss Titan Sector-7, bernilai jual Rp 100.000 di Toko Desa.'
   },
   NANO_STIM: {
     id: 'nano_stim',
-    name: 'Ramuan Jamu Herbal',
+    name: 'Ramuan Jamu Herbal (+40 HP)',
     type: 'consumable',
     value: 30000,
     icon: '🌿',
     description: 'Racikan tanaman herbal penambah +40 HP instan (tekan [Q] saat bertempur).'
+  },
+  JAMU_KENCUR: {
+    id: 'jamu_kencur',
+    name: 'Jamu Beras Kencur (Stamina 2x)',
+    type: 'consumable',
+    value: 45000,
+    buffType: 'stamina_boost',
+    duration: 60,
+    icon: '🌾',
+    description: 'Racikan beras kencur tradisional mempercepat regenerasi stamina 2x lipat selama 60 detik.'
+  },
+  JAMU_KUNYIT: {
+    id: 'jamu_kunyit',
+    name: 'Jamu Kunyit Asam (Kebal Racun)',
+    type: 'consumable',
+    value: 50000,
+    buffType: 'poison_immune',
+    duration: 60,
+    icon: '🫚',
+    description: 'Ramuan kunyit asam alami memberikan kekebalan total terhadap gas beracun selama 60 detik.'
+  },
+  BAMBOO_TRAP: {
+    id: 'bamboo_trap',
+    name: 'Ranjau Paku Bambu',
+    type: 'trap',
+    value: 20000,
+    icon: '🪵',
+    description: 'Ranjau paku runcing bambu desa. Memberikan 50 damage dan memperlambat musuh 50% selama 5 detik.'
   },
   AMMO_PISTOL: {
     id: 'ammo_pistol',
@@ -95,37 +123,80 @@ export const ITEMS = {
 export const CRAFTING_RECIPES = [
   {
     id: 'craft_ammo_pistol',
-    name: 'Rakit Amunisi 9mm Pistol',
-    result: { id: 'ammo_pistol', count: 24 },
+    name: 'Rakit 2x Kotak Amunisi 9mm (48 butir)',
+    result: { id: 'ammo_pistol', count: 48 },
+    itemsYield: 2,
     req: [{ id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 1 }],
-    desc: 'Ubah 1 Kayu & Besi Tempa menjadi 24 butir peluru 9mm.'
+    minHouseLevel: 2,
+    desc: 'Ubah 1 Kayu & Besi Tempa menjadi 2 kotak (48 butir) peluru 9mm. Untung besar dibanding beli di Toko!'
   },
   {
     id: 'craft_ammo_shotgun',
-    name: 'Rakit Amunisi 12-Gauge Shotgun',
-    result: { id: 'ammo_shotgun', count: 12 },
+    name: 'Rakit 2x Kotak Amunisi 12-Gauge (24 butir)',
+    result: { id: 'ammo_shotgun', count: 24 },
+    itemsYield: 2,
     req: [{ id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 2 }],
-    desc: 'Ubah 2 Kayu & Besi Tempa menjadi 12 butir buckshot shotgun.'
+    minHouseLevel: 2,
+    desc: 'Ubah 2 Kayu & Besi Tempa menjadi 2 kotak (24 butir) buckshot shotgun.'
   },
   {
     id: 'craft_ammo_rifle',
-    name: 'Rakit Amunisi 7.62mm Rifle',
-    result: { id: 'ammo_rifle', count: 30 },
+    name: 'Rakit 2x Kotak Amunisi 7.62mm (60 butir)',
+    result: { id: 'ammo_rifle', count: 60 },
+    itemsYield: 2,
     req: [
       { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 2 },
       { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 1 }
     ],
-    desc: 'Kombinasikan 2 Besi Tempa & 1 Daging Mutan menjadi 30 butir peluru rifle.'
+    minHouseLevel: 2,
+    desc: 'Padukan 2 Besi Tempa & 1 Daging Mutan menjadi 2 kotak (60 butir) peluru rifle.'
   },
   {
     id: 'craft_jamu_herbal',
-    name: 'Racik Ramuan Jamu Herbal (+40 HP)',
-    result: { id: 'nano_stim', count: 1 },
+    name: 'Racik 2x Botol Jamu Herbal (+40 HP)',
+    result: { id: 'nano_stim', count: 2 },
+    itemsYield: 2,
     req: [
       { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 1 },
       { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 1 }
     ],
-    desc: 'Tumbuk 1 Daging Mutan & 1 Kayu/Akar Herbal menjadi 1 botol Jamu Herbal.'
+    minHouseLevel: 2,
+    desc: 'Tumbuk 1 Daging Mutan & 1 Kayu Herbal menjadi 2 botol Jamu Herbal siap minum.'
+  },
+  {
+    id: 'craft_jamu_kencur',
+    name: 'Racik Jamu Beras Kencur (Stamina 2x - 60s)',
+    result: { id: 'jamu_kencur', count: 1 },
+    itemsYield: 1,
+    req: [
+      { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 2 },
+      { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 1 }
+    ],
+    minHouseLevel: 2,
+    desc: 'Ekstrak kencur dan nutrisi mutan mempercepat regenerasi stamina 2x lipat selama 60 detik.'
+  },
+  {
+    id: 'craft_jamu_kunyit',
+    name: 'Racik Jamu Kunyit Asam (Kebal Racun - 60s)',
+    result: { id: 'jamu_kunyit', count: 1 },
+    itemsYield: 1,
+    req: [
+      { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 2 },
+      { id: 'power_converter', name: 'Komponen Mesin Desa', count: 1 }
+    ],
+    minHouseLevel: 3,
+    desc: 'Resep Elit Rumah Lv 3: Fermentasi kunyit asam memberikan imunitas mutlak dari kabut racun selama 60s.'
+  },
+  {
+    id: 'craft_bamboo_trap',
+    name: 'Rakit 2x Ranjau Paku Bambu (Slow 50%)',
+    result: { id: 'bamboo_trap', count: 2 },
+    itemsYield: 2,
+    req: [
+      { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 2 }
+    ],
+    minHouseLevel: 2,
+    desc: 'Rakit 2 perangkap paku bambu tajam. Pasang di tanah untuk melukai dan memperlambat musuh 50%.'
   }
 ];
 
@@ -158,13 +229,20 @@ class StateManager {
     this.houseLevel = 1;
     this.stashMaxSlots = 16;
     this.activeZone = 'safe_zone'; // 'safe_zone' | 'sector_7'
-    this.ownedWeapons = ['pulse_pistol'];
+    this.ownedWeapons = ['pulse_pistol', 'machete'];
     this.currentWeaponIndex = 0;
 
-    // Kontrak Buruan Harian / Berkala di Alun-Alun Desa
+    // Status Buff Ramuan Tradisional Aktif (dalam detik)
+    this.activeBuffs = {
+      staminaBoostTimer: 0, // Jamu Beras Kencur: 2x Stamina Regen
+      poisonImmuneTimer: 0  // Jamu Kunyit Asam: Kebal Racun
+    };
+
+    // Kontrak Buruan Berjenjang di Alun-Alun Desa (Variasi Misi & Taktik Khusus)
     this.bounties = [
       {
         id: 'bounty_brutes',
+        tier: 'PEMULA',
         title: 'Basmi 5 Zombi Brute',
         desc: 'Musnahkan 5 mutan Brute berbadan kekar di Sector-7.',
         targetType: 'tank',
@@ -176,6 +254,7 @@ class StateManager {
       },
       {
         id: 'bounty_runners',
+        tier: 'PEMULA',
         title: 'Buruan Kilat: 10 Runner',
         desc: 'Tumbangkan 10 zombie pelari gesit yang mengancam perbatasan.',
         targetType: 'runner',
@@ -187,6 +266,7 @@ class StateManager {
       },
       {
         id: 'bounty_crates',
+        tier: 'PENJELAJAH',
         title: 'Penjarahan 3 Peti Kargo',
         desc: 'Buka dan ambil perbekalan dari 3 peti kargo pondok hutan.',
         targetType: 'crate',
@@ -195,8 +275,60 @@ class StateManager {
         rewardRp: 60000,
         completed: false,
         claimed: false
+      },
+      {
+        id: 'bounty_shotgun_brute',
+        tier: 'TAKTIK KHUSUS',
+        title: 'Taktik Kasar: 4 Brute (Shotgun)',
+        desc: 'Tumbangkan 4 Zombi Brute menggunakan tembakan Scatter Shotgun jarak dekat.',
+        targetType: 'tank',
+        weaponReq: 'scatter_blaster',
+        targetCount: 4,
+        currentCount: 0,
+        rewardRp: 95000,
+        completed: false,
+        claimed: false
+      },
+      {
+        id: 'bounty_titan_slayer',
+        tier: 'LEGENDARIS',
+        title: 'Ekstraksi Inti Titan Raksasa',
+        desc: 'Robohkan Boss Titan di Sector-7 dan bawa pulang Inti Titan ke Desa Asri.',
+        targetType: 'titan_core',
+        targetCount: 1,
+        currentCount: 0,
+        rewardRp: 120000,
+        completed: false,
+        claimed: false
       }
     ];
+  }
+
+  // Pengelolaan Buff Ramuan Tradisional
+  applyBuff(buffType, duration = 60) {
+    if (!this.activeBuffs) this.activeBuffs = { staminaBoostTimer: 0, poisonImmuneTimer: 0 };
+    if (buffType === 'stamina_boost') {
+      this.activeBuffs.staminaBoostTimer = Math.max(this.activeBuffs.staminaBoostTimer || 0, duration);
+    } else if (buffType === 'poison_immune') {
+      this.activeBuffs.poisonImmuneTimer = Math.max(this.activeBuffs.poisonImmuneTimer || 0, duration);
+    }
+  }
+
+  updateBuffs(delta) {
+    if (!this.activeBuffs) return;
+    if (this.activeBuffs.staminaBoostTimer > 0) {
+      this.activeBuffs.staminaBoostTimer = Math.max(0, this.activeBuffs.staminaBoostTimer - delta);
+    }
+    if (this.activeBuffs.poisonImmuneTimer > 0) {
+      this.activeBuffs.poisonImmuneTimer = Math.max(0, this.activeBuffs.poisonImmuneTimer - delta);
+    }
+  }
+
+  hasBuff(buffType) {
+    if (!this.activeBuffs) return false;
+    if (buffType === 'stamina_boost') return (this.activeBuffs.staminaBoostTimer || 0) > 0;
+    if (buffType === 'poison_immune') return (this.activeBuffs.poisonImmuneTimer || 0) > 0;
+    return false;
   }
 
   // Format Rupiah standar Indonesia
@@ -397,16 +529,20 @@ class StateManager {
   }
 
   // =========================================================================
-  // MEJA PERAKIT AMUNISI & JAMU (WORKBENCH CRAFTING) — HOUSE LEVEL 3 PERK
+  // MEJA PERAKIT AMUNISI & JAMU (WORKBENCH CRAFTING) — MULAI DARI RUMAH LV 2
   // =========================================================================
   craftRecipe(recipeId) {
-    if (this.houseLevel < 3) {
-      return { success: false, message: 'Meja Perakit hanya tersedia di Rumah Juragan Desa (Level 3).' };
+    if (this.houseLevel < 2) {
+      return { success: false, message: 'Meja Perakit tersedia mulai dari Rumah Kayu Asri (Level 2).' };
     }
     const recipe = CRAFTING_RECIPES.find(r => r.id === recipeId);
     if (!recipe) return { success: false, message: 'Resep perakitan tidak valid.' };
 
-    // Periksa bahan
+    if (recipe.minHouseLevel && this.houseLevel < recipe.minHouseLevel) {
+      return { success: false, message: `Resep elit ini memerlukan renovasi Rumah Juragan Desa (Level ${recipe.minHouseLevel}).` };
+    }
+
+    // Periksa kecukupan bahan di ransel dan stash
     for (const req of recipe.req) {
       const available = this.countItem(req.id, true) + this.countItem(req.id, false);
       if (available < req.count) {
@@ -414,7 +550,7 @@ class StateManager {
       }
     }
 
-    // Konsumsi bahan
+    // Konsumsi bahan dari ransel terlebih dahulu, lalu stash
     for (const req of recipe.req) {
       let remaining = req.count;
       const takenFromBackpack = this.removeItemsById(req.id, remaining, true);
@@ -424,34 +560,40 @@ class StateManager {
       }
     }
 
-    // Buat hasil
+    // Buat hasil (Mendukung Multi-Yield 2x Lipat Untung)
     const targetItemMeta = Object.values(ITEMS).find(it => it.id === recipe.result.id);
     if (!targetItemMeta) return { success: false, message: 'Item hasil tidak dikenal.' };
 
-    // Masukkan ke ransel jika muat, atau ke stash
-    let placed = false;
-    if (this.backpack.length < this.backpackMaxSlots) {
-      this.addItemToBackpack(targetItemMeta);
-      placed = true;
-    } else if (this.stash.length < this.stashMaxSlots) {
-      this.addItemToStash(targetItemMeta);
-      placed = true;
+    const yields = recipe.itemsYield || 1;
+    let placedCount = 0;
+    for (let y = 0; y < yields; y++) {
+      if (this.backpack.length < this.backpackMaxSlots) {
+        this.addItemToBackpack({ ...targetItemMeta });
+        placedCount++;
+      } else if (this.stash.length < this.stashMaxSlots) {
+        this.addItemToStash({ ...targetItemMeta });
+        placedCount++;
+      }
     }
 
     this.saveToStorage();
     return {
       success: true,
-      message: `Berhasil merakit: ${recipe.name}! (${placed ? 'Disimpan ke inventaris' : 'Inventaris penuh, barang tertahan'}).`
+      message: `Berhasil merakit: ${recipe.name}! (${placedCount}x disimpan ke inventaris).`
     };
   }
 
   // =========================================================================
-  // PAPAN KONTRAK BURUAN DESA (BOUNTY HUNTING CONTRACTS)
+  // PAPAN KONTRAK BURUAN DESA (BOUNTY HUNTING CONTRACTS BERJENJANG)
   // =========================================================================
-  recordBountyProgress(type, count = 1) {
+  recordBountyProgress(type, count = 1, weaponId = null) {
     let anyCompleted = false;
     for (const b of this.bounties) {
       if (!b.completed && b.targetType === type) {
+        // Jika ada syarat senjata tertentu (misal: harus pakai shotgun)
+        if (b.weaponReq && weaponId && b.weaponReq !== weaponId) {
+          continue;
+        }
         b.currentCount = Math.min(b.targetCount, b.currentCount + count);
         if (b.currentCount >= b.targetCount) {
           b.completed = true;

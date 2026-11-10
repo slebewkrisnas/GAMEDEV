@@ -869,6 +869,248 @@ class SoundManager {
       cNoise.start(now);
     } catch (e) {}
   }
+
+  // Detak Jantung Saat Sekarat (Low-HP Heartbeat Thump: Lub-Dub)
+  playHeartbeat() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      // 1. "Lub" (ventricular contraction)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(56, now);
+      osc1.frequency.exponentialRampToValueAtTime(32, now + 0.12);
+
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.35, now + 0.015);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc1.connect(gain1);
+      gain1.connect(this.masterGain);
+      osc1.start(now);
+      osc1.stop(now + 0.13);
+
+      // 2. "Dub" (aortic valve snap, ~140ms later)
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(46, now + 0.14);
+      osc2.frequency.exponentialRampToValueAtTime(26, now + 0.26);
+
+      gain2.gain.setValueAtTime(0.001, now + 0.14);
+      gain2.gain.linearRampToValueAtTime(0.24, now + 0.155);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+      osc2.connect(gain2);
+      gain2.connect(this.masterGain);
+      osc2.start(now + 0.14);
+      osc2.stop(now + 0.27);
+    } catch (e) {}
+  }
+
+  // Ayunan Golok Pedesaan (Crisp Metallic Blade Air Whoosh)
+  playMacheteSwing() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.16);
+      const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.04));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(950, now);
+      filter.frequency.exponentialRampToValueAtTime(420, now + 0.15);
+      filter.Q.setValueAtTime(3.0, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.38, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+      noise.start(now);
+    } catch (e) {}
+  }
+
+  // Tebasan Golok Mengenai Zombi (Heavy Cleaver Impact)
+  playMacheteHit() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      // 1. Meat & bone low thump
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(110, now);
+      osc.frequency.exponentialRampToValueAtTime(34, now + 0.11);
+
+      oscGain.gain.setValueAtTime(0.45, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.12);
+
+      // 2. Blade slice flesh crunch
+      const bufSize = Math.floor(this.ctx.sampleRate * 0.12);
+      const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.025));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(750, now);
+      filter.Q.setValueAtTime(1.8, now);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.35, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+      noise.start(now);
+    } catch (e) {}
+  }
+
+  // Jebakan Ranjau Bambu Terpijak (Bamboo Spike Snap)
+  playTrapSnap() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    try {
+      // High wooden snap
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(1600, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.05);
+
+      oscGain.gain.setValueAtTime(0.55, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.07);
+
+      // Low wooden crack
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(140, now);
+      sub.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+
+      subGain.gain.setValueAtTime(0.40, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      sub.connect(subGain);
+      subGain.connect(this.masterGain);
+      sub.start(now);
+      sub.stop(now + 0.09);
+    } catch (e) {}
+  }
+
+  // Sirine Suar Evakuasi Darurat (Holdout Extraction Siren)
+  playExtractionSiren() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    this.stopExtractionSiren();
+
+    try {
+      const now = this.ctx.currentTime;
+      this.sirenOsc = this.ctx.createOscillator();
+      this.sirenGain = this.ctx.createGain();
+
+      this.sirenOsc.type = 'sawtooth';
+      this.sirenOsc.frequency.setValueAtTime(650, now);
+
+      // Modulate frequency up and down every 0.6s
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
+      lfo.frequency.setValueAtTime(1.6, now); // 1.6 Hz siren pulse
+      lfoGain.gain.setValueAtTime(220, now); // ±220 Hz swing (430Hz to 870Hz)
+      lfo.connect(this.sirenOsc.frequency);
+      lfo.start(now);
+      this.sirenLfo = lfo;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, now);
+
+      this.sirenGain.gain.setValueAtTime(0.001, now);
+      this.sirenGain.gain.linearRampToValueAtTime(0.25, now + 0.3);
+
+      this.sirenOsc.connect(filter);
+      filter.connect(this.sirenGain);
+      this.sirenGain.connect(this.masterGain);
+      this.sirenOsc.start(now);
+    } catch (e) {}
+  }
+
+  stopExtractionSiren() {
+    try {
+      if (this.sirenGain && this.ctx) {
+        const now = this.ctx.currentTime;
+        this.sirenGain.gain.linearRampToValueAtTime(0.001, now + 0.2);
+        setTimeout(() => {
+          if (this.sirenOsc) {
+            try { this.sirenOsc.stop(); } catch (e) {}
+            this.sirenOsc = null;
+          }
+          if (this.sirenLfo) {
+            try { this.sirenLfo.stop(); } catch (e) {}
+            this.sirenLfo = null;
+          }
+        }, 220);
+      }
+    } catch (e) {}
+  }
+
+  // Suara Fanfare Berhasil Evakuasi
+  playExtractionSuccess() {
+    if (!this.ctx || this.isMuted) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+
+    const freqs = [392, 523.25, 659.25, 783.99]; // G4, C5, E5, G5
+    freqs.forEach((f, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, now + idx * 0.12);
+
+      gain.gain.setValueAtTime(0.001, now + idx * 0.12);
+      gain.gain.linearRampToValueAtTime(0.28, now + idx * 0.12 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + idx * 0.12);
+      osc.stop(now + idx * 0.12 + 0.65);
+    });
+  }
 }
 
 export const sound = new SoundManager();

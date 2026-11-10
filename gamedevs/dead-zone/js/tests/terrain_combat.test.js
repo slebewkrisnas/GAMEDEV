@@ -206,7 +206,7 @@ assert.strictEqual(waves.bossActive, false, 'Boss must be deactivated after defe
 assert.strictEqual(GameState.wallet, initialWallet, 'Wallet must NOT receive instant cash on boss kill');
 const titanCore = GameState.backpack.find(item => item.id === 'titan_core');
 assert.ok(titanCore, 'Player backpack must contain physical Inti Titan (TITAN_CORE) item');
-assert.strictEqual(titanCore.value, 200000, 'Inti Titan item must be worth Rp 200.000');
+assert.strictEqual(titanCore.value, 100000, 'Inti Titan item must be worth rebalanced Rp 100.000');
 assert.strictEqual(bossRewardGiven, true, 'Rare loot drop must be triggered on boss defeat');
 
 console.log('✔ Unlimited wave & 10-kill Boss progression passed!');

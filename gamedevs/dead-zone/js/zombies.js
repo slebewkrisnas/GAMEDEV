@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { sound } from './audio.js';
+import { GameState } from './gameState.js';
 import { zombieAssets, createZombieInstance, playZombieAction, initZombieAssets } from './zombieAssets.js';
 
 export class Zombie {
@@ -102,6 +103,8 @@ export class Zombie {
     // Animation & Groan variables
     this.walkCycle = Math.random() * Math.PI * 2;
     this.groanTimer = Math.random() * 5 + 3;
+    this.aggroTimer = 0; // Timer aggro saat mendengar suara tembakan
+    this.slowTimer = 0;  // Timer slow saat terkena ranjau bambu
 
     // Hitboxes list for raycasting
     this.hitboxes = [];
@@ -433,7 +436,15 @@ export class Zombie {
       const dirX = dx / (distanceToPlayer || 1);
       const dirZ = dz / (distanceToPlayer || 1);
 
-      const moveStep = this.speed * delta;
+      // Kecepatan dinamis dengan aggro tembakan & efek slow ranjau paku
+      if (this.aggroTimer > 0) this.aggroTimer -= delta;
+      if (this.slowTimer > 0) this.slowTimer -= delta;
+
+      let effectiveSpeed = this.speed;
+      if (this.aggroTimer > 0) effectiveSpeed *= 1.25;
+      if (this.slowTimer > 0) effectiveSpeed *= 0.50;
+
+      const moveStep = effectiveSpeed * delta;
       const newX = this.mesh.position.x + dirX * moveStep;
       const newZ = this.mesh.position.z + dirZ * moveStep;
 
@@ -468,6 +479,16 @@ export class Zombie {
         this.leftArmPivot.rotation.x = -Math.PI / 2.6 + Math.sin(this.walkCycle) * 0.15;
         this.rightArmPivot.rotation.x = -Math.PI / 2.6 - Math.sin(this.walkCycle) * 0.15;
       }
+    }
+  }
+
+  alert(sourcePos) {
+    if (!this.isAlive) return;
+    this.state = 'chase';
+    this.aggroTimer = 4.0; // 4 detik lari kencang saat terprovokasi
+    if (this.groanTimer > 2.0 && Math.random() < 0.6) {
+      sound.playZombieGroan();
+      this.groanTimer = 6.0;
     }
   }
 
@@ -543,10 +564,14 @@ export class PoisonCloud {
     const pPos = this.player.yawObject.position;
     const dist = Math.hypot(pPos.x - this.position.x, pPos.z - this.position.z);
     if (dist <= this.radius && Math.abs(pPos.y - this.position.y) < 2.5) {
-      this.damageTimer += delta;
-      if (this.damageTimer >= 0.5) {
-        this.damageTimer = 0;
-        this.player.takeDamage(4); // 8 Damage per detik
+      if (GameState.hasBuff && GameState.hasBuff('poison_immune')) {
+        // Pemain kebal racun berkat efek Jamu Kunyit Asam!
+      } else {
+        this.damageTimer += delta;
+        if (this.damageTimer >= 0.5) {
+          this.damageTimer = 0;
+          this.player.takeDamage(4); // 8 Damage per detik
+        }
       }
     }
     return this.timer >= this.duration;
@@ -566,6 +591,7 @@ export class ZombiesManager {
     this.onBossRoar = onBossRoar;
     this.zombies = [];
     this.poisonClouds = [];
+    this.traps = [];
 
     // Preload zombie FBX assets & textures early
     initZombieAssets().catch(err => {
@@ -634,7 +660,79 @@ export class ZombiesManager {
     return count;
   }
 
+  // Menanam Ranjau Paku Bambu di koordinat tanah
+  placeBambooTrap(pos) {
+    if (!pos) return;
+    const trapGroup = new THREE.Group();
+    const groundY = (this.environment && typeof this.environment.getTerrainHeight === 'function')
+      ? this.environment.getTerrainHeight(pos.x, pos.z)
+      : (pos.y || 0);
+    trapGroup.position.set(pos.x, groundY + 0.04, pos.z);
+
+    // Rangka kayu bambu silang
+    const frameGeo = new THREE.BoxGeometry(0.85, 0.05, 0.85);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x4d5b2c, roughness: 0.8, metalness: 0.1 });
+    const frame = new THREE.Mesh(frameGeo, frameMat);
+    trapGroup.add(frame);
+
+    // 9 pancang paku bambu runcing menghadap ke atas
+    const spikeGeo = new THREE.ConeGeometry(0.025, 0.22, 5);
+    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xc8b276, roughness: 0.7, metalness: 0.2 });
+    for (let ix = -0.3; ix <= 0.3; ix += 0.3) {
+      for (let iz = -0.3; iz <= 0.3; iz += 0.3) {
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.position.set(ix, 0.11, iz);
+        trapGroup.add(spike);
+      }
+    }
+
+    this.scene.add(trapGroup);
+    this.traps.push({
+      group: trapGroup,
+      x: pos.x,
+      z: pos.z,
+      radius: 1.5
+    });
+
+    sound.playTrapSnap();
+  }
+
+  // Gunshot Aggro: Memancing zombi dalam radius suara tembakan
+  alertZombiesInRadius(sourcePos, radius) {
+    if (!sourcePos || !radius) return;
+    for (let i = 0; i < this.zombies.length; i++) {
+      const z = this.zombies[i];
+      if (!z.isAlive) continue;
+      const d = Math.hypot(z.mesh.position.x - sourcePos.x, z.mesh.position.z - sourcePos.z);
+      if (d <= radius) {
+        z.alert(sourcePos);
+      }
+    }
+  }
+
   update(delta) {
+    // Update & deteksi jebakan ranjau paku bambu
+    for (let t = this.traps.length - 1; t >= 0; t--) {
+      const trap = this.traps[t];
+      let triggered = false;
+      for (let i = 0; i < this.zombies.length; i++) {
+        const z = this.zombies[i];
+        if (!z.isAlive) continue;
+        const d = Math.hypot(z.mesh.position.x - trap.x, z.mesh.position.z - trap.z);
+        if (d <= trap.radius) {
+          // Ranjau terpijak!
+          sound.playTrapSnap();
+          z.takeDamage(50, false);
+          z.slowTimer = 5.0; // Slow 50% selama 5 detik
+          triggered = true;
+          break;
+        }
+      }
+      if (triggered) {
+        this.scene.remove(trap.group);
+        this.traps.splice(t, 1);
+      }
+    }
     // Update active poison clouds
     for (let i = this.poisonClouds.length - 1; i >= 0; i--) {
       const cloud = this.poisonClouds[i];
@@ -690,5 +788,10 @@ export class ZombiesManager {
       this.poisonClouds[i].destroy();
     }
     this.poisonClouds = [];
+
+    for (let i = 0; i < this.traps.length; i++) {
+      this.scene.remove(this.traps[i].group);
+    }
+    this.traps = [];
   }
 }

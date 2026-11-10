@@ -7,7 +7,7 @@ Proyek      : Dead Zone (3D FPS Zombie Survival & Rural Economic Ecosystem)
 Engine      : Native Three.js WebGL (Web-Based Game Engine)
 Bahasa      : JavaScript (ES6+ Modules), HTML5 Canvas, CSS3
 Audio       : Procedural Web Audio API Synthesizer (Zero External Audio Files)
-Status      : Aktif Dikembangkan (Playable Stable Release — V2 Tactical Survival Update)
+Status      : Aktif Dikembangkan (Playable Stable Release — V3 Tactical Survival, Melee & Economy Deflation Update)
 Terakhir Diperbarui : 10 November 2026
 
 ================================================================================
@@ -133,10 +133,14 @@ Hutan belantara seluas 230 meter x 230 meter (-115 s/d +115 koordinat X/Z).
   4. Pos Pantau Reruntuhan      : Koordinat (35, 57)
   * Di setiap pondok terdapat Kontainer Kargo Terbengkalai (Loot Crate) yang
     dapat dibuka dengan menekan [E] untuk mendapatkan material berharga.
-- Suar Evakuasi Dinamis (Dynamic Randomized Extraction Beacon):
+- Suar Evakuasi Dinamis & Timed Holdout (Dynamic Holdout Extraction):
   * Suar portal evakuasi pulang TIDAK lagi diam di pintu masuk. Setiap kali pemain
     memasuki Sector-7, suar evakuasi diacak posisinya ke salah satu dari 4 pondok
     hutan di atas, memunculkan suar pilar cahaya cyan dan petunjuk radio di layar.
+  * MEKANIK TIMED HOLDOUT: Evakuasi TIDAK instan! Pemain wajib bertahan selama
+    12.0 detik di dalam perimeter 14 meter dari suar saat sirine darurat berbunyi.
+    Pada detik ke-6, gelombang zombi Runner terpanggil menyerbu titik evakuasi.
+    Jika pemain keluar perimeter > 14m, proses evakuasi dibatalkan secara otomatis.
 
 ================================================================================
 3. ALUR PERMAINAN & CORE GAMEPLAY LOOP (GAME LOOP & PROGRESSION)
@@ -147,7 +151,7 @@ Core Loop Dead Zone dirancang dengan formula ketegangan siklis:
                 |       1. SAFE ZONE (DESA ASRI)     |
                 | - Beli kaliber peluru di Toko      |
                 | - Simpan barang di Stash & Kantong |
-                | - Rakit amunisi di Meja Perakit    |
+                | - Rakit amunisi/jamu di Workbench  |
                 | - Ambil kontrak buruan di Alun-Alun|
                 +-----------------+------------------+
                                   |
@@ -158,8 +162,9 @@ Core Loop Dead Zone dirancang dengan formula ketegangan siklis:
                 | - Bertahan hidup dari zombi & kabut|
                 | - Selesaikan kontrak buruan harian |
                 | - Kumpulkan daging, kayu, & permata|
+                | - Pasang Ranjau Bambu & Minum Jamu |
                 | - Kalahkan Boss Titan -> Inti Titan|
-                | - Temukan Suar Evakuasi di Pondok  |
+                | - Timed Holdout di Suar Evakuasi   |
                 +-----------------+------------------+
                                   |
                    +--------------+--------------+
@@ -170,28 +175,31 @@ Core Loop Dead Zone dirancang dengan formula ketegangan siklis:
 +----------------------------------+ +----------------------------------+
 |      KONSEKUENSI KEMATIAN        | |         HASIL EKSPEDISI          |
 | - Isi ransel biasa HANGUS        | | - Seluruh isi ransel SELAMAT     |
-| - Barang di KANTONG AMAN SELAMAT | | - Cairkan Inti Titan (Rp 200.000)|
+| - Barang di KANTONG AMAN SELAMAT | | - Cairkan Inti Titan (Rp 100.000)|
 | - Respawn di Rumah Aman          | | - Klaim hadiah Kontrak Buruan    |
 | - Saldo Dompet & Stash AMAN      | | - Renovasi Rumah & Meja Perakit  |
 +----------------------------------+ +----------------------------------+
 
 3.1 Rincian Alur Permainan dari Awal:
 1. Mulai Game: Pemain memulai dengan saldo modal awal Rp 50.000, senjata
-   Tactical 9mm Pistol, dan Tas Anyaman Bambu (6 slot).
+   Tactical 9mm Pistol, senjata melee bawaan Golok Pedesaan, dan Tas Anyaman Bambu (6 slot).
 2. Persiapan: Pemain dapat mengunjungi Toko Serba Ada untuk membeli amunisi
    spesifik kaliber atau jamu herbal, mengecek papan kontrak di alun-alun,
    lalu menuju Gapura Hutan.
 3. Ekspedisi: Memasuki Sector-7, senjata otomatis disiapkan. Suar evakuasi
    diacak lokasinya ke salah satu pondok hutan. Zombi mulai mengejar.
 4. Taktik Pertempuran: Pemain harus mengelola stamina (jalan 4.2 m/s, lari 7.8 m/s
-   selama 5 detik). Menghindari kepulan racun hijau saat membunuh Toxic Stalker.
-5. Boss Fight: Setiap 10 zombi yang dieliminasi, Boss Titan raksasa muncul.
+   selama 5 detik). Manfaatkan Golok Pedesaan untuk membunuh zombi tanpa suara (0m noise),
+   pasang Ranjau Paku Bambu di jalur sempit, dan gunakan Jamu Beras Kencur/Kunyit Asam.
+5. Boss Fight: Setiap 25 zombi yang dieliminasi (pacing terkontrol), Boss Titan raksasa muncul.
    Saat HP Boss $\le$ 50%, Boss mengaum dan memanggil 2 Runner. Mengalahkan Boss
-   menghadiahkan barang fisik "Inti Titan" (Rp 200.000) di ransel dan 1 kotak amunisi.
-6. Evakuasi: Pemain harus menyisir pondok tempat Suar Evakuasi berada untuk pulang
-   ke Desa Asri dan mencairkan Inti Titan. Kematian di hutan menghanguskan isi tas.
-7. Metagame Progress: Di desa, pemain mencairkan jarahan, menaikkan level rumah
-   ke Level 3 untuk membuka 2 slot Kantong Aman dan Meja Perakit Amunisi.
+   menghadiahkan barang fisik "Inti Titan" (Rp 100.000) di ransel dan 1 kotak amunisi darurat.
+6. Evakuasi Berbatas Waktu (Timed Holdout): Pemain menyisir pondok tempat Suar Evakuasi
+   berada, mengaktifkan suar, dan bertahan 12 detik di dalam perimeter 14 meter dari
+   serbuan Runner sebelum berhasil pulang ke Desa Asri untuk mencairkan Inti Titan.
+7. Metagame Progress: Di desa, pemain mencairkan jarahan, menaikkan level rumah ke Level 2
+   untuk membuka Meja Perakit (Workbench) dengan resep hasil ganda (super-profitabel),
+   dan Level 3 untuk membuka 2 slot Kantong Aman dan Stash 64 slot.
 
 ================================================================================
 4. MEKANIK KONTROL & PENGALAMAN PEMAIN (PLAYER CONTROLS & MECHANICS)
@@ -199,38 +207,47 @@ Core Loop Dead Zone dirancang dengan formula ketegangan siklis:
 Sistem kontrol ditangani oleh class Player dan TouchControls, mendukung Laptop
 (Keyboard & Mouse) dan Mode HP (Touchscreen) secara mulus.
 
-4.1 Skema Kecepatan & Stamina Taktis (Stamina System)
+4.1 Skema Kecepatan, Stamina & Heartbeat Taktis
 - Kecepatan Jalan Santai : 4.2 m/s (Seimbang dengan zombi Runner 3.9 m/s).
 - Kecepatan Lari Cepat   : 7.8 m/s (Mengkonsumsi stamina).
 - Kapasitas Stamina      : 5.0 detik durasi lari maksimal.
 - Laju Konsumsi Stamina  : 1.0 poin/detik saat lari sambil bergerak.
-- Laju Regenerasi        : 1.25 poin/detik saat jalan santai atau diam.
+- Laju Regenerasi        : 1.25 poin/detik (Naik 2x lipat menjadi 2.5 poin/detik
+  saat buff Jamu Beras Kencur aktif).
 - Status Kelelahan       : Jika stamina habis (0s), pemain mengalami "Exhausted"
   (napas terengah-engah, sprint dinonaktifkan hingga stamina pulih minimal 1.2s).
+- Low-HP Heartbeat Pulse : Ketika HP pemain $\le$ 25%, terdengar detak jantung organik
+  (lub-dub 52 Hz) dan denyut vignette merah memperingatkan kondisi kritis.
 - HUD Stamina Bar        : Terletak tepat di bawah Bar Darah (Vitalitas), menampilkan
   persentase dan durasi detik stamina secara real-time dengan efek pudar oranye/merah.
+- Active Buffs HUD       : Banner status aktif di kiri atas menampilkan sisa durasi buff
+  (Stamina Boost & Kebal Racun).
 
 4.2 Skema Kontrol Laptop (Keyboard & Mouse)
 - Gerak Dasar       : [W] Maju, [S] Mundur, [A] Kiri, [D] Kanan
 - Lari Cepat        : Tahan [Shift] (Mengkonsumsi stamina 5 detik)
 - Lompat            : [Spasi] (Daya angkat vertikal 7.8 m/s)
 - Kamera / Bidik    : Pergerakan Mouse (Pointer Lock FPS standar)
-- Tembak Senjata    : Klik Kiri Mouse [L-Click]
+- Tembak / Serang   : Klik Kiri Mouse [L-Click]
 - Isi Peluru        : [R] (Reload)
+- Quick Melee Tebas : [V] (Tebasan cepat Golok Pedesaan tanpa perlu mengganti senjata)
+- Pasang Ranjau     : [T] (Pasang Ranjau Paku Bambu di posisi tanah saat ini)
+- Minum Jamu        : [Q] (Minum Jamu Herbal pemulih +40 HP)
 - Interaksi         : [E] (Toko, Stash, Meja Perakit, Papan Kontrak, Crate, Portal)
-- Jamu Herbal       : [Q] (Minum ramuan jamu herbal pemulih +40 HP)
 - Senter Taktis     : [F] (Nyalakan / Matikan lampu sorot senter pemain)
-- Quick Hotbar      :
+- Quick Hotbar 7 Slot (Tengah Bawah Layar):
   * Tombol [1] : Tactical 9mm Pistol
   * Tombol [2] : Scatter Shotgun
   * Tombol [3] : Senapan Taktis 7.62mm (Rifle)
-  * Tombol [4] : Minum Jamu Herbal (+40 HP)
-  * Tombol [5] : Nyalakan/Matikan Senter Taktis
+  * Tombol [4] : Golok Pedesaan (Melee [4] atau [V])
+  * Tombol [5] : Jamu Herbal (+40 HP) [5] atau [Q]
+  * Tombol [6] : Ranjau Paku Bambu [6] atau [T]
+  * Tombol [7] : Senter Taktis [7] atau [F]
 
 4.3 Skema Kontrol HP (Layar Sentuh / Touch Mode)
 - Analog Virtual    : Joystick sentuh di kiri bawah untuk kontrol arah gerak.
 - Touch Look Zone   : Area tengah-kanan layar untuk menggeser arah pandang kamera.
-- Tombol Aksi Kanan : [TEMBAK], [LOMPAT], [LARI], [RELOAD], [SENTER], [JAMU Q], [E].
+- Tombol Aksi Kanan : [TEMBAK], [LOMPAT], [LARI], [RELOAD], [GOLOK], [RANJAU], [SENTER], [JAMU Q], [E].
 
 ================================================================================
 5. SISTEM COMBAT & ARSENAL SENJATA (WEAPONS & BALLISTICS SYSTEM)
@@ -239,19 +256,20 @@ Dikelola oleh class WeaponManager, sistem persenjataan mencakup ballistics
 raycast, model 3D prosedural senjata di tangan pemain, recoil visual, penyebaran
 peluru (spread), dan hit-marker.
 
-5.1 Daftar Senjata & Amunisi Kaliber Terpisah
-Amunisi kini terbagi menjadi kaliber terpisah di Toko dan Meja Perakit:
+5.1 Daftar Senjata & Arsenal Tempur
+Amunisi kini terbagi menjadi kaliber terpisah di Toko dan Meja Perakit, dengan tingkat kebisingan (Gunshot Aggro) yang berbeda:
 
 1. TACTICAL 9MM PISTOL (`pulse_pistol`) — Slot 1
-   - Status         : Senjata bawaan awal pemain (Default).
+   - Status         : Senjata api bawaan awal pemain (Default).
    - Kaliber Amunisi: Amunisi 9mm Pistol (`ammo_pistol`, Rp 15.000 / 24 butir).
    - Mode Tembak    : Semi-Otomatis (Single Fire).
    - Kapasitas Mag  : 12 butir peluru.
    - Amunisi Simpan : Default 60 butir (Maksimal 120 butir).
    - Kecepatan Tembak: 0.22 detik jeda antar tembakan.
    - Durasi Reload  : 1.3 detik.
-   - Kerusakan      : 35 HP (Badan), 100 HP (Headshot — Instant kill zombi biasa).
-   - Karakteristik  : Akurasi sempurna, recoil ringan, amunisi murah.
+   - Kerusakan      : 35 HP (Badan), 70 HP (Headshot — 1-hit kill Runner 55 HP, 2-hit Walker 80 HP).
+   - Radius Suara   : 22 meter (Kebisingan rendah, hanya memancing zombi terdekat).
+   - Karakteristik  : Akurasi sempurna, recoil ringan, amunisi ekonomis.
 
 2. SCATTER SHOTGUN (`scatter_blaster`) — Slot 2
    - Status         : Dibeli di Toko Serba Ada (Harga Rp 250.000).
@@ -263,7 +281,8 @@ Amunisi kini terbagi menjadi kaliber terpisah di Toko dan Meja Perakit:
    - Kecepatan Tembak: 0.70 detik.
    - Durasi Reload  : 2.0 detik.
    - Kerusakan      : 24 HP per pellet (Maksimal 144 HP badan, hingga 312 HP headshot).
-   - Karakteristik  : Daya henti masif, sangat mematikan untuk membendung zombi runner/brute.
+   - Radius Suara   : 55 meter (Kebisingan tertinggi, memicu aggro zombi seisi hutan di dekat pondok).
+   - Karakteristik  : Daya henti masif, sangat mematikan untuk membendung gerombolan Runner/Brute.
 
 3. SENAPAN TAKTIS 7.62MM (`plasma_rifle`) — Slot 3
    - Status         : Dibeli di Toko Serba Ada (Harga Rp 500.000).
@@ -273,10 +292,26 @@ Amunisi kini terbagi menjadi kaliber terpisah di Toko dan Meja Perakit:
    - Amunisi Simpan : Default 90 butir (Maksimal 180 butir).
    - Kecepatan Tembak: 0.11 detik per tembakan (~545 peluru per menit).
    - Durasi Reload  : 1.8 detik.
-   - Kerusakan      : 28 HP (Badan), 85 HP (Headshot).
-   - Karakteristik  : Senjata tempur utama untuk merobohkan Boss Titan.
+   - Kerusakan      : 28 HP (Badan), 105 HP (Headshot — 1-hit kill Walker, Runner, dan Stalker).
+   - Radius Suara   : 42 meter (Kebisingan tinggi, rentetan tembakan memicu respon zombi cepat).
+   - Karakteristik  : Senjata tempur elit primadona bernilai tinggi untuk merobohkan Boss Titan.
 
-5.2 Suplai Amunisi Terbatas dari Boss
+4. GOLOK PEDESAAN (`machete`) — Slot 4 & Quick Melee [V]
+   - Status         : Senjata jarak dekat bawaan awal pemain (Default Emergency Melee).
+   - Kaliber Amunisi: Tanpa amunisi (Hanya mengkonsumsi 1.0 detik stamina per tebasan).
+   - Mode Serang    : Ayunan Melee Raycast (Jarak jangkauan 2.3 meter).
+   - Kerusakan      : 45 HP (Badan), 80 HP (Headshot — 1-hit kill Runner atau eksekusi Walker terluka).
+   - Radius Suara   : 0 meter (SENYAP TOTAL / Stealth Melee, tidak memancing aggro sama sekali).
+   - Model 3D       : Prosedural gagang kayu jati gelap berukir dengan bilah baja melengkung berkilau.
+   - Karakteristik  : Solusi penyelamat saat kehabisan peluru di Sector-7 dan eliminasi zombi senyap.
+
+5.2 Mekanik Kebisingan Suara Tembakan (Gunshot Aggro)
+Setiap tembakan senjata api menyebarkan gelombang suara akustik ke seluruh penjuru hutan:
+- Jangkauan Deteksi Suara: Shotgun (55m) > Rifle (42m) > Pistol (22m) > Golok (0m).
+- Respon AI Zombi: Zombi yang berada dalam radius tembakan langsung memasuki status `Agitated Chase`
+  dengan dorongan lari kencang (+25% kecepatan gerak) selama 4.0 detik menuju koordinat asal tembakan.
+
+5.3 Suplai Amunisi Terbatas dari Boss
 Mengalahkan Boss Titan kini TIDAK LAGI membanjiri semua senjata dengan +36 butir peluru.
 Boss hanya menjatuhkan 1 kotak amunisi darurat (24 butir) khusus untuk senjata
 yang sedang aktif dipegang pemain.
@@ -301,8 +336,9 @@ Menggunakan aset 3D Skeletal FBX asli beresolusi tinggi dengan sistem PBR Textur
   * HP: 95 | Kecepatan: 2.8 m/s | Kerusakan: 16 HP | Skala: 1.05x
   * JURUS UNIK KABUT RACUN (PoisonCloud): Saat tewas, Toxic Stalker meninggalkan
     kepulan gas beracun hijau pekat beradius 2.6 meter selama 6.5 detik. Pemain
-    yang berada di dalam kabut terkena 8 Damage per detik (DoT).
-- Colossal Boss Titan (Spawn Tiap 10 Kills) & Jurus Pemanggilan Runner:
+    yang berada di dalam kabut terkena 8 Damage per detik (DoT), KECUALI jika memiliki
+    buff aktif Jamu Kunyit Asam (Kebal Racun).
+- Colossal Boss Titan (Spawn Tiap 25 Kills) & Jurus Pemanggilan Runner:
   * HP: 650 | Kecepatan: 2.4 m/s | Kerusakan: 38 HP | Skala: 2.6x Raksasa
   * JANGKAUAN SERANG REALISTIS: Jarak tebasan pedang raksasa diperbesar menjadi
     3.8 meter (sebelumnya $\le$1.9m) agar tebasan pedang tidak menembus pemain.
@@ -310,16 +346,36 @@ Menggunakan aset 3D Skeletal FBX asli beresolusi tinggi dengan sistem PBR Textur
     Boss memainkan animasi kerangka `Necromancer@roar.fbx`, mengeluarkan raungan
     menggelegar, dan memanggil 2 zombi Runner untuk membantunya bertempur.
 
+6.2 Mekanik Reposisi Zombi Dinamis (Dynamic Repositioning)
+Untuk mencegah hutan terasa sepi di peta seluas 230m x 230m dengan batas 8 zombi aktif:
+- Zombi yang tertinggal lebih dari 65 meter di belakang pemain secara otomatis dipindahkan
+  ke radius 25–35 meter di depan arah hadap (yaw) pemain.
+- Menjamin aksi pertempuran tetap intens dan pemain tidak pernah merasa berjalan sendirian
+  di hutan kosong tanpa harus menambah kuota entitas zombi yang membebani CPU/GPU.
+
+6.3 Jebakan Taktis: Ranjau Paku Bambu (Tactical Bamboo Trap)
+- Pemain dapat memasang ranjau paku bambu di tanah dengan tombol [6] atau [T].
+- Model 3D: Susunan 5 bilah paku bambu runcing bergerigi yang mencuat dari pasak tanah.
+- Efek Pemicuan: Ketika zombi melangkah dalam radius 1.4 meter, ranjau patah menjepret,
+  menimbulkan 50 Kerusakan instan dan efek melambat (Slow 50%) selama 5.0 detik.
+
 ================================================================================
 7. SISTEM GELOMBANG & SURVIVAL (WAVE & BOSS ENCOUNTER ENGINE)
 ================================================================================
 Dikelola oleh class WaveManager:
 - Continuous Survival Mode: Di Sector-7, zombi muncul secara kontinu tanpa henti
   menjaga kuota populasi aktif konstan sebesar 8 zombi bersamaan di hutan.
-- Siklus Kemunculan Boss Titan:
-  * Setiap kelipatan 10 zombi yang dibunuh, Boss Titan dipanggil ke medan tempur.
+- Nightfall Escalation (Eskalasi Malam Berbahaya):
+  * Melacak durasi bertahan hidup dalam sesi ekspedisi (`sessionSurvivalTime`).
+  * Semakin lama pemain bertahan di hutan, frekuensi spawn zombi berbahaya (Brute & Stalker)
+    meningkat secara bertahap.
+  * Pengali peluang drop Batu Permata Hutan (`gemDropMultiplier`) meningkat seiring waktu
+    hingga 2.5x lipat dalam durasi 5 menit bertahan hidup di Sector-7 (insentif eksplorasi lama).
+- Siklus Kemunculan Boss Titan (Deflasi & Pacing):
+  * Syarat eliminasi untuk memanggil Boss Titan dinaikkan menjadi setiap 25 kills (sebelumnya 10 kills)
+    guna mencegah inflasi uang kilat dan menjaga progresi senjata Rp 500.000 tetap prestisius.
   * Kemenangan atas Boss Titan menghadiahkan:
-    1. ITEM FISIK "INTI TITAN" (TITAN_CORE, Rp 200.000) masuk ke dalam ransel
+    1. ITEM FISIK "INTI TITAN" (TITAN_CORE, nilai seimbang Rp 100.000) masuk ke dalam ransel
        pemain (bukan uang instan di dompet; wajib evakuasi ke desa untuk dicairkan).
     2. 1 Kotak Amunisi Darurat (24 butir) untuk senjata yang sedang dipegang.
     3. Drop langka material kargo di sekitar lokasi tewasnya boss.
@@ -334,43 +390,51 @@ Mata uang resmi permainan adalah Rupiah (Rp) yang diformat dengan pemisah titik 
 Saldo awal pemain: Rp 50.000.
 
 Daftar Komoditas & Nilai Jual:
-| Komoditas               | Tipe     | Ikon | Nilai Jual  | Sumber / Fungsi                             |
-|-------------------------|----------|------|-------------|---------------------------------------------|
-| Kayu & Besi Tempa       | Material | 🪵   | Rp 15.000   | Peti Pondok / Bahan Rumah Lv 2 & Crafting   |
-| Komponen Mesin Desa     | Material | ⚙️   | Rp 40.000   | Peti Pondok / Bahan Renovasi Rumah Lv 3     |
-| Daging Mutan Hutan      | Loot     | 🥩   | Rp 25.000   | Drop Zombi / Bahan Crafting Peluru & Jamu   |
-| Batu Permata Hutan      | Loot     | 💎   | Rp 80.000   | Drop Zombi Elit & Peti Pondok               |
-| Inti Titan Raksasa      | Loot     | 👑   | Rp 200.000  | Drop Fisik Boss Titan (Wajib dievakuasi)    |
-| Amunisi 9mm Pistol      | Ammo     | 🔫   | Rp 15.000   | Toko Desa / Rakit di Workbench (24 butir)   |
-| Amunisi 12-Gauge        | Ammo     | 💥   | Rp 25.000   | Toko Desa / Rakit di Workbench (12 butir)   |
-| Amunisi 7.62mm Rifle    | Ammo     | ⚡   | Rp 35.000   | Toko Desa / Rakit di Workbench (30 butir)   |
-| Ramuan Jamu Herbal      | Potion   | 🌿   | Rp 30.000   | Toko Desa / Racik di Workbench (+40 HP)     |
+| Komoditas               | Tipe        | Ikon | Nilai Jual  | Sumber / Fungsi                                    |
+|-------------------------|-------------|------|-------------|----------------------------------------------------|
+| Kayu & Besi Tempa       | Material    | 🪵   | Rp 15.000   | Peti Pondok / Bahan Rumah Lv 2, Ranjau & Crafting  |
+| Komponen Mesin Desa     | Material    | ⚙️   | Rp 40.000   | Peti Pondok / Bahan Renovasi Rumah Lv 3            |
+| Daging Mutan Hutan      | Loot        | 🥩   | Rp 25.000   | Drop Zombi / Bahan Khusus Jamu & Peluru Rifle      |
+| Batu Permata Hutan      | Loot        | 💎   | Rp 80.000   | Drop Zombi Elit (Nightfall Scaled) & Peti Pondok   |
+| Inti Titan Raksasa      | Loot        | 👑   | Rp 100.000  | Drop Fisik Boss Titan (Wajib dievakuasi ke desa)   |
+| Amunisi 9mm Pistol      | Ammo        | 🔫   | Rp 15.000   | Toko Desa (24 butir) / Workbench (48 butir)        |
+| Amunisi 12-Gauge        | Ammo        | 💥   | Rp 25.000   | Toko Desa (12 butir) / Workbench (24 butir)        |
+| Amunisi 7.62mm Rifle    | Ammo        | ⚡   | Rp 35.000   | Toko Desa (30 butir) / Workbench (60 butir)        |
+| Ramuan Jamu Herbal      | Potion      | 🌿   | Rp 30.000   | Toko Desa / Workbench (+40 HP Instan)              |
+| Jamu Beras Kencur       | Buff Potion | ⚡   | Rp 45.000   | Workbench (Regenerasi Stamina 2x lipat selama 45s) |
+| Jamu Kunyit Asam        | Buff Potion | 🛡️   | Rp 60.000   | Workbench (Kebal Racun Toxic Stalker selama 60s)   |
+| Ranjau Paku Bambu       | Tactical    | 🎋   | Rp 20.000   | Workbench (Jebakan Tanah: 50 Damage + Slow 50%)    |
 
 8.2 Sistem Tingkatan Rumah & Kantong Aman (House Tiers & Secure Pouch)
 - Level 1: Gubuk Panggung Bambu    — Stash 16 Slot (Bawaan Awal Gratis)
 - Level 2: Rumah Kayu Asri         — Stash 32 Slot (Rp 300.000 + 5 Kayu & Besi Tempa)
-  * Bonus Tambahan: Diskon 10% untuk seluruh pembelian obat/jamu di Toko.
+  * PERK 1: Akses Awal Meja Perakit (Workbench) di teras rumah tanpa harus menunggu Level 3!
+  * PERK 2: Diskon 10% untuk seluruh pembelian obat/jamu di Toko Serba Ada.
 - Level 3: Rumah Juragan Desa      — Stash 64 Slot (Rp 750.000 + 3 Komponen Mesin Desa)
   * PERK 1: KANTONG AMAN (SECURE POUCH 2 SLOT): Barang di dalam Kantong Aman
     100% KEBAL HANGUS saat pemain gugur di Sector-7. Sangat penting untuk
     mengamankan Inti Titan atau Permata bernilai ratusan ribu Rupiah!
-  * PERK 2: MEJA PERAKIT AMUNISI & JAMU (WORKBENCH): Meja kerja di teras depan
-    rumah untuk meracik perlengkapan mandiri dari hasil jarahan.
+  * PERK 2: Perluasan Kapasitas Stash maksimal 64 slot penyimpanan aman.
 
-8.3 Meja Perakit Amunisi & Jamu Herbal (Workbench Crafting System)
-Tersedia di teras Rumah Juragan Desa (Level 3), memungkinkan peracikan tanpa beli:
-1. Rakit Amunisi 9mm Pistol   : 1x Kayu & Besi Tempa $\rightarrow$ 24 butir peluru 9mm.
-2. Rakit Amunisi 12-Gauge     : 2x Kayu & Besi Tempa $\rightarrow$ 12 butir buckshot.
-3. Rakit Amunisi 7.62mm Rifle : 2x Kayu & Besi Tempa + 1x Daging Mutan $\rightarrow$ 30 butir rifle.
-4. Racik Jamu Herbal (+40 HP) : 1x Kayu & Besi Tempa + 1x Daging Mutan $\rightarrow$ 1 botol Jamu Herbal.
+8.3 Meja Perakit Amunisi, Jamu & Jebakan (Workbench Crafting System)
+Tersedia mulai Rumah Kayu Asri (Level 2). Hasil rakitan digandakan (2x output) untuk
+menjamin peracikan selalu lebih hemat dan menguntungkan daripada membeli di toko:
+1. Rakit Amunisi 9mm Pistol   : 1x Kayu & Besi Tempa $\rightarrow$ 48 butir peluru 9mm (Hemat 50%).
+2. Rakit Amunisi 12-Gauge     : 2x Kayu & Besi Tempa $\rightarrow$ 24 butir buckshot (Hemat 40%).
+3. Rakit Amunisi 7.62mm Rifle : 2x Kayu & Besi Tempa + 1x Daging Mutan $\rightarrow$ 60 butir rifle (Hemat 21%).
+4. Racik Jamu Herbal (+40 HP) : 1x Kayu & Besi Tempa + 1x Daging Mutan $\rightarrow$ 2 botol Jamu Herbal (Hemat 33%).
+5. Racik Jamu Beras Kencur    : 2x Daging Mutan + 1x Kayu & Besi Tempa $\rightarrow$ 2 botol (+100% Stamina Regen 45s).
+6. Racik Jamu Kunyit Asam     : 2x Daging Mutan + 1x Batu Permata $\rightarrow$ 2 botol (Kebal Racun Toxic Stalker 60s).
+7. Buat Ranjau Paku Bambu     : 2x Kayu & Besi Tempa $\rightarrow$ 3 unit Ranjau Paku Bambu taktis.
 
-8.4 Papan Kontrak Buruan Desa (Bounty Hunting Board)
-Terletak di Alun-Alun Desa Asri (posisi X=9, Z=3). Pemain dapat mengambil kontrak:
-- Kontrak 1: Basmi 5 Zombi Brute        $\rightarrow$ Hadiah Rp 75.000
-- Kontrak 2: Basmi 10 Zombi Runner      $\rightarrow$ Hadiah Rp 60.000
-- Kontrak 3: Jarah 3 Peti Kargo Pondok  $\rightarrow$ Hadiah Rp 80.000
-Kemajuan buruan otomatis tercatat saat beraksi di Sector-7 dan dapat dicairkan
-langsung di Papan Pengumuman saat kembali ke desa.
+8.4 Papan Kontrak Buruan Desa Berjenjang (Tiered Bounty Hunting Board)
+Terletak di Alun-Alun Desa Asri (posisi X=9, Z=3). Pemain dapat mengambil 5 variasi kontrak buruan:
+- Kontrak 1: Pembasmi Zombi Runner    (Basmi 10 Runner, Bebas Senjata)     $\rightarrow$ Hadiah Rp 60.000
+- Kontrak 2: Jagal Senyap Hutan       (Tebas 6 Walker dengan Golok [4/V])  $\rightarrow$ Hadiah Rp 75.000
+- Kontrak 3: Peredam Kekuatan Brute   (Lumpuhkan 5 Brute dengan Shotgun)   $\rightarrow$ Hadiah Rp 85.000
+- Kontrak 4: Pemburu Spesimen Racun   (Basmi 4 Stalker dengan Senapan 7.62)$\rightarrow$ Hadiah Rp 95.000
+- Kontrak 5: Penjarah Kargo Pondok    (Buka 3 Peti Kargo Terbengkalai)     $\rightarrow$ Hadiah Rp 80.000
+Sistem otomatis melacak jenis senjata aktif yang digunakan saat eliminasi musuh.
 
 ===============================================================================
 9. SISTEM AUDIO PROSEDURAL (SYNTHETIC WEB AUDIO ENGINE)
@@ -380,6 +444,13 @@ Dikelola oleh class SoundManager (audio.js) tanpa ketergantungan file MP3/WAV ek
   dengan pitch slide sawtooth oscillator (260 Hz $\rightarrow$ 45 Hz).
 - Tembakan Shotgun: Ledakan noise tebal ganda berpadu square sub-bass punch 90 Hz.
 - Tembakan Rifle  : Hentakan punchy cepat 0.1s berulang berfrekuensi 180 Hz.
+- Ayunan Golok (`playMacheteSwing`): Sapuan desisan udara pisau melengkung (bandpass 320 Hz $\rightarrow$ 140 Hz).
+- Tebasan Golok (`playMacheteHit`): Benturan tajam penetrasi daging (280 Hz) dipadu retakan tulang (700 Hz).
+- Jepretan Ranjau Bambu (`playTrapSnap`): Patahan bilah bambu pegas frekuensi 850 Hz $\rightarrow$ 220 Hz dengan desiran paku berkeretak.
+- Sirine Evakuasi Darurat (`playExtractionSiren` / `stopExtractionSiren`): Sirine pulsa frekuensi 440 Hz <-> 880 Hz
+  yang berbunyi mengiringi hitung mundur 12 detik timed holdout di Sector-7.
+- Kemenangan Evakuasi (`playExtractionSuccess`): Akord harmoni tiga nada kemenangan (C5-E5-G5 sinusoidal) saat evakuasi selesai.
+- Detak Jantung Rendah Darah (`playHeartbeat`): Denyut ganda frekuensi rendah (52 Hz $\rightarrow$ 36 Hz) saat HP $\le$ 25%.
 - Langkah Kaki Natural (`playFootstep`): Lapisan hentakan tumit (sub-thump 62-68 Hz),
   gesekan sol granular tanah/paving (bandpass 440-490 Hz), dan desiran pakaian taktis
   bergerak (highpass 800 Hz), bergantian kaki kiri/kanan dan dinamis jalan vs sprint.
@@ -424,7 +495,8 @@ gamedevs/dead-zone/
 │   │   ├── gameState.test.js      -> Verifikasi kapasitas dompet, tas, stash, death penalty
 │   │   ├── integration.test.js    -> Verifikasi siklus ekspedisi dan ekonomi
 │   │   ├── terrain_combat.test.js -> Verifikasi terrain elevation, tembakan, dan boss
-│   │   └── new_mechanics_v2.test.js-> Verifikasi komprehensif 10 fitur baru v2
+│   │   ├── new_mechanics_v2.test.js-> Verifikasi komprehensif 10 fitur v2
+│   │   └── v3_tactical_mechanics.test.js-> Verifikasi komprehensif 10 fitur v3 (Golok, aggro, holdout, buffs, jebakan)
 │   └── libs/               -> Three.js library modules (GLTFLoader, FBXLoader, SkeletonUtils)
 └── asset dead-zone/
     ├── house/
@@ -455,18 +527,20 @@ Per 10 November 2026, status implementasi aktual dalam kode adalah:
 [v] Selesai & Berjalan Sempurna (100% Production Ready & Verified by Automated Tests):
 - Dual-Zone Environment: Desa Asri (Safe Zone malam) & Sector-7 (Hutan 230mx230m).
 - 2 Bangunan Utama 3D Desa Terkompresi: Rumah 1.96 MB GLB & Toko 1.99 MB GLB (Total 3.96 MB).
-- Papan Kontrak Buruan Desa (Bounty Board): Misi harian berburu zombi dan kargo berhadiah Rupiah.
-- Rumah Desa Tingkat 3: 2 Slot Kantong Aman (Kebal Hangus) & Meja Perakit Amunisi / Jamu (Workbench).
-- Keseimbangan Tempur & Stamina Taktis: Kecepatan jalan 4.2 m/s, sprint 5 detik, Bar Stamina HUD.
-- Suar Evakuasi Dinamis: Berpindah acak di antara 4 pondok hutan Sector-7 setiap ekspedisi.
-- Drop Fisik Inti Titan: Mengalahkan Boss Titan memberikan item fisik bernilai Rp 200.000 di ransel.
-- Jangkauan Serang Boss Titan 3.8m & Jurus Raungan Pemanggil 2 Runner pada HP $\le$ 50%.
-- Jurus Kabut Racun Toxic Stalker: Menghasilkan gas beracun 8 DPS berdurasi 6.5 detik saat mati.
-- Kaliber Amunisi Terpisah: 9mm Pistol, 12-Gauge Buckshot, dan 7.62mm Rifle di Toko & Meja Perakit.
-- Suplai Amunisi Terbatas Boss: Hanya memberikan 1 kotak amunisi (24 butir) untuk senjata aktif.
-- Gaya Pedesaan Taktis Penuh: Tipografi Cinzel/Rajdhani/Inter, audio tegukan botol kaca jamu herbal.
-- High-Stakes Death Penalty: Ransel biasa hangus, Kantong Aman dan Peti Stash tetap selamat.
-- Seluruh 5 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2).
+- Senjata Melee Darurat: Golok Pedesaan bawaan (Slot 4 / [V]) dengan 0m noise (senyap) & 1.0s stamina cost.
+- Rebalancing Kerusakan Headshot: Pistol 9mm (70 HP) & Senapan Taktis 7.62mm (105 HP).
+- Kebisingan Tembakan Akustik (Gunshot Aggro): Shotgun (55m), Rifle (42m), Pistol (22m), Golok (0m).
+- Timed Holdout Extraction: Bertahan 12.0 detik di dalam perimeter 14 meter suar evakuasi beriringan sirine darurat.
+- Reposisi Zombi Dinamis: Zombi tertinggal > 65m dipindahkan ke 25-35m di depan arah hadap pemain.
+- Nightfall Escalation & Pacing Boss: Spawn Boss tiap 25 kills, drop Inti Titan bernilai stabil Rp 100.000, drop permata naik hingga 2.5x.
+- Meja Perakit Rumah Tingkat 2 (Workbench): Terbuka lebih awal di Rumah Lv 2 dengan hasil rakitan ganda (2x yield).
+- Resep Jamu Khusus Buff: Jamu Beras Kencur (+100% Stamina Regen) & Jamu Kunyit Asam (Kebal Racun Toxic Stalker).
+- Ranjau Paku Bambu Taktis: Deployable jebakan tanah dengan 50 Damage instan + Slow 50% selama 5 detik.
+- Papan Kontrak Buruan 5 Tingkat: Dilengkapi pengecekan jenis senjata spesifik (Golok, Shotgun, Rifle, Bebas).
+- Rumah Desa Tingkat 3: 2 Slot Kantong Aman (100% Kebal Hangus saat gugur) & Stash 64 Slot.
+- HUD Quick Select 7 Slot: Terpadu di bagian tengah bawah layar lengkap dengan banner indikator buff aktif.
+- Sintesis Audio Prosedural Lengkap: Heartbeat HP kritis, tebasan & benturan golok, ranjau bambu, sirine & kemenangan evakuasi.
+- Seluruh 6 Test Suite Otomatis Lulus 100% (collision, gameState, integration, terrain_combat, new_mechanics_v2, v3_tactical_mechanics).
 
 ================================================================================
 13. ARAH PENGEMBANGAN MASA DEPAN (FUTURE DEVELOPMENT ROADMAP)
@@ -484,6 +558,54 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 10 November 2026 (Rilis Pembaruan V3 — Tactical Survival, Emergency Melee & Economy Deflation Overhaul):
+  - Penyeimbangan Ulang Kerusakan Headshot (Headshot Ballistics Rebalance):
+    * Pistol 9mm diturunkan dari 100 HP ke 70 HP (hanya 1-hit kill Runner 55 HP, membutuhkan 2 tembakan untuk Walker 80 HP).
+    * Senapan Taktis 7.62mm dinaikkan dari 85 HP ke 105 HP (1-hit kill Walker 80 HP, Runner 55 HP, dan Stalker 95 HP)
+      menjadikan investasi senjata Rp 500.000 benar-benar mematikan dan sepadan.
+  - Senjata Jarak Dekat Darurat — Golok Pedesaan (`machete`):
+    * Ditambahkan sebagai senjata bawaan awal (Slot 4 / Quick Melee tombol [V]).
+    * Karakteristik tempur: Kerusakan 45 HP badan / 80 HP headshot, jarak raycast 2.3 meter,
+      konsumsi 1.0 detik stamina per tebasan, dan radius suara 0 meter (Senyap sempurna / Stealth).
+    * Model 3D prosedural gagang kayu jati gelap berukir dipadu bilah baja tempa melengkung berkilau.
+  - Mekanik Kebisingan Tembakan Akustik (Caliber Gunshot Aggro):
+    * Tembakan menyebarkan radius kebisingan berbeda: Shotgun 12G (55m) > Rifle 7.62mm (42m) > Pistol 9mm (22m) > Golok (0m).
+    * Zombi dalam radius suara memasuki status Agitated Chase dengan dorongan lari kencang (+25% kecepatan) selama 4.0 detik.
+  - Reposisi Zombi Dinamis (Dynamic Repositioning):
+    * Zombi di Sector-7 yang tertinggal > 65 meter di belakang arah jelajah pemain secara dinamis dipindahkan
+      ke radius 25–35 meter di depan arah hadap pemain, menjaga tensi pertempuran tetap konsisten.
+  - Evakuasi Bertahan Waktu (Timed Holdout Extraction):
+    * Menghapus teleportasi instan saat menginjak suar evakuasi Sector-7.
+    * Pemain wajib bertahan selama 12.0 detik di dalam perimeter 14 meter dari suar dengan sirine darurat berbunyi.
+    * Pada detik ke-6, gelombang serbuan zombi Runner terpanggil menyerang titik evakuasi. Keluar perimeter > 14m
+      akan membatalkan evakuasi secara otomatis.
+  - Deflasi Ekonomi & Pacing Boss Titan:
+    * Syarat pemanggilan Boss Titan dinaikkan dari tiap 10 kills menjadi tiap 25 kills.
+    * Nilai jual Inti Titan distabilkan menjadi Rp 100.000 (sebelumnya Rp 200.000) guna mencegah inflasi berlebih.
+    * Eskalasi Malam (Nightfall Escalation): Melacak lama bertahan di hutan, meningkatkan peluang spawn Brute/Stalker,
+      dan melipatgandakan peluang drop Batu Permata Hutan hingga 2.5x lipat dalam waktu 5 menit.
+  - Solusi Arbitrase Meja Perakit (Workbench Crafting Overhaul):
+    * Akses Meja Perakit (Workbench) dimajukan ke Rumah Level 2 (Rumah Kayu Asri) agar pemain dapat merakit lebih awal.
+    * Seluruh hasil resep digandakan (2x yield): 48 butir peluru 9mm, 24 butir buckshot 12G, 60 butir peluru 7.62mm,
+      dan 2 botol Jamu Herbal, menjamin peracikan selalu hemat dan lebih menguntungkan dibanding harga beli Toko.
+  - Komoditas & Buff Baru — Jamu Taktis & Ranjau Paku Bambu:
+    * Jamu Beras Kencur: Meracik 2x Jamu Kencur (memberikan regenerasi stamina 2x lipat selama 45 detik).
+    * Jamu Kunyit Asam: Meracik 2x Jamu Kunyit (memberikan kekebalan 100% dari kabut gas racun Toxic Stalker selama 60 detik).
+    * Ranjau Paku Bambu: Merakit 3x Ranjau Bambu (Slot 6 / [T]), jebakan tanah 3D yang menimbulkan 50 damage + Slow 50% selama 5 detik.
+  - Papan Kontrak Buruan 5 Tingkat dengan Pengecekan Senjata:
+    * Kontrak kini memvalidasi jenis senjata spesifik: Tebas 6 Walker dengan Golok, Lumpuhkan 5 Brute dengan Shotgun,
+      Eliminasi 4 Stalker dengan Senapan 7.62mm, Pembasmi Runner (senjata bebas), dan Penjarah 3 Peti Kargo.
+  - Sintesis Efek Audio Prosedural Baru:
+    * Detak Jantung Darah Kritis (`playHeartbeat`): Denyut ganda frekuensi rendah (52 Hz -> 36 Hz) saat HP <= 25%.
+    * Ayunan & Benturan Golok (`playMacheteSwing` & `playMacheteHit`): Desisan bilah baja dan dentuman impact daging/tulang.
+    * Jepretan Ranjau Bambu (`playTrapSnap`): Patahan bambu pegas dan decitan paku.
+    * Sirine Evakuasi & Fanfare Kemenangan (`playExtractionSiren` & `playExtractionSuccess`).
+  - Antarmuka HUD Quick Select 7 Slot & Banner Buff:
+    * Hotbar 7 slot terpadu: [1] Pistol, [2] Shotgun, [3] Rifle, [4] Golok, [5] Jamu, [6] Ranjau, [7] Senter.
+    * Banner indikator buff aktif di kiri atas layar menampilkan hitung mundur durasi efek Jamu Kencur dan Jamu Kunyit.
+  - Suite Pengujian Otomatis V3:
+    * Pembuatan suite `v3_tactical_mechanics.test.js` memverifikasi kesepuluh mekanik baru dengan kelulusan 100%.
+
 * 10 November 2026 (Sesi Sore — Natural Locomotion Audio Overhaul):
   - Perombakan Suara Langkah Kaki, Lompatan, dan Pendaratan Natural (Organic Audio):
     * Suara lompat (`playJump`) lama yang berupa beep osilator kartun diganti dengan

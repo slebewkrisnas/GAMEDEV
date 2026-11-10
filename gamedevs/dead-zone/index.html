@@ -97,6 +97,22 @@
       <span class="key-badge">E</span> <span id="prompt-label">Interaksi</span>
     </div>
 
+    <!-- Timed Holdout Extraction Banner -->
+    <div id="holdout-banner" class="holdout-banner hidden">
+      <div class="holdout-header">
+        <span class="holdout-icon">🚨</span>
+        <span class="holdout-title">EVAKUASI BERTAHAN HIDUP</span>
+      </div>
+      <div class="holdout-timer" id="holdout-timer">12.0s</div>
+      <div class="holdout-info" id="holdout-info">Tetap dalam radius suar (&le;14m)</div>
+      <div class="holdout-progress-track">
+        <div class="holdout-progress-fill" id="holdout-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Active Consumable Buffs (Jamu Beras Kencur & Jamu Kunyit Asam) -->
+    <div id="active-buffs-container" class="active-buffs-container"></div>
+
     <!-- Center Screen Announcement Banner -->
     <div id="announcement-banner" class="announcement-banner hidden">
       <div id="banner-title" class="banner-title">WAVE 1 INCOMING</div>
@@ -123,8 +139,8 @@
         </div>
       </div>
 
-      <!-- Quick-Select Hotbar (Opsi Pilih Senjata & Medkit Tengah Bawah) -->
-      <div id="quick-select-bar" class="quick-select-bar" role="toolbar" aria-label="Hotbar Pilihan Senjata dan Medkit">
+      <!-- Quick-Select Hotbar (Opsi Pilih Senjata, Golok, Medkit & Ranjau Tengah Bawah) -->
+      <div id="quick-select-bar" class="quick-select-bar" role="toolbar" aria-label="Hotbar Pilihan Senjata, Golok, dan Utilitas">
         <!-- Slot 1: Tactical 9mm Pistol -->
         <button class="hotbar-slot active" data-slot="1" id="hotbar-slot-1" title="Tactical 9mm Pistol [1]">
           <span class="slot-badge">1</span>
@@ -155,25 +171,45 @@
           </div>
         </button>
 
-        <div class="hotbar-divider"></div>
-
-        <!-- Slot 4: Medkit / Ramuan Jamu Herbal -->
-        <button class="hotbar-slot item-medkit" data-slot="4" id="hotbar-slot-4" title="Pakai Jamu Herbal (+40 HP) [4 / Q]">
-          <span class="slot-badge">4/Q</span>
-          <span class="slot-icon">🩹</span>
+        <!-- Slot 4: Golok Pedesaan (Melee Bawaan Darurat) -->
+        <button class="hotbar-slot" data-slot="4" id="hotbar-slot-4" title="Golok Pedesaan [4 / V]">
+          <span class="slot-badge">4/V</span>
+          <span class="slot-icon">🗡️</span>
           <div class="slot-info">
-            <span class="slot-title">MEDKIT</span>
-            <span class="slot-meta" id="hotbar-meta-4">x0</span>
+            <span class="slot-title">GOLOK</span>
+            <span class="slot-meta" id="hotbar-meta-4">MELEE</span>
           </div>
         </button>
 
-        <!-- Slot 5: Senter Taktis Utility -->
-        <button class="hotbar-slot item-util" data-slot="5" id="hotbar-slot-5" title="Nyalakan/Matikan Senter [5 / F]">
-          <span class="slot-badge">5/F</span>
+        <div class="hotbar-divider"></div>
+
+        <!-- Slot 5: Medkit / Ramuan Jamu Herbal -->
+        <button class="hotbar-slot item-medkit" data-slot="5" id="hotbar-slot-5" title="Pakai Jamu Herbal (+40 HP) [5 / Q]">
+          <span class="slot-badge">5/Q</span>
+          <span class="slot-icon">🌿</span>
+          <div class="slot-info">
+            <span class="slot-title">JAMU</span>
+            <span class="slot-meta" id="hotbar-meta-5">x0</span>
+          </div>
+        </button>
+
+        <!-- Slot 6: Ranjau Paku Bambu -->
+        <button class="hotbar-slot item-trap" data-slot="6" id="hotbar-slot-6" title="Tanam Ranjau Paku Bambu [6 / T]">
+          <span class="slot-badge">6/T</span>
+          <span class="slot-icon">🎋</span>
+          <div class="slot-info">
+            <span class="slot-title">RANJAU</span>
+            <span class="slot-meta" id="hotbar-meta-6">x0</span>
+          </div>
+        </button>
+
+        <!-- Slot 7: Senter Taktis Utility -->
+        <button class="hotbar-slot item-util" data-slot="7" id="hotbar-slot-7" title="Nyalakan/Matikan Senter [7 / F]">
+          <span class="slot-badge">7/F</span>
           <span class="slot-icon">🔦</span>
           <div class="slot-info">
             <span class="slot-title">SENTER</span>
-            <span class="slot-meta" id="hotbar-meta-5">OFF</span>
+            <span class="slot-meta" id="hotbar-meta-7">OFF</span>
           </div>
         </button>
       </div>

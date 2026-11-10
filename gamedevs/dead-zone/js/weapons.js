@@ -16,16 +16,18 @@ export const WEAPON_CONFIGS = {
     name: 'TACTICAL 9MM',
     shortName: 'PISTOL',
     icon: '🔫',
+    isMelee: false,
     magCapacity: 12,
     defaultReserve: 60,
     maxReserve: 120,
     fireRate: 0.22,
     reloadDuration: 1.3,
     bodyDamage: 35,
-    headshotDamage: 100,
+    headshotDamage: 70, // Rebalanced: One-shot kill Runner (55 HP), 2-shot Walker (80 HP)
     pellets: 1,
     spread: 0,
     isAutomatic: false,
+    noiseRadius: 22, // Caliber noise radius in meters
     recoilZ: 0.08,
     recoilRotX: 0.16,
     sound: 'pistol',
@@ -37,6 +39,7 @@ export const WEAPON_CONFIGS = {
     name: 'SCATTER SHOTGUN',
     shortName: 'SHOTGUN',
     icon: '💥',
+    isMelee: false,
     magCapacity: 6,
     defaultReserve: 36,
     maxReserve: 72,
@@ -47,6 +50,7 @@ export const WEAPON_CONFIGS = {
     pellets: 6,
     spread: 0.045,
     isAutomatic: false,
+    noiseRadius: 55, // Loudest blast alerts zombies across clearing
     recoilZ: 0.16,
     recoilRotX: 0.30,
     sound: 'shotgun',
@@ -58,36 +62,65 @@ export const WEAPON_CONFIGS = {
     name: 'SENAPAN TAKTIS 7.62MM',
     shortName: 'RIFLE 7.62MM',
     icon: '⚡',
+    isMelee: false,
     magCapacity: 30,
     defaultReserve: 90,
     maxReserve: 180,
     fireRate: 0.11,
     reloadDuration: 1.8,
     bodyDamage: 28,
-    headshotDamage: 85,
+    headshotDamage: 105, // Rebalanced: One-shot kill Walker (80 HP), Runner (55 HP) & Stalker (95 HP)
     pellets: 1,
     spread: 0.012,
     isAutomatic: true,
+    noiseRadius: 42, // Distinct high-powered rifle crack
     recoilZ: 0.05,
     recoilRotX: 0.09,
     sound: 'rifle',
     muzzlePos: new THREE.Vector3(0, 0.055, -0.36)
+  },
+  machete: {
+    id: 'machete',
+    slot: 4,
+    name: 'GOLOK PEDESAAN',
+    shortName: 'GOLOK',
+    icon: '🗡️',
+    isMelee: true,
+    magCapacity: 1,
+    defaultReserve: 0,
+    maxReserve: 0,
+    fireRate: 0.55,
+    reloadDuration: 0,
+    bodyDamage: 45,
+    headshotDamage: 80,
+    pellets: 1,
+    spread: 0,
+    range: 2.3, // 2.3 meter melee reach
+    staminaCost: 1.0, // 1.0s stamina per ayunan
+    isAutomatic: false,
+    noiseRadius: 0, // Senyap! Tidak memancing aggro zombi
+    recoilZ: 0.04,
+    recoilRotX: 0.35,
+    sound: 'machete',
+    muzzlePos: null
   }
 };
 
 export class WeaponManager {
-  constructor(camera, parentGroup, zombiesManager, uiManager, environment) {
+  constructor(camera, parentGroup, zombiesManager, uiManager, environment, player = null) {
     this.camera = camera;
     this.parentGroup = parentGroup; // player's pitchObject
     this.zombiesManager = zombiesManager;
     this.uiManager = uiManager;
     this.environment = environment;
+    this.player = player;
 
     // Per-weapon ammo storage
     this.weaponData = {
       pulse_pistol: { ammoInMag: 12, reserveAmmo: 60 },
       scatter_blaster: { ammoInMag: 6, reserveAmmo: 36 },
-      plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 }
+      plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 },
+      machete: { ammoInMag: 1, reserveAmmo: 0 }
     };
 
     this.currentWeaponId = 'pulse_pistol';
@@ -123,10 +156,11 @@ export class WeaponManager {
     this.recoilOffset = new THREE.Vector3(0, 0, 0);
     this.recoilRotation = new THREE.Euler(0, 0, 0);
 
-    // Build the 3D procedural models for all 3 weapons
+    // Build the 3D procedural models for all weapons (Pistol, Shotgun, Rifle, and Machete)
     this.buildPistolModel();
     this.buildShotgunModel();
     this.buildRifleModel();
+    this.buildMacheteModel();
 
     // Muzzle flash particle & point light
     this.buildMuzzleFlash();
@@ -358,6 +392,74 @@ export class WeaponManager {
     this.weaponGroup.add(this.rifleGroup);
   }
 
+  buildMacheteModel() {
+    this.macheteGroup = new THREE.Group();
+
+    // 1. Curved dark oak wooden handle
+    const handleGeo = new THREE.CylinderGeometry(0.016, 0.019, 0.16, 8);
+    const handleMat = new THREE.MeshStandardMaterial({
+      color: 0x4a2e18, // Rich dark teak wood
+      roughness: 0.75,
+      metalness: 0.1
+    });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.position.set(0, -0.06, 0.04);
+    handle.rotation.x = 0.35;
+    this.macheteGroup.add(handle);
+
+    // Brass pins / rivets on handle
+    const rivetGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.034, 6);
+    rivetGeo.rotateZ(Math.PI / 2);
+    const rivetMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
+    const r1 = new THREE.Mesh(rivetGeo, rivetMat);
+    r1.position.set(0, -0.04, 0.04);
+    this.macheteGroup.add(r1);
+    const r2 = new THREE.Mesh(rivetGeo, rivetMat);
+    r2.position.set(0, -0.08, 0.04);
+    this.macheteGroup.add(r2);
+
+    // 2. Bolster / Iron Cross-Guard
+    const guardGeo = new THREE.BoxGeometry(0.038, 0.018, 0.038);
+    const guardMat = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.8 });
+    const guard = new THREE.Mesh(guardGeo, guardMat);
+    guard.position.set(0, 0.015, 0.01);
+    this.macheteGroup.add(guard);
+
+    // 3. Forged Steel Blade Spine (dark carbon forged steel)
+    const spineGeo = new THREE.BoxGeometry(0.014, 0.28, 0.045);
+    const spineMat = new THREE.MeshStandardMaterial({
+      color: 0x2b3038,
+      roughness: 0.35,
+      metalness: 0.85
+    });
+    const spine = new THREE.Mesh(spineGeo, spineMat);
+    spine.position.set(0, 0.15, -0.03);
+    spine.rotation.x = -0.12;
+    this.macheteGroup.add(spine);
+
+    // 4. Razor Sharp Polished Cutting Edge (bright polished bevel)
+    const edgeGeo = new THREE.BoxGeometry(0.005, 0.29, 0.025);
+    const edgeMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.15,
+      metalness: 0.98
+    });
+    const edge = new THREE.Mesh(edgeGeo, edgeMat);
+    edge.position.set(0, 0.15, -0.055);
+    edge.rotation.x = -0.12;
+    this.macheteGroup.add(edge);
+
+    // 5. Curved Machete Tip (Bulu Ayam / Parang slope)
+    const tipGeo = new THREE.CylinderGeometry(0.004, 0.024, 0.08, 4);
+    tipGeo.rotateX(Math.PI / 4);
+    const tip = new THREE.Mesh(tipGeo, edgeMat);
+    tip.position.set(0, 0.29, -0.055);
+    this.macheteGroup.add(tip);
+
+    this.macheteGroup.visible = false;
+    this.weaponGroup.add(this.macheteGroup);
+  }
+
   buildMuzzleFlash() {
     const flashGeo = new THREE.SphereGeometry(0.045, 6, 6);
     const flashMat = new THREE.MeshBasicMaterial({ color: 0xffdd66 });
@@ -422,11 +524,15 @@ export class WeaponManager {
     if (this.pistolGroup) this.pistolGroup.visible = (weaponId === 'pulse_pistol');
     if (this.shotgunGroup) this.shotgunGroup.visible = (weaponId === 'scatter_blaster');
     if (this.rifleGroup) this.rifleGroup.visible = (weaponId === 'plasma_rifle');
+    if (this.macheteGroup) this.macheteGroup.visible = (weaponId === 'machete');
 
     // Reposition muzzle flash
     if (this.muzzleFlashMesh && cfg.muzzlePos) {
       this.muzzleFlashMesh.position.copy(cfg.muzzlePos);
       this.muzzleLight.position.copy(cfg.muzzlePos);
+    } else if (this.muzzleFlashMesh) {
+      this.muzzleFlashMesh.visible = false;
+      this.muzzleLight.visible = false;
     }
 
     // Brief weapon swap animation
@@ -467,10 +573,106 @@ export class WeaponManager {
   // --------------------------------------------------------------------------
   // FIRING & RAYCASTING
   // --------------------------------------------------------------------------
+  getPlayerPosition() {
+    if (this.player && this.player.yawObject) {
+      return this.player.yawObject.position;
+    }
+    if (this.parentGroup && this.parentGroup.parent) {
+      return this.parentGroup.parent.position;
+    }
+    return this.camera.position;
+  }
+
+  performMeleeAttack(cfg) {
+    if (this.player) {
+      if (this.player.isExhausted || this.player.stamina < 0.25) {
+        if (this.uiManager) {
+          this.uiManager.showAnnouncement('TERLALU LELAH!', 'Tunggu stamina pulih untuk menebas!', 1.2);
+        }
+        return;
+      }
+      this.player.stamina = Math.max(0, this.player.stamina - (cfg.staminaCost || 1.0));
+      if (this.player.stamina <= 0.01) {
+        this.player.stamina = 0;
+        this.player.isExhausted = true;
+      }
+      if (this.uiManager && typeof this.uiManager.updateStamina === 'function') {
+        this.uiManager.updateStamina(this.player.stamina, this.player.maxStamina, this.player.isExhausted);
+      }
+    }
+
+    this.fireCooldown = cfg.fireRate;
+    this.totalShots++;
+
+    // Play blade whoosh sound
+    sound.playMacheteSwing();
+
+    // Trigger slashing motion
+    this.recoilOffset.z = 0.08;
+    this.recoilOffset.x = -0.06;
+    this.recoilRotation.x = 0.42;
+    this.recoilRotation.y = -0.32;
+    this.recoilRotation.z = 0.22;
+
+    if (this.uiManager) {
+      this.uiManager.triggerCrosshairRecoil();
+    }
+
+    // Raycast up to cfg.range (2.3m reach)
+    this.raycaster.setFromCamera(this.screenCenter, this.camera);
+    const activeHitboxes = this.zombiesManager ? this.zombiesManager.getActiveHitboxes() : [];
+    if (activeHitboxes.length > 0) {
+      const intersects = this.raycaster.intersectObjects(activeHitboxes, true);
+      if (intersects.length > 0 && intersects[0].distance <= (cfg.range || 2.3)) {
+        const hit = intersects[0];
+        let zombie = null;
+        let isHead = false;
+        let curr = hit.object;
+        while (curr) {
+          if (curr.userData && curr.userData.zombie) {
+            zombie = curr.userData.zombie;
+            isHead = curr.userData.isHead || false;
+            break;
+          }
+          curr = curr.parent;
+        }
+
+        if (zombie && zombie.isAlive) {
+          const dmg = isHead ? cfg.headshotDamage : cfg.bodyDamage;
+          this.totalHits++;
+          sound.playMacheteHit();
+          if (isHead) {
+            this.totalHeadshots++;
+            sound.playHeadshot();
+            if (this.uiManager) {
+              this.uiManager.showHitMarker(true);
+              this.uiManager.showAnnouncement('CRITICAL TEBASAN KEPALA! 🗡️', `+${dmg} DAMAGE`, 1.0);
+            }
+          } else {
+            sound.playZombieHurt();
+            if (this.uiManager) {
+              this.uiManager.showHitMarker(false);
+              this.uiManager.showAnnouncement('TEBASAN GOLOK! 🗡️', `+${dmg} DAMAGE`, 0.8);
+            }
+          }
+          zombie.takeDamage(dmg, isHead);
+        }
+      }
+    }
+  }
+
   shoot() {
     if (this.isHolstered) return;
     const canShootPointer = (document.pointerLockElement !== null) || this.isTouchMode;
     if (!canShootPointer || this.isReloading || this.fireCooldown > 0) {
+      return;
+    }
+
+    const cfg = WEAPON_CONFIGS[this.currentWeaponId] || WEAPON_CONFIGS.pulse_pistol;
+
+    // --- MELEE WEAPON LOGIC (GOLOK PEDESAAN) ---
+    if (cfg.isMelee) {
+      this.performMeleeAttack(cfg);
       return;
     }
 
@@ -480,8 +682,6 @@ export class WeaponManager {
       this.uiManager.showReloadAlert(true);
       return;
     }
-
-    const cfg = WEAPON_CONFIGS[this.currentWeaponId] || WEAPON_CONFIGS.pulse_pistol;
 
     // Deduct bullet
     this.ammoInMag--;
@@ -496,6 +696,14 @@ export class WeaponManager {
       sound.playRifleShot();
     } else {
       sound.playPistolShot();
+    }
+
+    // Gunshot Aggro: Caliber-dependent sound radius alerts zombies in vicinity!
+    if (cfg.noiseRadius > 0 && this.zombiesManager && typeof this.zombiesManager.alertZombiesInRadius === 'function') {
+      const pPos = this.getPlayerPosition();
+      if (pPos) {
+        this.zombiesManager.alertZombiesInRadius(pPos, cfg.noiseRadius);
+      }
     }
 
     // Trigger visual recoil and muzzle flash
@@ -572,7 +780,7 @@ export class WeaponManager {
   }
 
   reload() {
-    if (this.isReloading || this.ammoInMag >= this.magCapacity || this.reserveAmmo <= 0) {
+    if (this.isReloading || this.currentWeaponId === 'machete' || this.ammoInMag >= this.magCapacity || this.reserveAmmo <= 0) {
       return;
     }
 
@@ -695,7 +903,8 @@ export class WeaponManager {
     this.weaponData = {
       pulse_pistol: { ammoInMag: 12, reserveAmmo: 60 },
       scatter_blaster: { ammoInMag: 6, reserveAmmo: 36 },
-      plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 }
+      plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 },
+      machete: { ammoInMag: 1, reserveAmmo: 0 }
     };
     this.currentWeaponId = 'pulse_pistol';
     const cfg = WEAPON_CONFIGS.pulse_pistol;
@@ -717,6 +926,7 @@ export class WeaponManager {
     if (this.pistolGroup) this.pistolGroup.visible = true;
     if (this.shotgunGroup) this.shotgunGroup.visible = false;
     if (this.rifleGroup) this.rifleGroup.visible = false;
+    if (this.macheteGroup) this.macheteGroup.visible = false;
 
     this.uiManager.showReloadAlert(false);
     this.uiManager.showReloadProgressBar(false);

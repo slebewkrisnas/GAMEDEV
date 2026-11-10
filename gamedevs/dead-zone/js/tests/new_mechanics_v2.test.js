@@ -107,7 +107,7 @@ console.log('✔ Speed & Stamina mechanics passed!');
 console.log('Test 2: Boss physical Titan Core drop & extraction...');
 GameState.reset();
 assert.ok(ITEMS.TITAN_CORE, 'TITAN_CORE must exist in ITEMS definition');
-assert.strictEqual(ITEMS.TITAN_CORE.value, 200000, 'TITAN_CORE must have value of Rp 200.000');
+assert.strictEqual(ITEMS.TITAN_CORE.value, 100000, 'TITAN_CORE must have rebalanced value of Rp 100.000');
 assert.strictEqual(ITEMS.TITAN_CORE.type, 'loot', 'TITAN_CORE is a physical loot item');
 
 // Add to backpack
@@ -120,7 +120,7 @@ assert.strictEqual(GameState.wallet, 50000, 'Wallet cash is NOT credited before 
 const coreItem = GameState.backpack[0];
 GameState.addRp(coreItem.value);
 GameState.backpack.splice(0, 1);
-assert.strictEqual(GameState.wallet, 250000, 'Wallet has Rp 250.000 after extracting and selling Titan Core');
+assert.strictEqual(GameState.wallet, 150000, 'Wallet has Rp 150.000 after extracting and selling Titan Core');
 console.log('✔ Physical Titan Core drop & monetization passed!');
 
 // ==========================================

@@ -176,6 +176,21 @@ export class Player {
       case 'KeyQ':
         this.useNanoStim();
         break;
+      case 'KeyV':
+        // Quick Melee (Golok Pedesaan)
+        if (this.weapons) {
+          if (this.weapons.currentWeaponId === 'machete') {
+            this.weapons.switchWeapon(this.previousFirearmId || 'pulse_pistol');
+          } else {
+            this.previousFirearmId = this.weapons.currentWeaponId;
+            this.weapons.switchWeapon('machete');
+          }
+        }
+        break;
+      case 'KeyT':
+        // Deploy Ranjau Paku Bambu
+        this.deployBambooTrap();
+        break;
       case 'Digit1':
       case 'Numpad1':
         this.selectSlot(1);
@@ -195,6 +210,14 @@ export class Player {
       case 'Digit5':
       case 'Numpad5':
         this.selectSlot(5);
+        break;
+      case 'Digit6':
+      case 'Numpad6':
+        this.selectSlot(6);
+        break;
+      case 'Digit7':
+      case 'Numpad7':
+        this.selectSlot(7);
         break;
       case 'Space':
         e.preventDefault();
@@ -216,9 +239,15 @@ export class Player {
         if (this.weapons) this.weapons.switchWeapon('plasma_rifle');
         break;
       case 4:
-        this.useNanoStim(this.ui);
+        if (this.weapons) this.weapons.switchWeapon('machete');
         break;
       case 5:
+        this.useNanoStim(this.ui);
+        break;
+      case 6:
+        this.deployBambooTrap();
+        break;
+      case 7:
         this.toggleFlashlight();
         break;
     }
@@ -354,12 +383,31 @@ export class Player {
         this.isExhausted = true; // Kehabisan nafas
       }
     } else {
-      // Pulihkan Stamina saat jalan santai atau diam
+      // Pulihkan Stamina saat jalan santai atau diam (2x lipat lebih cepat dengan Jamu Beras Kencur)
       this.isSprinting = false;
-      this.stamina = Math.min(this.maxStamina, this.stamina + delta * this.staminaRegen);
+      const regenRate = (GameState.hasBuff && GameState.hasBuff('stamina_boost'))
+        ? (this.staminaRegen * 2.0)
+        : this.staminaRegen;
+      this.stamina = Math.min(this.maxStamina, this.stamina + delta * regenRate);
       if (this.stamina >= 1.2) {
         this.isExhausted = false; // Pulih dari lelah
       }
+    }
+
+    // Update active buffs duration
+    if (GameState.updateBuffs) {
+      GameState.updateBuffs(delta);
+    }
+
+    // Detak jantung low-HP audio saat sekarat (HP <= 25)
+    if (this.health <= 25 && !this.isDead) {
+      this.heartbeatTimer = (this.heartbeatTimer || 0) + delta;
+      if (this.heartbeatTimer >= 1.05) {
+        this.heartbeatTimer = 0;
+        sound.playHeartbeat();
+      }
+    } else {
+      this.heartbeatTimer = 0;
     }
 
     // Beritahukan UI perubahan stamina
@@ -558,11 +606,67 @@ export class Player {
       ui.updateQuickSelectBar(this.weapons?.currentWeaponId, this.weapons?.weaponData);
       ui.showAnnouncement('MEDKIT DIGUNAKAN', '+40 HP Dipulihkan!', 1.8);
 
-      const medkitSlot = document.getElementById('hotbar-slot-4');
+      const medkitSlot = document.getElementById('hotbar-slot-4') || document.getElementById('hotbar-slot-5');
       if (medkitSlot) {
         medkitSlot.classList.add('healing');
         setTimeout(() => medkitSlot.classList.remove('healing'), 400);
       }
+    }
+  }
+
+  // Gunakan Jamu Beras Kencur (Stamina 2x regen selama 60s)
+  useJamuKencur(uiManager = null) {
+    const ui = uiManager || this.ui;
+    if (this.isDead) return;
+    const count = GameState.countItem('jamu_kencur', true);
+    if (count <= 0) {
+      if (ui) ui.showAnnouncement('JAMU KENCUR KOSONG', 'Racik di Meja Perakit (Workbench)!', 2.0);
+      return;
+    }
+    GameState.removeItemsById('jamu_kencur', 1, true);
+    GameState.applyBuff('stamina_boost', 60);
+    sound.playStimSound();
+    if (ui) {
+      ui.showAnnouncement('JAMU BERAS KENCUR 🌾', 'Stamina Regen 2x Lipat Aktif Selama 60 Detik!', 3.0);
+      ui.updateHUD();
+    }
+  }
+
+  // Gunakan Jamu Kunyit Asam (Kebal Racun selama 60s)
+  useJamuKunyit(uiManager = null) {
+    const ui = uiManager || this.ui;
+    if (this.isDead) return;
+    const count = GameState.countItem('jamu_kunyit', true);
+    if (count <= 0) {
+      if (ui) ui.showAnnouncement('JAMU KUNYIT KOSONG', 'Racik di Meja Perakit (Workbench)!', 2.0);
+      return;
+    }
+    GameState.removeItemsById('jamu_kunyit', 1, true);
+    GameState.applyBuff('poison_immune', 60);
+    sound.playStimSound();
+    if (ui) {
+      ui.showAnnouncement('JAMU KUNYIT ASAM 🧪', 'Kebal Racun Toxic Stalker Selama 60 Detik!', 3.0);
+      ui.updateHUD();
+    }
+  }
+
+  // Pasang Ranjau Paku Bambu di posisi berdiri
+  deployBambooTrap(uiManager = null) {
+    const ui = uiManager || this.ui;
+    if (this.isDead) return;
+    const trapCount = GameState.countItem('bamboo_trap', true);
+    if (trapCount <= 0) {
+      if (ui) ui.showAnnouncement('RANJAU HABIS', 'Rakit Ranjau Paku Bambu di Meja Perakit (Workbench)!', 2.0);
+      return;
+    }
+    GameState.removeItemsById('bamboo_trap', 1, true);
+    const zMgr = this.zombiesManager || (this.weapons ? this.weapons.zombiesManager : null);
+    if (zMgr && typeof zMgr.placeBambooTrap === 'function') {
+      zMgr.placeBambooTrap(this.yawObject.position);
+    }
+    if (ui) {
+      ui.showAnnouncement('RANJAU BAMBU DITANAM 🎋', 'Zombi yang memijak akan terkena 50 DMG + Slow 50%!', 2.5);
+      ui.updateQuickSelectBar(this.weapons?.currentWeaponId, this.weapons?.weaponData);
     }
   }
 }

@@ -521,6 +521,135 @@ body {
   box-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
 }
 
+.hotbar-slot.item-trap:hover {
+  border-color: #a3e635;
+  background: rgba(163, 230, 53, 0.18);
+}
+
+/* ============================================================================
+   TIMED HOLDOUT EXTRACTION BANNER
+   ============================================================================ */
+.holdout-banner {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.45), inset 0 0 20px rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  padding: 16px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  pointer-events: none;
+  animation: holdoutPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes holdoutPulse {
+  0% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.35); }
+  100% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.7); }
+}
+
+.holdout-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.holdout-icon {
+  font-size: 24px;
+}
+
+.holdout-title {
+  font-family: var(--font-display, sans-serif);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #fca5a5;
+  text-transform: uppercase;
+}
+
+.holdout-timer {
+  font-family: monospace;
+  font-size: 38px;
+  font-weight: 900;
+  color: #ef4444;
+  text-shadow: 0 0 16px rgba(239, 68, 68, 0.8);
+  letter-spacing: -1px;
+}
+
+.holdout-info {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.holdout-progress-track {
+  width: 220px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.holdout-progress-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  transition: width 0.1s linear;
+}
+
+/* ============================================================================
+   ACTIVE BUFFS CONTAINER (JAMU HERBAL BUFFS)
+   ============================================================================ */
+.active-buffs-container {
+  position: absolute;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.buff-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease;
+}
+
+.buff-pill.stamina-boost {
+  border-color: #38bdf8;
+  color: #7dd3fc;
+}
+
+.buff-pill.poison-immune {
+  border-color: #10b981;
+  color: #6ee7b7;
+}
+
+.buff-pill .buff-time {
+  font-family: monospace;
+  font-weight: 800;
+  color: #facc15;
+}
+
 /* Hotbar Slot Elements */
 .slot-badge {
   position: absolute;

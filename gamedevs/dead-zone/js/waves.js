@@ -32,6 +32,8 @@ export class WaveManager {
     // Survival progression
     this.totalKills = 0;
     this.waveInProgress = false;
+    this.sessionSurvivalTime = 0; // Waktu bertahan di Sector-7 (Nightfall Escalation)
+    this.repositionTimer = 0;     // Timer pengecekan dynamic respawn zombi yang tertinggal
 
     // Concurrent population cap
     this.targetConcurrentZombies = 8;
@@ -70,6 +72,7 @@ export class WaveManager {
   startWave(waveNum = 1) {
     this.waveInProgress = true;
     this.spawnTimer = 0.3;
+    this.sessionSurvivalTime = 0;
 
     sound.playWaveStart();
 
@@ -80,19 +83,23 @@ export class WaveManager {
 
     this.uiManager.showAnnouncement(
       "PERBURUAN HUTAN DIMULAI",
-      "Mutan Unlimited · Kalahkan 10 zombie untuk memanggil Boss Titan!",
+      "Mutan Unlimited · Kalahkan 25 zombie untuk memanggil Boss Titan!",
       4.0
     );
 
     this.updateHUD();
   }
 
-  // Randomly roll zombie variant based on weighted chances
+  // Randomly roll zombie variant based on weighted chances with Nightfall Escalation
   getRandomZombieConfig() {
+    const escalation = Math.min(1.0, this.sessionSurvivalTime / 300); // 0.0 sampai 1.0 dalam 5 menit
     const roll = Math.random();
 
-    // 1. Runner (30%): Fast, low damage (jalan cepat, damage lebih kecil)
-    if (roll < 0.30) {
+    const bruteChance = 0.25 + escalation * 0.15; // Naik hingga 40%
+    const stalkerChance = 0.12 + escalation * 0.13; // Naik hingga 25%
+
+    // 1. Runner (28%): Fast, low damage
+    if (roll < 0.28) {
       return {
         type: 'runner',
         hp: 55,
@@ -101,8 +108,8 @@ export class WaveManager {
         scale: 0.88
       };
     }
-    // 2. Tank / Brute (25%): Slow, high damage (jalan lambat, damage lumayan besar)
-    else if (roll < 0.55) {
+    // 2. Tank / Brute (25% - 40% seiring malam larut)
+    else if (roll < 0.28 + bruteChance) {
       return {
         type: 'tank',
         hp: 175,
@@ -111,8 +118,8 @@ export class WaveManager {
         scale: 1.35
       };
     }
-    // 3. Stalker / Toxic (10%): Toxic lurker
-    else if (roll < 0.65) {
+    // 3. Stalker / Toxic (12% - 25% seiring malam larut)
+    else if (roll < 0.28 + bruteChance + stalkerChance) {
       return {
         type: 'stalker',
         hp: 95,
@@ -121,7 +128,7 @@ export class WaveManager {
         scale: 1.05
       };
     }
-    // 4. Walker (35%): Standard balanced
+    // 4. Walker: Standard balanced
     else {
       return {
         type: 'walker',
@@ -168,7 +175,7 @@ export class WaveManager {
 
     this.uiManager.showAnnouncement(
       "⚠️ TITAN MUTAN TELAH BANGKIT! ⚠️",
-      "BOSS ZOMBIE MUNCUL — Kalahkan untuk Hadiah Rp 200.000!",
+      "BOSS ZOMBIE MUNCUL — Kalahkan untuk Hadiah Inti Titan (Rp 100.000)!",
       4.5
     );
 
@@ -204,12 +211,17 @@ export class WaveManager {
     this.totalKills++;
 
     const zType = zombieInstance ? zombieInstance.type : (isBoss ? 'boss' : 'walker');
+    const activeWep = this.weaponManager ? this.weaponManager.currentWeaponId : null;
 
-    // Catat progress kontrak buruan di alun-alun desa
+    // Catat progress kontrak buruan bertingkat di papan desa (termasuk verifikasi senjata)
     if (zType === 'runner') {
-      GameState.recordBountyProgress('runner', 1);
+      GameState.recordBountyProgress('runner', 1, activeWep);
     } else if (zType === 'tank' || zType === 'brute') {
-      GameState.recordBountyProgress('tank', 1);
+      GameState.recordBountyProgress('tank', 1, activeWep);
+    } else if (zType === 'stalker') {
+      GameState.recordBountyProgress('stalker', 1, activeWep);
+    } else if (zType === 'boss' || isBoss) {
+      GameState.recordBountyProgress('boss', 1, activeWep);
     }
 
     if (isBoss || zType === 'boss') {
@@ -219,7 +231,7 @@ export class WaveManager {
 
       sound.playBossDeath();
 
-      // Hadiah Boss Diubah Menjadi Barang Fisik di Ransel: Inti Titan (Rp 200.000)
+      // Hadiah Boss Diubah Menjadi Barang Fisik di Ransel: Inti Titan (Rp 100.000)
       // Pemain wajib berhasil evakuasi hidup-hidup ke Desa Asri untuk menjualnya!
       const titanCore = { ...ITEMS.TITAN_CORE };
       let addedToBag = false;
@@ -235,7 +247,7 @@ export class WaveManager {
         this.lootManager.spawnDrop(pos, true);
       }
 
-      // Bonus Ammo Terbatas (Hanya 1 Kotak 24 peluru, tidak lagi +36 ke semua senjata)
+      // Bonus Ammo Terbatas (Hanya 1 Kotak 24 peluru untuk senjata aktif)
       if (this.weaponManager) {
         this.weaponManager.resupplyAmmo(24);
         setTimeout(() => sound.playAmmoResupply(), 600);
@@ -244,8 +256,8 @@ export class WaveManager {
       this.uiManager.showAnnouncement(
         "🏆 BOSS TITAN TELAH TUMBANG!",
         addedToBag
-          ? "Inti Titan (Rp 200.000) masuk ke ransel! Segera evakuasi ke Desa Asri untuk mencairkannya!"
-          : "Ransel penuh! Inti Titan (Rp 200.000) terjatuh di tanah dekat bangkai Boss!",
+          ? "Inti Titan (Rp 100.000) masuk ke ransel! Segera evakuasi ke Desa Asri untuk mencairkannya!"
+          : "Ransel penuh! Inti Titan (Rp 100.000) terjatuh di tanah dekat bangkai Boss!",
         5.5
       );
       this.uiManager.updateHUD();
@@ -255,8 +267,8 @@ export class WaveManager {
         this.lootManager.spawnDrop(pos, false);
       }
 
-      // Check if 10 kills reached -> Trigger Boss Zombie!
-      if (this.totalKills > 0 && this.totalKills % 10 === 0 && !this.bossActive) {
+      // Pacing Rebalance: Trigger Boss Zombie setiap 25 kills (bukan lagi tiap 10 kills)
+      if (this.totalKills > 0 && this.totalKills % 25 === 0 && !this.bossActive) {
         setTimeout(() => {
           if (this.waveInProgress && !this.bossActive) {
             this.spawnBoss();
@@ -268,8 +280,58 @@ export class WaveManager {
     this.updateHUD();
   }
 
+  // Dynamic Respawn: Pindahkan zombi yang tertinggal > 65m ke depan arah jalan pemain (25-35m)
+  repositionDistantZombies() {
+    if (!this.player || !this.player.yawObject || !this.zombiesManager || !this.zombiesManager.zombies) return;
+    const pPos = this.player.yawObject.position;
+    const yaw = (this.player.yawObject.rotation && typeof this.player.yawObject.rotation.y === 'number')
+      ? this.player.yawObject.rotation.y
+      : 0;
+    const fwdX = -Math.sin(yaw);
+    const fwdZ = -Math.cos(yaw);
+    const perpX = -fwdZ;
+    const perpZ = fwdX;
+
+    const zombies = this.zombiesManager.zombies;
+    for (let i = 0; i < zombies.length; i++) {
+      const z = zombies[i];
+      if (!z.isAlive || z.type === 'boss') continue;
+      const dist = Math.hypot(z.mesh.position.x - pPos.x, z.mesh.position.z - pPos.z);
+      if (dist > 65) {
+        const forwardOffset = 25 + Math.random() * 10;
+        const lateralOffset = (Math.random() - 0.5) * 18;
+        const targetX = pPos.x + fwdX * forwardOffset + perpX * lateralOffset;
+        const targetZ = pPos.z + fwdZ * forwardOffset + perpZ * lateralOffset;
+
+        if (this.environment && !this.environment.checkCollision(targetX, targetZ, 1.2)) {
+          const targetY = (typeof this.environment.getTerrainHeight === 'function')
+            ? this.environment.getTerrainHeight(targetX, targetZ)
+            : 0;
+          z.mesh.position.set(targetX, targetY, targetZ);
+          z.state = 'chase';
+        }
+      }
+    }
+  }
+
   update(delta) {
     if (!this.waveInProgress || !this.zombiesManager) return;
+
+    // Track survival time for Nightfall Escalation
+    this.sessionSurvivalTime += delta;
+
+    // Dynamic respawn check every 2.0s
+    this.repositionTimer += delta;
+    if (this.repositionTimer >= 2.0) {
+      this.repositionTimer = 0;
+      this.repositionDistantZombies();
+    }
+
+    // Scale gem drop multiplier up to 2.5x over 5 minutes
+    if (this.lootManager) {
+      const esc = Math.min(1.0, this.sessionSurvivalTime / 300);
+      this.lootManager.gemDropMultiplier = 1.0 + esc * 1.5;
+    }
 
     // Check current active zombie count
     const activeZombies = this.zombiesManager.getActiveCount();
@@ -307,6 +369,8 @@ export class WaveManager {
   reset() {
     this.totalKills = 0;
     this.waveInProgress = false;
+    this.sessionSurvivalTime = 0;
+    this.repositionTimer = 0;
     this.spawnTimer = 0;
     this.bossActive = false;
     this.currentBoss = null;

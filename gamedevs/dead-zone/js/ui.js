@@ -208,6 +208,7 @@ export class UIManager {
       }
     }
     this.updateQuickSelectBar();
+    this.updateBuffDisplay();
   }
 
   updateStamina(stamina, maxStamina = 5.0, isExhausted = false) {
@@ -279,28 +280,107 @@ export class UIManager {
       }
     }
 
-    // 4. Slot 4: Medkit / Jamu Herbal (Nano-Stim)
+    // 4. Slot 4: Golok Pedesaan (Melee Bawaan Darurat)
     const meta4 = document.getElementById('hotbar-meta-4');
     const slot4 = document.getElementById('hotbar-slot-4');
-    const stimCount = GameState.countItem('nano_stim', true);
-    if (meta4) {
-      meta4.textContent = `x${stimCount}`;
-    }
+    const hasMachete = GameState.ownedWeapons.includes('machete');
     if (slot4) {
-      slot4.classList.toggle('empty-slot', stimCount === 0);
+      slot4.classList.toggle('locked', !hasMachete);
+      slot4.classList.toggle('active', hasMachete && wId === 'machete');
+    }
+    if (meta4) {
+      meta4.textContent = hasMachete ? 'MELEE' : 'LOCKED 🔒';
     }
 
-    // 5. Slot 5: Flashlight Utility
+    // 5. Slot 5: Medkit / Ramuan Jamu Herbal (Nano-Stim)
     const meta5 = document.getElementById('hotbar-meta-5');
     const slot5 = document.getElementById('hotbar-slot-5');
-    const isFlashOn = !!(this.player && this.player.flashlightEnabled);
+    const stimCount = GameState.countItem('nano_stim', true);
     if (meta5) {
-      meta5.textContent = isFlashOn ? 'ON 💡' : 'OFF';
-      meta5.style.color = isFlashOn ? '#fde047' : '#94a3b8';
+      meta5.textContent = `x${stimCount}`;
     }
     if (slot5) {
-      slot5.classList.toggle('active', isFlashOn);
+      slot5.classList.toggle('empty-slot', stimCount === 0);
     }
+
+    // 6. Slot 6: Ranjau Paku Bambu
+    const meta6 = document.getElementById('hotbar-meta-6');
+    const slot6 = document.getElementById('hotbar-slot-6');
+    const trapCount = GameState.countItem('bamboo_trap', true);
+    if (meta6) {
+      meta6.textContent = `x${trapCount}`;
+    }
+    if (slot6) {
+      slot6.classList.toggle('empty-slot', trapCount === 0);
+    }
+
+    // 7. Slot 7: Flashlight Utility
+    const meta7 = document.getElementById('hotbar-meta-7');
+    const slot7 = document.getElementById('hotbar-slot-7');
+    const isFlashOn = !!(this.player && this.player.flashlightEnabled);
+    if (meta7) {
+      meta7.textContent = isFlashOn ? 'ON 💡' : 'OFF';
+      meta7.style.color = isFlashOn ? '#fde047' : '#94a3b8';
+    }
+    if (slot7) {
+      slot7.classList.toggle('active', isFlashOn);
+    }
+  }
+
+  // Menampilkan / menyembunyikan banner hitung mundur evakuasi
+  showHoldoutBanner(show, initialDuration = 12.0) {
+    if (!this.holdoutBanner) {
+      this.holdoutBanner = document.getElementById('holdout-banner');
+      this.holdoutTimerEl = document.getElementById('holdout-timer');
+      this.holdoutInfoEl = document.getElementById('holdout-info');
+      this.holdoutProgressFill = document.getElementById('holdout-progress-fill');
+    }
+    this.initialHoldoutDuration = initialDuration || 12.0;
+    if (this.holdoutBanner) {
+      this.holdoutBanner.classList.toggle('hidden', !show);
+    }
+    if (show && this.holdoutProgressFill) {
+      this.holdoutProgressFill.style.width = '100%';
+    }
+  }
+
+  // Update timer hitung mundur dan jarak pemain ke suar
+  updateHoldoutCountdown(remainingSeconds, distToBeacon) {
+    if (!this.holdoutTimerEl) {
+      this.holdoutTimerEl = document.getElementById('holdout-timer');
+      this.holdoutInfoEl = document.getElementById('holdout-info');
+      this.holdoutProgressFill = document.getElementById('holdout-progress-fill');
+    }
+    const secs = Math.max(0, remainingSeconds);
+    if (this.holdoutTimerEl) {
+      this.holdoutTimerEl.textContent = `${secs.toFixed(1)}s`;
+    }
+    if (this.holdoutInfoEl) {
+      const d = distToBeacon.toFixed(1);
+      const isDanger = distToBeacon > 10.0;
+      this.holdoutInfoEl.innerHTML = isDanger
+        ? `<span style="color:#ef4444; font-weight:800;">PERINGATAN: Jarak suar ${d}m (Batas 14m)!</span>`
+        : `Jarak ke suar: <strong>${d}m</strong> / 14m`;
+    }
+    if (this.holdoutProgressFill && this.initialHoldoutDuration) {
+      const pct = Math.max(0, Math.min(100, (secs / this.initialHoldoutDuration) * 100));
+      this.holdoutProgressFill.style.width = `${pct}%`;
+    }
+  }
+
+  // Tampilkan badge buff herbal yang sedang aktif
+  updateBuffDisplay() {
+    const container = document.getElementById('active-buffs-container');
+    if (!container || !GameState.activeBuffs) return;
+
+    let html = '';
+    if (GameState.activeBuffs.staminaBoostTimer > 0) {
+      html += `<div class="buff-pill stamina-boost">🌾 Beras Kencur (Stamina 2x) <span class="buff-time">${Math.ceil(GameState.activeBuffs.staminaBoostTimer)}s</span></div>`;
+    }
+    if (GameState.activeBuffs.poisonImmuneTimer > 0) {
+      html += `<div class="buff-pill poison-immune">🧪 Kunyit Asam (Kebal Racun) <span class="buff-time">${Math.ceil(GameState.activeBuffs.poisonImmuneTimer)}s</span></div>`;
+    }
+    container.innerHTML = html;
   }
 
   updateWeaponName(name) {

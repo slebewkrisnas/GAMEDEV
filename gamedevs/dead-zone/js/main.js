@@ -230,10 +230,12 @@ class DeadZoneGame {
       this.player.pitchObject,
       this.zombiesManager,
       this.ui,
-      this.environment
+      this.environment,
+      this.player
     );
     this.waveManager.weaponManager = this.weaponManager;
     this.player.weapons = this.weaponManager;
+    this.player.zombiesManager = this.zombiesManager;
 
     // 7. Touch Controls & Device Mode Switcher
     this.touchControls = new TouchControls(this.player, this.weaponManager);
@@ -247,6 +249,11 @@ class DeadZoneGame {
     this.environment.setZoneActive('safe_zone', this.player);
     GameState.activeZone = 'safe_zone';
     this.weaponManager.setHolstered(true);
+
+    // Holdout Extraction State Tracking
+    this.isHoldoutActive = false;
+    this.holdoutTimer = 0;
+    this.holdoutWaveSpawned = false;
   }
 
   initUI() {
@@ -254,7 +261,14 @@ class DeadZoneGame {
       onStartGame: () => this.startGame(),
       onResumeGame: () => this.resumeGame(),
       onRestartGame: () => this.restartGame(),
-      onSwitchZone: (zoneName) => this.switchZone(zoneName),
+      onSwitchZone: (zoneName) => {
+        if (zoneName === 'safe_zone' && GameState.activeZone === 'sector_7') {
+          this.startHoldoutExtraction();
+        } else {
+          this.switchZone(zoneName);
+        }
+      },
+      onStartExtraction: () => this.startHoldoutExtraction(),
       onLootCrate: (crateId) => this.lootManager.lootCrate(crateId, this.ui),
       onUseStim: () => this.player.useNanoStim(this.ui),
       onSelectSlot: (slot) => {
@@ -552,8 +566,73 @@ class DeadZoneGame {
     this.startGame();
   }
 
+  // =========================================================================
+  // TIMED HOLDOUT EXTRACTION SYSTEM (12s Survival Wave within 14m Radius)
+  // =========================================================================
+  startHoldoutExtraction() {
+    if (this.isHoldoutActive || GameState.activeZone !== 'sector_7') return;
+
+    this.isHoldoutActive = true;
+    this.holdoutTimer = 12.0;
+    this.holdoutWaveSpawned = false;
+
+    sound.playExtractionSiren();
+
+    // Spawn 3 Runner zombi agresif di sekitar suar
+    if (this.zombiesManager && this.environment.currentBeaconSite) {
+      const bs = this.environment.currentBeaconSite;
+      for (let i = 0; i < 3; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 16 + Math.random() * 8;
+        this.zombiesManager.spawnZombie({
+          type: 'runner',
+          hp: 55,
+          speed: 4.1,
+          damage: 10,
+          scale: 0.9,
+          x: bs.x + Math.cos(ang) * dist,
+          z: bs.z + Math.sin(ang) * dist
+        });
+      }
+    }
+
+    this.ui.showAnnouncement(
+      "🚨 SINYAL EVAKUASI DIAKTIFKAN!",
+      "Sirine memancing mutan! Bertahanlah dalam radius 14m dari Suar selama 12 detik!",
+      4.0
+    );
+    this.ui.showHoldoutBanner(true, 12.0);
+  }
+
+  cancelHoldoutExtraction(reason = "Meninggalkan radius suar evakuasi!") {
+    if (!this.isHoldoutActive) return;
+    this.isHoldoutActive = false;
+    this.holdoutTimer = 0;
+    sound.stopExtractionSiren();
+    this.ui.showHoldoutBanner(false);
+    this.ui.showAnnouncement("❌ EVAKUASI DIBATALKAN!", reason, 3.5);
+  }
+
+  finishHoldoutExtraction() {
+    this.isHoldoutActive = false;
+    this.holdoutTimer = 0;
+    sound.stopExtractionSiren();
+    sound.playExtractionSuccess();
+    this.ui.showHoldoutBanner(false);
+    this.ui.showAnnouncement(
+      "🚁 EVAKUASI BERHASIL!",
+      "Anda berhasil bertahan hidup dan dievakuasi kembali ke Desa Asri!",
+      4.0
+    );
+    this.switchZone('safe_zone');
+  }
+
   // HIGH-STAKES DEATH PENALTY
   onPlayerDeath() {
+    if (this.isHoldoutActive) {
+      this.cancelHoldoutExtraction('Pemain gugur saat bertahan evakuasi!');
+    }
+
     sound.playGameOver();
 
     if (GameState.activeZone === 'sector_7') {
@@ -607,6 +686,42 @@ class DeadZoneGame {
       this.player.update(delta);
       this.weaponManager.update(delta);
 
+      // Timed Holdout Extraction Countdown & Boundary Verification
+      if (this.isHoldoutActive && GameState.activeZone === 'sector_7' && this.environment.currentBeaconSite) {
+        const bSite = this.environment.currentBeaconSite;
+        const pPos = this.player.yawObject.position;
+        const distToBeacon = Math.hypot(pPos.x - bSite.x, pPos.z - bSite.z);
+
+        if (distToBeacon > 14.0) {
+          this.cancelHoldoutExtraction("Anda keluar terlalu jauh dari perimeter suar (>14m)!");
+        } else {
+          this.holdoutTimer -= delta;
+          this.ui.updateHoldoutCountdown(this.holdoutTimer, distToBeacon);
+
+          // Gelombang bala bantuan Runner saat sisa waktu 6 detik
+          if (this.holdoutTimer <= 6.0 && !this.holdoutWaveSpawned) {
+            this.holdoutWaveSpawned = true;
+            if (this.zombiesManager) {
+              for (let i = 0; i < 2; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                this.zombiesManager.spawnZombie({
+                  type: 'runner',
+                  hp: 55,
+                  speed: 4.2,
+                  x: bSite.x + Math.cos(ang) * 18,
+                  z: bSite.z + Math.sin(ang) * 18
+                });
+              }
+            }
+            this.ui.showAnnouncement("⚠️ GELOMBANG RUNNER!", "Mutan menyerbu suar! Tetap bertahan!", 2.5);
+          }
+
+          if (this.holdoutTimer <= 0) {
+            this.finishHoldoutExtraction();
+          }
+        }
+      }
+
       // Otomatis pindah zona jika pemain melangkah masuk portal fisik (selain tombol [E])
       if (this.zoneSwitchCooldown > 0) {
         this.zoneSwitchCooldown -= delta;
@@ -616,8 +731,8 @@ class DeadZoneGame {
           this.switchZone('sector_7');
         } else if (GameState.activeZone === 'sector_7' && this.environment.currentBeaconSite) {
           const bSite = this.environment.currentBeaconSite;
-          if (Math.hypot(pPos.x - bSite.x, pPos.z - bSite.z) <= 3.2) {
-            this.switchZone('safe_zone');
+          if (Math.hypot(pPos.x - bSite.x, pPos.z - bSite.z) <= 3.2 && !this.isHoldoutActive) {
+            this.startHoldoutExtraction();
           }
         }
       }

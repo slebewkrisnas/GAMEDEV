@@ -454,8 +454,8 @@ export class ShopManager {
         this.openBountyModal();
         break;
       case 'workbench':
-        if (GameState.houseLevel < 3) {
-          alert('🔒 Meja Perakit Amunisi & Jamu Terkunci!\nHanya pemilik Rumah Juragan Desa (Level 3) yang dapat menggunakan fasilitas ini.\nSilakan upgrade rumah Anda di Papan Depan Rumah terlebih dahulu.');
+        if (GameState.houseLevel < 2) {
+          alert('🔒 Meja Perakit Amunisi & Jamu Terkunci!\nHanya pemilik Rumah Kayu Asri (Level 2) ke atas yang dapat menggunakan fasilitas ini.\nSilakan upgrade rumah Anda di Papan Depan Rumah terlebih dahulu.');
         } else {
           this.openWorkbenchModal();
         }
@@ -472,7 +472,9 @@ export class ShopManager {
         }
         break;
       case 'extraction':
-        if (this.ui && this.ui.callbacks && this.ui.callbacks.onSwitchZone) {
+        if (this.ui && this.ui.callbacks && this.ui.callbacks.onStartExtraction) {
+          this.ui.callbacks.onStartExtraction();
+        } else if (this.ui && this.ui.callbacks && this.ui.callbacks.onSwitchZone) {
           this.ui.callbacks.onSwitchZone('safe_zone');
         }
         break;
