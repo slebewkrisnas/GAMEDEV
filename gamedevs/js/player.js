@@ -76,7 +76,15 @@ export const applyStraightHandPose = applyFistPose;
 
 export function getFistFingerQuats(targetModel, bindQuats = null) {
   const bonesMap = {};
-  targetModel.traverse((c) => { if (c.isBone) bonesMap[c.name] = c; });
+  targetModel.traverse((c) => {
+    if (c.isBone) {
+      bonesMap[c.name] = c;
+      const noDot = c.name.replace(/\.([lxr])$/i, '$1');
+      bonesMap[noDot] = c;
+      const withDot = c.name.replace(/([lxr])$/i, '.$1');
+      bonesMap[withDot] = c;
+    }
+  });
 
   const straightQuats = new Map();
 
@@ -85,19 +93,16 @@ export function getFistFingerQuats(targetModel, bindQuats = null) {
     const fingers = ['index', 'middle', 'ring', 'pinky'];
     for (const finger of fingers) {
       for (let j = 1; j <= 3; j++) {
-        const boneName = `c_${finger}${j}.${side}`;
-        const bone = bonesMap[boneName];
+        const bone = bonesMap[`c_${finger}${j}.${side}`] || bonesMap[`c_${finger}${j}${side}`];
         if (!bone) continue;
         const qBind = (bindQuats && bindQuats.has(bone)) ? bindQuats.get(bone).clone() : bone.quaternion.clone();
-        // Lurus rapi dengan sedikit relaksasi natural tanpa bengkok
-        const qStraight = qBind.clone();
-        straightQuats.set(bone, qStraight);
+        straightQuats.set(bone, qBind.clone());
       }
     }
 
     // Ibu Jari (Thumb): Lurus rapi berdampingan dengan telapak
     for (let t = 1; t <= 3; t++) {
-      const bone = bonesMap[`c_thumb${t}.${side}`];
+      const bone = bonesMap[`c_thumb${t}.${side}`] || bonesMap[`c_thumb${t}${side}`];
       if (bone) {
         const qBind = (bindQuats && bindQuats.has(bone)) ? bindQuats.get(bone).clone() : bone.quaternion.clone();
         straightQuats.set(bone, qBind.clone());
@@ -121,30 +126,30 @@ player.add(proceduralModel);
 
 const MIXAMO_ARP_BONE_PAIRS = [
   // Pelvis & Spine
-  ['mixamorigHips', 'rootx'],
-  ['mixamorigSpine', 'spine_01x'],
-  ['mixamorigSpine1', 'spine_02x'],
-  ['mixamorigSpine2', 'spine_03x'],
-  ['mixamorigNeck', 'neckx'],
-  ['mixamorigHead', 'headx'],
+  ['mixamorigHips', 'root.x'],
+  ['mixamorigSpine', 'spine_01.x'],
+  ['mixamorigSpine1', 'spine_02.x'],
+  ['mixamorigSpine2', 'spine_03.x'],
+  ['mixamorigNeck', 'neck.x'],
+  ['mixamorigHead', 'head.x'],
   // Clavicles & Arms
-  ['mixamorigLeftShoulder', 'shoulderl'],
-  ['mixamorigLeftArm', 'arm_stretchl'],
-  ['mixamorigLeftForeArm', 'forearm_stretchl'],
-  ['mixamorigLeftHand', 'handl'],
-  ['mixamorigRightShoulder', 'shoulderr'],
-  ['mixamorigRightArm', 'arm_stretchr'],
-  ['mixamorigRightForeArm', 'forearm_stretchr'],
-  ['mixamorigRightHand', 'handr'],
+  ['mixamorigLeftShoulder', 'shoulder.l'],
+  ['mixamorigLeftArm', 'arm_stretch.l'],
+  ['mixamorigLeftForeArm', 'forearm_stretch.l'],
+  ['mixamorigLeftHand', 'hand.l'],
+  ['mixamorigRightShoulder', 'shoulder.r'],
+  ['mixamorigRightArm', 'arm_stretch.r'],
+  ['mixamorigRightForeArm', 'forearm_stretch.r'],
+  ['mixamorigRightHand', 'hand.r'],
   // Legs
-  ['mixamorigLeftUpLeg', 'thigh_stretchl'],
-  ['mixamorigLeftLeg', 'leg_stretchl'],
-  ['mixamorigLeftFoot', 'footl'],
-  ['mixamorigLeftToeBase', 'toes_01l'],
-  ['mixamorigRightUpLeg', 'thigh_stretchr'],
-  ['mixamorigRightLeg', 'leg_stretchr'],
-  ['mixamorigRightFoot', 'footr'],
-  ['mixamorigRightToeBase', 'toes_01r']
+  ['mixamorigLeftUpLeg', 'thigh_stretch.l'],
+  ['mixamorigLeftLeg', 'leg_stretch.l'],
+  ['mixamorigLeftFoot', 'foot.l'],
+  ['mixamorigLeftToeBase', 'toes_01.l'],
+  ['mixamorigRightUpLeg', 'thigh_stretch.r'],
+  ['mixamorigRightLeg', 'leg_stretch.r'],
+  ['mixamorigRightFoot', 'foot.r'],
+  ['mixamorigRightToeBase', 'toes_01.r']
 ];
 
 export function playCharacterAnimation(targetName, fadeDuration = 0.2) {
@@ -238,40 +243,50 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
   loadedFbx.traverse((c) => { if (c.isBone) fbxBones[c.name] = c; });
 
   const gltfBones = {};
-  targetModel.traverse((c) => { if (c.isBone) gltfBones[c.name] = c; });
+  targetModel.traverse((c) => {
+    if (c.isBone) {
+      gltfBones[c.name] = c;
+      const noDot = c.name.replace(/\.([lxr])$/i, '$1');
+      gltfBones[noDot] = c;
+      const withDot = c.name.replace(/([lxr])$/i, '.$1');
+      gltfBones[withDot] = c;
+    }
+  });
+
+  const getGB = (n) => gltfBones[n] || gltfBones[n.replace(/([lxr])$/i, '.$1')] || gltfBones[n.replace(/\.([lxr])$/i, '$1')];
 
   // Hitung kuaternion rotasi penyesuaian (A-Pose vs T-Pose) langsung dalam koordinat model-space murni
   const dirMixArmL = getBoneDirInModel(fbxBones['mixamorigLeftArm'], fbxBones['mixamorigLeftForeArm'], loadedFbx);
-  const dirGltfArmL = getBoneDirInModel(gltfBones['arm_stretchl'], gltfBones['forearm_stretchl'], targetModel);
+  const dirGltfArmL = getBoneDirInModel(getGB('arm_stretch.l'), getGB('forearm_stretch.l'), targetModel);
   const qAlignArmL = new THREE.Quaternion().setFromUnitVectors(dirMixArmL, dirGltfArmL);
 
   const dirMixForeArmL = getBoneDirInModel(fbxBones['mixamorigLeftForeArm'], fbxBones['mixamorigLeftHand'], loadedFbx);
-  const dirGltfForeArmL = getBoneDirInModel(gltfBones['forearm_stretchl'], gltfBones['handl'], targetModel);
+  const dirGltfForeArmL = getBoneDirInModel(getGB('forearm_stretch.l'), getGB('hand.l'), targetModel);
   const qAlignForeArmL = new THREE.Quaternion().setFromUnitVectors(dirMixForeArmL, dirGltfForeArmL);
 
   const mixMiddleL = fbxBones['mixamorigLeftHandMiddle1'] || (fbxBones['mixamorigLeftHand'] && fbxBones['mixamorigLeftHand'].children[0]);
-  const gltfMiddleL = gltfBones['c_middle1l'] || (gltfBones['handl'] && (gltfBones['handl'].children.find(c => c.name.includes('middle')) || gltfBones['handl'].children[0]));
+  const gltfMiddleL = getGB('c_middle1.l') || (getGB('hand.l') && (getGB('hand.l').children.find(c => c.name.includes('middle')) || getGB('hand.l').children[0]));
   const qAlignHandL = (mixMiddleL && gltfMiddleL)
     ? new THREE.Quaternion().setFromUnitVectors(
         getBoneDirInModel(fbxBones['mixamorigLeftHand'], mixMiddleL, loadedFbx),
-        getBoneDirInModel(gltfBones['handl'], gltfMiddleL, targetModel)
+        getBoneDirInModel(getGB('hand.l'), gltfMiddleL, targetModel)
       )
     : null;
 
   const dirMixArmR = getBoneDirInModel(fbxBones['mixamorigRightArm'], fbxBones['mixamorigRightForeArm'], loadedFbx);
-  const dirGltfArmR = getBoneDirInModel(gltfBones['arm_stretchr'], gltfBones['forearm_stretchr'], targetModel);
+  const dirGltfArmR = getBoneDirInModel(getGB('arm_stretch.r'), getGB('forearm_stretch.r'), targetModel);
   const qAlignArmR = new THREE.Quaternion().setFromUnitVectors(dirMixArmR, dirGltfArmR);
 
   const dirMixForeArmR = getBoneDirInModel(fbxBones['mixamorigRightForeArm'], fbxBones['mixamorigRightHand'], loadedFbx);
-  const dirGltfForeArmR = getBoneDirInModel(gltfBones['forearm_stretchr'], gltfBones['handr'], targetModel);
+  const dirGltfForeArmR = getBoneDirInModel(getGB('forearm_stretch.r'), getGB('hand.r'), targetModel);
   const qAlignForeArmR = new THREE.Quaternion().setFromUnitVectors(dirMixForeArmR, dirGltfForeArmR);
 
   const mixMiddleR = fbxBones['mixamorigRightHandMiddle1'] || (fbxBones['mixamorigRightHand'] && fbxBones['mixamorigRightHand'].children[0]);
-  const gltfMiddleR = gltfBones['c_middle1r'] || (gltfBones['handr'] && (gltfBones['handr'].children.find(c => c.name.includes('middle')) || gltfBones['handr'].children[0]));
+  const gltfMiddleR = getGB('c_middle1.r') || (getGB('hand.r') && (getGB('hand.r').children.find(c => c.name.includes('middle')) || getGB('hand.r').children[0]));
   const qAlignHandR = (mixMiddleR && gltfMiddleR)
     ? new THREE.Quaternion().setFromUnitVectors(
         getBoneDirInModel(fbxBones['mixamorigRightHand'], mixMiddleR, loadedFbx),
-        getBoneDirInModel(gltfBones['handr'], gltfMiddleR, targetModel)
+        getBoneDirInModel(getGB('hand.r'), gltfMiddleR, targetModel)
       )
     : null;
 
@@ -287,7 +302,7 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
   const boneData = [];
   for (const [mName, gName] of MIXAMO_ARP_BONE_PAIRS) {
     const mBone = fbxBones[mName];
-    const gBone = gltfBones[gName];
+    const gBone = getGB(gName);
     if (mBone && gBone) {
       const qMixBind = getRelativeQuatChain(mBone, loadedFbx);
       const qGltfBind = getRelativeQuatChain(gBone, targetModel, bindQuats);
@@ -299,7 +314,7 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
 
       boneData.push({
         mName,
-        gName,
+        gName: gBone.name,
         mBone,
         gBone,
         qMixBindEffInv: qMixBindEff.clone().invert(),
@@ -338,17 +353,9 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
       deltaQ.copy(qMixCur).multiply(b.qMixBindEffInv);
 
       // Redam ayunan pelvis berlebih agar badan tidak goyang liar
-      if (b.gName === 'rootx') {
+      if (b.gName.startsWith('root')) {
         deltaQ.slerp(new THREE.Quaternion(), 0.5);
       }
-
-      // Kunci pergelangan tangan agar telapak tangan selalu lurus sejajar lengan bawah (tidak bengkok/lunglai)
-      if (b.gName === 'handl' || b.gName === 'handr') {
-        deltaQ.set(0, 0, 0, 1);
-      }
-
-      qTargetWorld.copy(deltaQ).multiply(b.qGltfBind);
-      targetModelQuats.set(b.gBone, qTargetWorld.clone());
 
       const parentGBone = b.gBone.parent;
       let parentQuat = null;
@@ -357,6 +364,23 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
       } else if (parentGBone && parentGBone.isBone) {
         parentQuat = getRelativeQuatChain(parentGBone, targetModel, bindQuats);
       }
+
+      // Kunci pergelangan tangan agar telapak tangan selalu lurus sempurna sejajar lengan bawah (tidak bengkok/lunglai)
+      if (b.gName.startsWith('hand')) {
+        qTargetLocal.copy(b.bindLocal);
+        qTargetWorld.copy(parentQuat ? parentQuat.clone().multiply(b.bindLocal) : b.qGltfBind);
+        targetModelQuats.set(b.gBone, qTargetWorld.clone());
+
+        const valIdx = f * 4;
+        tracksData[bIdx][valIdx] = qTargetLocal.x;
+        tracksData[bIdx][valIdx+1] = qTargetLocal.y;
+        tracksData[bIdx][valIdx+2] = qTargetLocal.z;
+        tracksData[bIdx][valIdx+3] = qTargetLocal.w;
+        continue;
+      }
+
+      qTargetWorld.copy(deltaQ).multiply(b.qGltfBind);
+      targetModelQuats.set(b.gBone, qTargetWorld.clone());
 
       if (parentQuat) {
         qTargetLocal.copy(parentQuat).invert().multiply(qTargetWorld);
@@ -441,19 +465,28 @@ async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = 
         let q0 = (bindQuats && bindQuats.has(b.gBone)) ? bindQuats.get(b.gBone).clone() : b.bindLocal.clone();
 
         // Relaksasikan lengan dari T-Pose ke samping pinggul untuk postur berdiri alami
-        if (b.gName === 'arm_stretchl') {
+        const isArmL = b.gName === 'arm_stretch.l' || b.gName === 'arm_stretchl';
+        const isArmR = b.gName === 'arm_stretch.r' || b.gName === 'arm_stretchr';
+        const isForeArmL = b.gName === 'forearm_stretch.l' || b.gName === 'forearm_stretchl';
+        const isForeArmR = b.gName === 'forearm_stretch.r' || b.gName === 'forearm_stretchr';
+        const isHand = b.gName.startsWith('hand');
+        const isSpine = b.gName.startsWith('spine_02') || b.gName.startsWith('spine_03');
+        const isShoulderL = b.gName === 'shoulder.l' || b.gName === 'shoulderl';
+        const isShoulderR = b.gName === 'shoulder.r' || b.gName === 'shoulderr';
+
+        if (isArmL) {
           const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, -0.04, 'ZYX'));
           q0.multiply(qRelax);
-        } else if (b.gName === 'arm_stretchr') {
+        } else if (isArmR) {
           const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, 0.04, 'ZYX'));
           q0.multiply(qRelax);
-        } else if (b.gName === 'forearm_stretchl') {
+        } else if (isForeArmL) {
           const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.22, 'ZYX'));
           q0.multiply(qRelax);
-        } else if (b.gName === 'forearm_stretchr') {
+        } else if (isForeArmR) {
           const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.22, 'ZYX'));
           q0.multiply(qRelax);
-        } else if (b.gName === 'handl' || b.gName === 'handr') {
+        } else if (isHand) {
           // Telapak tangan lurus sempurna sejajar lengan bawah tanpa tekukan
           // Tetap gunakan q0 murni bind pose yang lurus alami
         }
@@ -461,11 +494,11 @@ async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = 
         let qMid = q0.clone();
 
         // Pernapasan ritmik halus pada tulang belakang & dada
-        if (b.gName === 'spine_02x' || b.gName === 'spine_03x') {
+        if (isSpine) {
           const qBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.025);
           qMid.multiply(qBreath);
-        } else if (b.gName === 'shoulderl' || b.gName === 'shoulderr') {
-          const qShoulderBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), b.gName === 'shoulderl' ? 0.015 : -0.015);
+        } else if (isShoulderL || isShoulderR) {
+          const qShoulderBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), isShoulderL ? 0.015 : -0.015);
           qMid.multiply(qShoulderBreath);
         }
 

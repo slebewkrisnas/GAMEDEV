@@ -74,14 +74,13 @@ export const NPC_DATA = {
 function getNPCDialogues(meta) {
   let list = [...meta.dialogues];
   try {
-    const hasFruit = localStorage.getItem('gamedev_meta_fruit_cleared') === '1' || parseInt(localStorage.getItem('gamedev_meta_fruit_score') || 0) >= 200;
     const hasDeadZone = localStorage.getItem('gamedev_meta_deadzone_cleared') === '1';
     const hasArena = localStorage.getItem('gamedev_meta_arena_champion') === '1';
 
-    if (meta.name === 'Pak Joko' && hasFruit) {
-      list.unshift('🍎 Luar biasa penjelajah! Kamu berhasil memanen banyak buah di Fruit Block Blast! Piala Kebun bersinar megah di Plaza!');
-    } else if (meta.name === 'Mang Asep' && hasFruit) {
-      list.unshift('Wah, panen rayamu sukses besar di Kebun Buah! Tanah ini subur berkat kerja kerasmu!');
+    if (meta.name === 'Pak Joko') {
+      list.unshift('🌸 Luar biasa penjelajah! Kamu telah menjelajahi Taman Asri dan menikmati keindahan air mancur!');
+    } else if (meta.name === 'Mang Asep') {
+      list.unshift('Selamat datang di desa! Udara di Taman Asri sangat sejuk dan menenangkan jiwa.');
     } else if (meta.name === 'Sersan Baja' && hasDeadZone) {
       list.unshift('🎖️ Hormat senjata! Kamu berhasil membabat 3 gelombang zombie di Dead Zone! Lencana Penyintas kini terpajang gagah di Plaza!');
     } else if (meta.name === 'Kapten Ray' && hasDeadZone) {

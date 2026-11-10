@@ -168,6 +168,7 @@ function scatterDetailsAlongPath(scene, curve, lanternCount = 8) {
     });
   }
 
+  const grassCount = Math.floor(lanternCount * 2);
   const grassMat = new THREE.MeshStandardMaterial({ color: 0x3a7a2a, roughness: 0.9 });
   for (let i = 0; i < grassCount; i++) {
     const t = Math.random();
@@ -256,50 +257,48 @@ export function createWorld(scene) {
   grid.material.transparent = true;
   scene.add(grid);
 
-  // 1. Jalan Utama dari Spawn ke Central Plaza (z = 5) - Grand Boulevard Lurus & Megah
+  // 1. Boulevard Utama (North - South): Dari Spawn (0, 52) melalui Central Plaza (0, 5) hingga Monumen Logo (0, -15)
   const pathPoints = [
     new THREE.Vector3(0, 0.02, 52),
     new THREE.Vector3(0, 0.02, 38),
-    new THREE.Vector3(0, 0.02, 26),
-    new THREE.Vector3(0, 0.02, 14),
-    new THREE.Vector3(0, 0.02, 5)
+    new THREE.Vector3(0, 0.02, 22),
+    new THREE.Vector3(0, 0.02, 5),
+    new THREE.Vector3(0, 0.02, -5),
+    new THREE.Vector3(0, 0.02, -15)
   ];
-  const pathCurve = new THREE.CatmullRomCurve3(pathPoints, false, 'catmullrom', 0.5);
-  createPath(scene, pathCurve, 200);
+  const pathCurve = new THREE.CatmullRomCurve3(pathPoints, false, 'catmullrom', 0.1);
+  createPath(scene, pathCurve, 240);
 
-  // 2. Cabang Kiri (Taman Asri & Paviliun)
+  // 2. Avenue Barat (Taman Asri & Paviliun Air Mancur) - Lurus Sempurna di Z = 22
   const branchLeftPoints = [
-    new THREE.Vector3(0, 0.02, 26),
-    new THREE.Vector3(-10, 0.02, 24.5),
-    new THREE.Vector3(-18, 0.02, 23),
-    new THREE.Vector3(-25, 0.02, 22)
+    new THREE.Vector3(0, 0.02, 22),
+    new THREE.Vector3(-12, 0.02, 22),
+    new THREE.Vector3(-26, 0.02, 22)
   ];
-  const branchLeftCurve = new THREE.CatmullRomCurve3(branchLeftPoints, false, 'catmullrom', 0.5);
+  const branchLeftCurve = new THREE.CatmullRomCurve3(branchLeftPoints, false, 'catmullrom', 0.1);
   createPath(scene, branchLeftCurve, 120);
 
-  // 3. Cabang Kanan (Kamp Dead Zone)
-  const branchRightPoints = [
-    new THREE.Vector3(0, 0.02, 5),
-    new THREE.Vector3(9, 0.02, 0),
-    new THREE.Vector3(17, 0.02, -6),
-    new THREE.Vector3(25, 0.02, -12)
-  ];
-  const branchRightCurve = new THREE.CatmullRomCurve3(branchRightPoints, false, 'catmullrom', 0.5);
-  createPath(scene, branchRightCurve, 120);
-
-  // 4. Cabang Kanan Bawah (Battle Arena)
+  // 3. Avenue Timur Utara (Battle Arena Zero) - Lurus Sempurna di Z = 22
   const branchArenaPoints = [
-    new THREE.Vector3(0, 0.02, 26),
-    new THREE.Vector3(8, 0.02, 24.5),
-    new THREE.Vector3(15, 0.02, 23),
-    new THREE.Vector3(22, 0.02, 22)
+    new THREE.Vector3(0, 0.02, 22),
+    new THREE.Vector3(12, 0.02, 22),
+    new THREE.Vector3(24, 0.02, 22)
   ];
-  const branchArenaCurve = new THREE.CatmullRomCurve3(branchArenaPoints, false, 'catmullrom', 0.5);
+  const branchArenaCurve = new THREE.CatmullRomCurve3(branchArenaPoints, false, 'catmullrom', 0.1);
   createPath(scene, branchArenaCurve, 120);
+
+  // 4. Avenue Timur Selatan (Kamp Militer Dead Zone) - Koridor Rapih ke Kamp
+  const branchCampPoints = [
+    new THREE.Vector3(0, 0.02, 5),
+    new THREE.Vector3(12, 0.02, -3),
+    new THREE.Vector3(26, 0.02, -12)
+  ];
+  const branchCampCurve = new THREE.CatmullRomCurve3(branchCampPoints, false, 'catmullrom', 0.2);
+  createPath(scene, branchCampCurve, 120);
 
   // 5. Central Plaza Junction di (0, 0.02, 5)
   const junctionBorder = new THREE.Mesh(
-    new THREE.CircleGeometry(3.8, 36),
+    new THREE.CircleGeometry(4.2, 36),
     new THREE.MeshStandardMaterial({ color: 0x3d352c, roughness: 0.95 })
   );
   junctionBorder.rotation.x = -Math.PI / 2;
@@ -308,7 +307,7 @@ export function createWorld(scene) {
   scene.add(junctionBorder);
 
   const junctionMain = new THREE.Mesh(
-    new THREE.CircleGeometry(3.3, 36),
+    new THREE.CircleGeometry(3.6, 36),
     new THREE.MeshStandardMaterial({ color: 0xba9b72, roughness: 0.88, metalness: 0.05 })
   );
   junctionMain.rotation.x = -Math.PI / 2;
@@ -317,7 +316,7 @@ export function createWorld(scene) {
   scene.add(junctionMain);
 
   const junctionCenter = new THREE.Mesh(
-    new THREE.CircleGeometry(1.4, 36),
+    new THREE.CircleGeometry(1.6, 36),
     new THREE.MeshStandardMaterial({ color: 0xd9c5a0, roughness: 0.82 })
   );
   junctionCenter.rotation.x = -Math.PI / 2;
@@ -325,60 +324,11 @@ export function createWorld(scene) {
   junctionCenter.receiveShadow = true;
   scene.add(junctionCenter);
 
-  // 6. Pelataran Batu Melingkar untuk Patung GameDev 25 (-14, 5)
-  const gamedevPlazaBorder = new THREE.Mesh(
-    new THREE.RingGeometry(7.8, 9.8, 32),
-    new THREE.MeshStandardMaterial({ color: 0x3d352c, roughness: 0.95, side: THREE.DoubleSide })
-  );
-  gamedevPlazaBorder.rotation.x = -Math.PI / 2;
-  gamedevPlazaBorder.position.set(-14, 0.021, 5);
-  gamedevPlazaBorder.receiveShadow = true;
-  scene.add(gamedevPlazaBorder);
-
-  const gamedevPlazaInner = new THREE.Mesh(
-    new THREE.RingGeometry(8.0, 9.2, 32),
-    new THREE.MeshStandardMaterial({ color: 0xba9b72, roughness: 0.88, side: THREE.DoubleSide })
-  );
-  gamedevPlazaInner.rotation.x = -Math.PI / 2;
-  gamedevPlazaInner.position.set(-14, 0.025, 5);
-  gamedevPlazaInner.receiveShadow = true;
-  scene.add(gamedevPlazaInner);
-
-  // 7. Boulevard ke Patung Logo
-  const roadToLogoPoints = [
-    new THREE.Vector3(0, 0.02, 5),
-    new THREE.Vector3(0, 0.02, -5),
-    new THREE.Vector3(0, 0.02, -14.6)
-  ];
-  const roadToLogoCurve = new THREE.CatmullRomCurve3(roadToLogoPoints, false, 'catmullrom', 0.5);
-  createPath(scene, roadToLogoCurve, 60);
-
-  // 8. Penghubung ke Patung GameDev
-  const roadToGameDevPoints = [
-    new THREE.Vector3(0, 0.02, 5),
-    new THREE.Vector3(-3.5, 0.02, 5),
-    new THREE.Vector3(-6.2, 0.02, 5)
-  ];
-  const roadToGameDevCurve = new THREE.CatmullRomCurve3(roadToGameDevPoints, false, 'catmullrom', 0.5);
-  createPath(scene, roadToGameDevCurve, 40);
-
-  // 9. Walkway GameDev ke Logo
-  const walkwayGameDevToLogoPoints = [
-    new THREE.Vector3(-10, 0.02, 1),
-    new THREE.Vector3(-8, 0.02, -6),
-    new THREE.Vector3(-4.5, 0.02, -15.2)
-  ];
-  const walkwayGameDevToLogoCurve = new THREE.CatmullRomCurve3(walkwayGameDevToLogoPoints, false, 'catmullrom', 0.5);
-  createPath(scene, walkwayGameDevToLogoCurve, 50);
-
-  // Pasang lentera jalan estetik di sepanjang tepi jalan
-  scatterDetailsAlongPath(scene, pathCurve, 6);
+  // Pasang lentera jalan estetik & seragam di sepanjang tepi jalan
+  scatterDetailsAlongPath(scene, pathCurve, 8);
   scatterDetailsAlongPath(scene, branchLeftCurve, 4);
-  scatterDetailsAlongPath(scene, branchRightCurve, 4);
-  scatterDetailsAlongPath(scene, branchArenaCurve, 3);
-  scatterDetailsAlongPath(scene, roadToLogoCurve, 3);
-  scatterDetailsAlongPath(scene, roadToGameDevCurve, 2);
-  scatterDetailsAlongPath(scene, walkwayGameDevToLogoCurve, 2);
+  scatterDetailsAlongPath(scene, branchArenaCurve, 4);
+  scatterDetailsAlongPath(scene, branchCampCurve, 4);
 
   // 10. Batuan Pembatas Lingkar Dunia
   const boundarySegments = 60;

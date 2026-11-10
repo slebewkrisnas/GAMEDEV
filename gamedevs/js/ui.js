@@ -100,18 +100,38 @@ export function triggerPortalWarp(type, onComplete) {
   portalOverlay.style.pointerEvents = 'auto';
 
   let currentPct = 0;
-  const interval = setInterval(() => {
-    currentPct += 10;
-    if (currentPct > 100) currentPct = 100;
+  const startTime = performance.now();
+  const totalDuration = 1300; // 1.3 detik durasi loading stabil
+
+  const updateProgress = () => {
+    const elapsed = performance.now() - startTime;
+    currentPct = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+
     if (barEl) barEl.style.width = `${currentPct}%`;
     if (pctEl) pctEl.textContent = `${currentPct}%`;
-    if (currentPct >= 100) {
-      clearInterval(interval);
+
+    if (subEl) {
+      if (currentPct < 30) {
+        subEl.textContent = 'Menginisialisasi gerbang portal dimensi...';
+      } else if (currentPct < 65) {
+        subEl.textContent = 'Memuat tekstur dan lingkungan dunia 3D...';
+      } else if (currentPct < 90) {
+        subEl.textContent = 'Kompilasi shader GPU & stabilisasi frame...';
+      } else {
+        subEl.textContent = 'Dunia Siap! Masuk ke permainan...';
+      }
+    }
+
+    if (currentPct < 100) {
+      requestAnimationFrame(updateProgress);
+    } else {
       setTimeout(() => {
         if (typeof onComplete === 'function') onComplete();
-      }, 200);
+      }, 150);
     }
-  }, 90);
+  };
+
+  requestAnimationFrame(updateProgress);
 }
 
 // ==================== AUDIO UI ====================

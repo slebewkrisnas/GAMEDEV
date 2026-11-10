@@ -10,8 +10,26 @@
 </head>
 <body data-s="START">
 
+<!-- Fullscreen Transition Loading Screen -->
+<div id="arena-loading-screen" style="position:fixed;inset:0;background:#060b17;z-index:99999;display:flex;align-items:center;justify-content:center;transition:opacity 0.4s ease;font-family:system-ui,sans-serif;">
+  <div style="max-width:420px;width:90%;display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px;background:rgba(15,23,42,0.85);border:1px solid rgba(248,113,113,0.3);border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.8);backdrop-filter:blur(12px);text-align:center;">
+    <div id="arenaLoaderSpinner" style="width:64px;height:64px;border:4px dashed #f87171;border-top:4px solid #fff;border-radius:50%;animation:arenaSpin 1s linear infinite;box-shadow:0 0 25px rgba(248,113,113,0.6);"></div>
+    <div>
+      <div id="arenaLoaderTitle" style="font-size:20px;font-weight:800;color:#f87171;letter-spacing:1px;text-transform:uppercase;">MEMASUKI BATTLE ARENA</div>
+      <div id="arenaLoaderSubtitle" style="font-size:13px;color:#94a3b8;margin-top:6px;">Menginisialisasi ring pertarungan & robot Vorax...</div>
+    </div>
+    <div style="width:100%;height:8px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden;">
+      <div id="arenaLoaderBar" style="width:0%;height:100%;background:linear-gradient(90deg,#f87171,#fb923c);transition:width 0.1s linear;"></div>
+    </div>
+    <div id="arenaLoaderPct" style="font-size:12px;font-family:monospace;color:#cbd5e1;">0%</div>
+  </div>
+  <style>
+    @keyframes arenaSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  </style>
+</div>
+
 <!-- Tombol Kembali Tambahan -->
-<a href="../main.html?from=arena" class="btn g sm" style="position: fixed; top: calc(15px + env(safe-area-inset-top, 0px)); left: calc(15px + env(safe-area-inset-left, 0px)); z-index: 9999; text-decoration: none; pointer-events: auto;">&#8592; KEMBALI</a>
+<a href="../main.html?from=arena" id="btnBackToWorld" class="btn g sm" style="position: fixed; top: calc(15px + env(safe-area-inset-top, 0px)); left: calc(15px + env(safe-area-inset-left, 0px)); z-index: 9999; text-decoration: none; pointer-events: auto;">&#8592; KEMBALI</a>
 
 <!-- Tombol Mode Perangkat (Kanan Atas) -->
 <div id="deviceModeSelector" class="device-selector">

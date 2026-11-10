@@ -159,19 +159,24 @@ function dismissLoadingScreen() {
     renderer.render(scene, camera);
   } catch (e) {}
 
-  loadingScreen.classList.add('fade-out');
   setTimeout(() => {
-    if (loadingVideo) {
-      try {
-        loadingVideo.pause();
-        loadingVideo.src = '';
-        loadingVideo.load();
-      } catch (e) {}
-    }
-    if (loadingScreen && loadingScreen.parentNode) {
-      loadingScreen.remove();
-    }
-  }, 650);
+    try {
+      renderer.render(scene, camera);
+    } catch (e) {}
+    if (loadingScreen) loadingScreen.classList.add('fade-out');
+    setTimeout(() => {
+      if (loadingVideo) {
+        try {
+          loadingVideo.pause();
+          loadingVideo.src = '';
+          loadingVideo.load();
+        } catch (e) {}
+      }
+      if (loadingScreen && loadingScreen.parentNode) {
+        loadingScreen.remove();
+      }
+    }, 650);
+  }, 350);
 }
 
 // Pastikan video berputar otomatis (looping)

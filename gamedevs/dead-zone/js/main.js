@@ -50,6 +50,25 @@ class DeadZoneGame {
       this.initUI();
       this.attachGlobalEvents();
 
+      // Pre-render 2 frame saat loading screen aktif agar GPU shader & tekstur selesai dikompilasi
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (e) {}
+
+      // Tampilkan animasi progress loading screen awal
+      this.showZoneLoadingScreen({
+        title: 'MEMASUKI DEAD ZONE',
+        subtitle: 'Kompilasi shader GPU, pencahayaan malam, dan aset survival...',
+        symbol: '☣️',
+        accent: '#22c55e',
+        duration: 1100,
+        onHalfway: () => {
+          try {
+            this.renderer.render(this.scene, this.camera);
+          } catch (e) {}
+        }
+      });
+
       // Start global game loop
       this.animate = this.animate.bind(this);
       requestAnimationFrame(this.animate);

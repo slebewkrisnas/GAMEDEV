@@ -682,5 +682,69 @@ function init3DCharacters(){
  }
 }
 
-window.addEventListener('load',init3DCharacters);
-if(document.readyState==='complete')init3DCharacters();
+/* ===== Arena Fullscreen Portal Loading Screen ===== */
+function initArenaPortalTransitions(){
+ const screen = document.getElementById('arena-loading-screen');
+ const titleEl = document.getElementById('arenaLoaderTitle');
+ const subEl = document.getElementById('arenaLoaderSubtitle');
+ const barEl = document.getElementById('arenaLoaderBar');
+ const pctEl = document.getElementById('arenaLoaderPct');
+
+ function showLoading(title, subtitle, onComplete){
+  if(!screen){
+   if(onComplete) onComplete();
+   return;
+  }
+  if(titleEl) titleEl.textContent = title;
+  if(subEl) subEl.textContent = subtitle;
+  screen.style.opacity = '1';
+  screen.style.pointerEvents = 'auto';
+
+  const duration = 1100;
+  const start = performance.now();
+
+  function step(){
+   const elapsed = performance.now() - start;
+   const p = Math.min(1, elapsed / duration);
+   const pct = Math.round(p * 100);
+   if(barEl) barEl.style.width = pct + '%';
+   if(pctEl) pctEl.textContent = pct + '%';
+
+   if(p < 1){
+    requestAnimationFrame(step);
+   } else {
+    if(onComplete){
+     onComplete();
+    } else {
+     try { if(typeof ren !== 'undefined' && ren && sc && cam) ren.render(sc, cam); } catch(e){}
+     screen.style.opacity = '0';
+     setTimeout(() => { screen.style.pointerEvents = 'none'; }, 400);
+    }
+   }
+  }
+  requestAnimationFrame(step);
+ }
+
+ // Loading awal saat masuk arena
+ showLoading('MEMASUKI BATTLE ARENA', 'Menginisialisasi ring pertarungan & robot Vorax...', null);
+
+ // Pasang transisi loading mulus untuk setiap tombol kembali ke dunia 3D
+ document.querySelectorAll('a[href*="main.html"]').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+   e.preventDefault();
+   const href = btn.getAttribute('href');
+   showLoading('KEMBALI KE DUNIA 3D', 'Menyimpan statistik pertarungan & memuat alun-alun...', () => {
+    window.location.href = href;
+   });
+  });
+ });
+}
+
+window.addEventListener('load', () => {
+ init3DCharacters();
+ initArenaPortalTransitions();
+});
+if(document.readyState==='complete') {
+ init3DCharacters();
+ initArenaPortalTransitions();
+}

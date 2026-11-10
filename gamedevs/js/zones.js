@@ -1410,17 +1410,17 @@ function createTrophyPedestal(id, title, desc, icon, pos, unlocked, colorHex, ac
   trophyGroup.position.y = 1.85;
 
   let trophyMesh;
-  if (id === 'fruit') {
-    const appleMat = new THREE.MeshStandardMaterial({
-      color: unlocked ? 0xfacc15 : 0x64748b,
-      emissive: unlocked ? 0xf59e0b : 0x334155,
+  if (id === 'nature' || id === 'fruit') {
+    const flowerMat = new THREE.MeshStandardMaterial({
+      color: unlocked ? 0x34d399 : 0x64748b,
+      emissive: unlocked ? 0x059669 : 0x334155,
       emissiveIntensity: unlocked ? 1.4 : 0.1,
       roughness: 0.3,
       metalness: 0.7,
       transparent: !unlocked,
       opacity: unlocked ? 1.0 : 0.45
     });
-    trophyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.38), appleMat);
+    trophyMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.38), flowerMat);
     trophyGroup.add(trophyMesh);
   } else if (id === 'deadzone') {
     const skullMat = new THREE.MeshStandardMaterial({
@@ -1482,12 +1482,11 @@ function createTrophyPedestal(id, title, desc, icon, pos, unlocked, colorHex, ac
 }
 
 // Inisialisasi Tiga Piala Prestasi berdasarkan data lokal
-const hasFruitTrophy = localStorage.getItem('gamedev_meta_fruit_cleared') === '1' || parseInt(localStorage.getItem('gamedev_meta_fruit_score') || 0) >= 200;
 const hasDeadZoneTrophy = localStorage.getItem('gamedev_meta_deadzone_cleared') === '1';
 const hasArenaTrophy = localStorage.getItem('gamedev_meta_arena_champion') === '1';
 
 createTrophyPedestal(
-  'fruit',
+  'nature',
   'Piala Kebun Kristal',
   'Telah menjelajahi seluruh area Kebun Bunga & Paviliun Air Mancur!',
   '🌸',
