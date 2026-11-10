@@ -74,6 +74,13 @@ export class EnvironmentDual {
     this.setZoneActive('safe_zone');
   }
 
+  // Menunggu seluruh aset 3D di lingkungan safe zone / desa siap
+  async whenReady() {
+    if (this.villageArchitect && typeof this.villageArchitect.whenLoaded === 'function') {
+      await this.villageArchitect.whenLoaded();
+    }
+  }
+
   // --------------------------------------------------------------------------
   // PROCEDURAL TEXTURE GENERATORS
   // --------------------------------------------------------------------------
@@ -290,7 +297,7 @@ export class EnvironmentDual {
     this.createVillageFences(this.safeZoneGroup, this.safeZoneColliders);
 
     // 4. Bangun Seluruh Bangunan & Alun-Alun Sesuai 6 Gambar Referensi
-    VillageArchitect.build(this);
+    this.villageArchitect = VillageArchitect.build(this);
 
     // 5. Nuansa Malam Pedesaan: Cahaya Bulan Sejuk & Lentera Hangat
     const amb = new THREE.AmbientLight(0x1a263d, 0.9);

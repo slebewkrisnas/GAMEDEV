@@ -16,6 +16,7 @@ import { UIManager } from './ui.js';
 import { ShopManager } from './shops.js';
 import { LootManager } from './loot.js';
 import { TouchControls } from './touchControls.js';
+import { initZombieAssets } from './zombieAssets.js';
 
 class DeadZoneGame {
   constructor() {
@@ -35,6 +36,7 @@ class DeadZoneGame {
     this.clock = new THREE.Clock();
     this.maxDelta = 0.1;
     this.zoneSwitchCooldown = 0;
+    this.isWorldRendered = false;
 
     // UI Manager
     this.ui = new UIManager();
@@ -50,33 +52,98 @@ class DeadZoneGame {
       this.initUI();
       this.attachGlobalEvents();
 
-      // Pre-render 2 frame saat loading screen aktif agar GPU shader & tekstur selesai dikompilasi
-      try {
-        this.renderer.render(this.scene, this.camera);
-      } catch (e) {}
-
-      // Tampilkan animasi progress loading screen awal
-      this.showZoneLoadingScreen({
-        title: 'MEMASUKI DEAD ZONE',
-        subtitle: 'Kompilasi shader GPU, pencahayaan malam, dan aset survival...',
-        symbol: '☣️',
-        accent: '#22c55e',
-        duration: 1100,
-        onHalfway: () => {
-          try {
-            this.renderer.render(this.scene, this.camera);
-          } catch (e) {}
-        }
-      });
-
       // Start global game loop
       this.animate = this.animate.bind(this);
       requestAnimationFrame(this.animate);
+
+      // Loading sesungguhnya: tunggu aset 3D & zombie selesai, kompilasi shader GPU & render 3 frame
+      this.preloadAndRenderWorld();
 
       console.log("Sci-Fi FPS Survival & Economic Ecosystem initialized.");
     } catch (err) {
       console.error("Game initialization error:", err);
       this.ui.showWebGLError("Initialization Error: " + err.message);
+    }
+  }
+
+  // Preload aset 3D, kompilasi shader Three.js ke GPU, dan render 3 frame offscreen
+  async preloadAndRenderWorld() {
+    const screen = document.getElementById('zone-loading-screen');
+    const titleEl = document.getElementById('zoneLoaderTitle');
+    const subEl = document.getElementById('zoneLoaderSubtitle');
+    const fillEl = document.getElementById('zoneLoaderFill');
+    const statEl = document.getElementById('zoneLoaderStatus');
+    const btnPlay = document.getElementById('btn-play');
+
+    if (screen) screen.classList.remove('hidden');
+    if (titleEl) {
+      titleEl.textContent = 'MEMASUKI DEAD ZONE';
+      titleEl.style.color = '#22c55e';
+    }
+    if (subEl) subEl.textContent = 'Memuat arsitektur 3D, rumah, dan toko serba ada...';
+    if (fillEl) fillEl.style.width = '20%';
+    if (statEl) statEl.textContent = 'MEMUAT ASET DESA 3D... 20%';
+    if (btnPlay) {
+      btnPlay.disabled = true;
+      btnPlay.style.opacity = '0.5';
+    }
+
+    try {
+      // 1. Tunggu model 3D Safe Zone (House 39MB + Shop 10.5MB)
+      await this.environment.whenReady();
+      if (fillEl) fillEl.style.width = '55%';
+      if (statEl) statEl.textContent = 'MEMUAT ZOMBIE & ANIMASI... 55%';
+      if (subEl) subEl.textContent = 'Memuat mutan zombie FBX & animasi tempur...';
+
+      // 2. Tunggu aset zombie FBX & tekstur
+      await initZombieAssets();
+      if (fillEl) fillEl.style.width = '80%';
+      if (statEl) statEl.textContent = 'KOMPILASI SHADER GPU... 80%';
+      if (subEl) subEl.textContent = 'Kompilasi pipeline shader Three.js ke GPU...';
+
+      // 3. Kompilasi GPU shader
+      try {
+        this.renderer.compile(this.scene, this.camera);
+      } catch (e) {}
+
+      // 4. Pre-render 3 frame offscreen agar seluruh buffer & VRAM terisi
+      let warmFrames = 0;
+      const warmUp = () => {
+        try {
+          this.renderer.render(this.scene, this.camera);
+        } catch (e) {}
+        warmFrames++;
+        if (warmFrames < 3) {
+          requestAnimationFrame(warmUp);
+        } else {
+          // 5. Dunia selesai dirender 100%!
+          if (fillEl) fillEl.style.width = '100%';
+          if (statEl) statEl.textContent = 'DUNIA SELESAI DIRENDER! 100%';
+          if (subEl) subEl.textContent = 'Dunia 3D & shader GPU telah siap!';
+          this.isWorldRendered = true;
+          if (btnPlay) {
+            btnPlay.disabled = false;
+            btnPlay.style.opacity = '1';
+          }
+          setTimeout(() => {
+            if (screen) screen.classList.add('hidden');
+          }, 350);
+        }
+      };
+      requestAnimationFrame(warmUp);
+    } catch (err) {
+      console.warn('Preload warning:', err);
+      try {
+        this.renderer.compile(this.scene, this.camera);
+        this.renderer.render(this.scene, this.camera);
+      } catch (e) {}
+      this.isWorldRendered = true;
+      if (btnPlay) {
+        btnPlay.disabled = false;
+        btnPlay.style.opacity = '1';
+      }
+      if (fillEl) fillEl.style.width = '100%';
+      if (screen) screen.classList.add('hidden');
     }
   }
 
@@ -242,6 +309,22 @@ class DeadZoneGame {
 
   startGame() {
     sound.resume();
+
+    // Jika aset belum selesai dirender, tampilkan kembali loading screen sampai siap
+    if (!this.isWorldRendered) {
+      const screen = document.getElementById('zone-loading-screen');
+      if (screen) screen.classList.remove('hidden');
+      const statEl = document.getElementById('zoneLoaderStatus');
+      if (statEl) statEl.textContent = 'MENUNGGU GPU RENDER...';
+      const checkInterval = setInterval(() => {
+        if (this.isWorldRendered) {
+          clearInterval(checkInterval);
+          this.startGame();
+        }
+      }, 100);
+      return;
+    }
+
     this.currentState = this.STATES.PLAYING;
     this.ui.showScreen('playing');
 
@@ -263,7 +346,7 @@ class DeadZoneGame {
       this.player.requestPointerLock();
     }
 
-    this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah, Pande Besi, & Tabib', 3.0);
+    this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
   }
 
   // Fullscreen Loading Transition Screen between Zones & Portals
@@ -337,68 +420,106 @@ class DeadZoneGame {
     });
   }
 
-  // Switch cleanly between Safe Zone & Sector-7 Wasteland with Smooth Loading
+  // Switch cleanly between Safe Zone & Sector-7 Wasteland with Smooth GPU-Rendered Loading
   switchZone(zoneName) {
     this.zoneSwitchCooldown = 3.5;
     sound.playTeleportSound();
 
     const isSector7 = zoneName === 'sector_7';
-    this.showZoneLoadingScreen({
-      title: isSector7 ? 'MEMASUKI SECTOR-7 (ZONA ZOMBIE)' : 'EVAKUASI KE DESA ASRI (SAFE ZONE)',
-      subtitle: isSector7
-        ? 'PERINGATAN: Memuat mutan zombie & area reruntuhan hutan...'
-        : 'Evakuasi Berhasil! Menyimpan jarahan & memuat perlindungan...',
-      symbol: isSector7 ? '☣️' : '🛡️',
-      accent: isSector7 ? '#ef4444' : '#00e5ff',
-      duration: 1100,
-      onHalfway: () => {
-        this.environment.setZoneActive(zoneName, this.player);
-        GameState.activeZone = zoneName;
+    const screen = document.getElementById('zone-loading-screen');
+    const titleEl = document.getElementById('zoneLoaderTitle');
+    const subEl = document.getElementById('zoneLoaderSubtitle');
+    const symEl = document.getElementById('zoneLoaderSymbol');
+    const fillEl = document.getElementById('zoneLoaderFill');
+    const statEl = document.getElementById('zoneLoaderStatus');
+    const spinEl = document.getElementById('zoneLoaderSpinner');
 
-        // Reset player velocity and input states to ensure immediate smooth WASD response
-        this.player.velocity.set(0, 0, 0);
-        this.player.moveForward = false;
-        this.player.moveBackward = false;
-        this.player.moveLeft = false;
-        this.player.moveRight = false;
-        this.player.isInputEnabled = true;
+    const accent = isSector7 ? '#ef4444' : '#00e5ff';
+    if (titleEl) {
+      titleEl.textContent = isSector7 ? 'MEMASUKI SECTOR-7 (ZONA ZOMBIE)' : 'EVAKUASI KE DESA ASRI (SAFE ZONE)';
+      titleEl.style.color = accent;
+    }
+    if (subEl) {
+      subEl.textContent = isSector7
+        ? 'PERINGATAN: Memuat mutan zombie & kompilasi shader Sector-7...'
+        : 'Evakuasi Berhasil! Menyimpan jarahan & memuat Desa Asri...';
+    }
+    if (symEl) symEl.textContent = isSector7 ? '☣️' : '🛡️';
+    if (spinEl) spinEl.style.borderColor = accent;
+    if (fillEl) {
+      fillEl.style.background = `linear-gradient(90deg, ${accent}, #38bdf8)`;
+      fillEl.style.width = '30%';
+    }
+    if (statEl) statEl.textContent = 'MEMPERSIAPKAN ZONA... 30%';
 
-        if (zoneName === 'safe_zone') {
-          this.weaponManager.setHolstered(true);
-          this.zombiesManager.clearAll();
-          this.lootManager.clearDrops();
-        } else {
-          // sector_7 (Blackwood Forest)
-          this.weaponManager.setHolstered(false);
-          this.waveManager.startWave(1);
-        }
+    if (screen) screen.classList.remove('hidden');
 
-        this.ui.updateHUD();
+    setTimeout(() => {
+      this.environment.setZoneActive(zoneName, this.player);
+      GameState.activeZone = zoneName;
 
-        // Pre-render 2 frame saat tertutup loading agar shader & bayangan selesai dikompilasi
+      // Reset input & kecepatan pemain agar responsif seketika
+      this.player.velocity.set(0, 0, 0);
+      this.player.moveForward = false;
+      this.player.moveBackward = false;
+      this.player.moveLeft = false;
+      this.player.moveRight = false;
+      this.player.isInputEnabled = true;
+
+      if (zoneName === 'safe_zone') {
+        this.weaponManager.setHolstered(true);
+        this.zombiesManager.clearAll();
+        this.lootManager.clearDrops();
+      } else {
+        this.weaponManager.setHolstered(false);
+        this.waveManager.startWave(1);
+      }
+
+      this.ui.updateHUD();
+
+      if (fillEl) fillEl.style.width = '70%';
+      if (statEl) statEl.textContent = 'KOMPILASI SHADER GPU... 70%';
+
+      // Kompilasi shader untuk zona baru
+      try {
+        this.renderer.compile(this.scene, this.camera);
+      } catch (e) {}
+
+      // Pre-render 3 frame di balik layar loading agar seluruh geometri dan tekstur ter-render
+      let warmFrames = 0;
+      const warmUpZone = () => {
         try {
           this.renderer.render(this.scene, this.camera);
         } catch (e) {}
-      },
-      onComplete: () => {
-        this.currentState = this.STATES.PLAYING;
-        this.ui.showScreen('playing');
-
-        if (zoneName === 'safe_zone') {
-          this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
+        warmFrames++;
+        if (warmFrames < 3) {
+          requestAnimationFrame(warmUpZone);
         } else {
-          this.ui.showAnnouncement(
-            'HUTAN TERBENGKALAI (SECTOR-7)',
-            'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
-            4.0
-          );
-        }
+          if (fillEl) fillEl.style.width = '100%';
+          if (statEl) statEl.textContent = 'ZONA SELESAI DIRENDER! 100%';
+          setTimeout(() => {
+            if (screen) screen.classList.add('hidden');
+            this.currentState = this.STATES.PLAYING;
+            this.ui.showScreen('playing');
 
-        if (!this.player.isTouchMode) {
-          this.player.requestPointerLock();
+            if (zoneName === 'safe_zone') {
+              this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
+            } else {
+              this.ui.showAnnouncement(
+                'HUTAN TERBENGKALAI (SECTOR-7)',
+                'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
+                4.0
+              );
+            }
+
+            if (!this.player.isTouchMode) {
+              this.player.requestPointerLock();
+            }
+          }, 250);
         }
-      }
-    });
+      };
+      requestAnimationFrame(warmUpZone);
+    }, 150);
   }
 
   pauseGame() {

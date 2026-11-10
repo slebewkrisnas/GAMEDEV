@@ -152,31 +152,40 @@ function updateLoadingUI(pct, text) {
 function dismissLoadingScreen() {
   if (isGameStarted || !loadingScreen) return;
   isGameStarted = true;
-  updateLoadingUI(100, 'Dunia Siap! Masuk ke permainan...');
+  updateLoadingUI(100, 'Kompilasi shader GPU & rendering dunia...');
 
-  // Pre-render 2 frame agar GPU shader & tekstur selesai dikompilasi sebelum loading screen dibuka
+  // 1. Kompilasi seluruh shader Three.js pada GPU
   try {
-    renderer.render(scene, camera);
+    renderer.compile(scene, camera);
   } catch (e) {}
 
-  setTimeout(() => {
+  // 2. Pre-render 3 frame offscreen agar VRAM terisi sebelum loading screen dibuka
+  let warmFrames = 0;
+  function warmUp() {
     try {
       renderer.render(scene, camera);
     } catch (e) {}
-    if (loadingScreen) loadingScreen.classList.add('fade-out');
-    setTimeout(() => {
-      if (loadingVideo) {
-        try {
-          loadingVideo.pause();
-          loadingVideo.src = '';
-          loadingVideo.load();
-        } catch (e) {}
-      }
-      if (loadingScreen && loadingScreen.parentNode) {
-        loadingScreen.remove();
-      }
-    }, 650);
-  }, 350);
+    warmFrames++;
+    if (warmFrames < 3) {
+      requestAnimationFrame(warmUp);
+    } else {
+      updateLoadingUI(100, 'Dunia Siap! Masuk ke permainan...');
+      if (loadingScreen) loadingScreen.classList.add('fade-out');
+      setTimeout(() => {
+        if (loadingVideo) {
+          try {
+            loadingVideo.pause();
+            loadingVideo.src = '';
+            loadingVideo.load();
+          } catch (e) {}
+        }
+        if (loadingScreen && loadingScreen.parentNode) {
+          loadingScreen.remove();
+        }
+      }, 650);
+    }
+  }
+  requestAnimationFrame(warmUp);
 }
 
 // Pastikan video berputar otomatis (looping)
@@ -199,13 +208,13 @@ onPlayerReady(() => {
   });
 });
 
-// Failsafe Timeout: Jangan biarkan player tertahan di loading screen jika ada kendala jaringan
+// Failsafe Timeout: Beri waktu cukup untuk model 75MB, jangan putus sebelum GPU render
 setTimeout(() => {
   if (!isGameStarted) {
-    console.warn('[LoadingScreen] Failsafe timeout tercapai (12 detik), langsung membuka gameplay.');
+    console.warn('[LoadingScreen] Failsafe timeout tercapai (40 detik), memastikan render GPU selesai.');
     dismissLoadingScreen();
   }
-}, 12000);
+}, 40000);
 
 // ==================== CEK RETURN DARI GAME PORTAL ====================
 const urlParams = new URLSearchParams(window.location.search);

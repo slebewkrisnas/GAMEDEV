@@ -20,6 +20,7 @@ export class VillageArchitect {
     this.colliders = env.safeZoneColliders;
     this.interactables = env.safeZoneInteractables;
     this.lights = env.safeZoneLights;
+    this.loadPromises = [];
 
     // Cache procedural textures & shared materials
     this.initSharedTexturesAndMaterials();
@@ -754,31 +755,37 @@ export class VillageArchitect {
     porchLight.position.set(x, 2.8, z + 4.8);
     this.lights.add(porchLight);
 
-    // 4. Muat Model 3D GLB
+    // 4. Muat Model 3D GLB (Promise-tracked)
     const loader = new GLTFLoader();
-    loader.load(
-      encodeURI('./asset dead-zone/house/House+Model+004.glb'),
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(x, 0, z);
-        model.rotation.y = 0; // Menghadap ke arah depan / alun-alun desa (+Z)
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+    const housePromise = new Promise((resolve) => {
+      loader.load(
+        encodeURI('./asset dead-zone/house/House+Model+004.glb'),
+        (gltf) => {
+          const model = gltf.scene;
+          model.position.set(x, 0, z);
+          model.rotation.y = 0; // Menghadap ke arah depan / alun-alun desa (+Z)
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              if (child.material) {
+                child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+              }
             }
-          }
-        });
-        this.group.add(model);
-        console.log('✅ [VILLAGE] House Model 004 GLB berhasil dimuat.');
-      },
-      undefined,
-      (err) => {
-        console.error('❌ [VILLAGE] Gagal memuat House Model 004 GLB:', err);
-      }
-    );
+          });
+          this.group.add(model);
+          console.log('✅ [VILLAGE] House Model 004 GLB berhasil dimuat.');
+          resolve(model);
+        },
+        undefined,
+        (err) => {
+          console.error('❌ [VILLAGE] Gagal memuat House Model 004 GLB:', err);
+          resolve(null);
+        }
+      );
+    });
+    this.loadPromises.push(housePromise);
+    return housePromise;
   }
 
   // --------------------------------------------------------------------------
@@ -811,30 +818,36 @@ export class VillageArchitect {
     shopLight2.position.set(x + 2.8, 2.8, z + 2.8);
     this.lights.add(shopLight2);
 
-    // 4. Muat Model 3D GLB
+    // 4. Muat Model 3D GLB (Promise-tracked)
     const loader = new GLTFLoader();
-    loader.load(
-      encodeURI('./asset dead-zone/shop/pan_shop.glb'),
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(x, 0, z);
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+    const shopPromise = new Promise((resolve) => {
+      loader.load(
+        encodeURI('./asset dead-zone/shop/pan_shop.glb'),
+        (gltf) => {
+          const model = gltf.scene;
+          model.position.set(x, 0, z);
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              if (child.material) {
+                child.material.roughness = Math.max(child.material.roughness || 0.5, 0.65);
+              }
             }
-          }
-        });
-        this.group.add(model);
-        console.log('✅ [VILLAGE] Pan Shop GLB berhasil dimuat.');
-      },
-      undefined,
-      (err) => {
-        console.error('❌ [VILLAGE] Gagal memuat Pan Shop GLB:', err);
-      }
-    );
+          });
+          this.group.add(model);
+          console.log('✅ [VILLAGE] Pan Shop GLB berhasil dimuat.');
+          resolve(model);
+        },
+        undefined,
+        (err) => {
+          console.error('❌ [VILLAGE] Gagal memuat Pan Shop GLB:', err);
+          resolve(null);
+        }
+      );
+    });
+    this.loadPromises.push(shopPromise);
+    return shopPromise;
   }
 
   // --------------------------------------------------------------------------
@@ -1999,6 +2012,11 @@ export class VillageArchitect {
     });
 
     this.group.add(square);
+  }
+
+  // Menunggu seluruh aset 3D GLB Safe Zone selesai dimuat
+  whenLoaded() {
+    return Promise.all(this.loadPromises);
   }
 
   // --------------------------------------------------------------------------

@@ -675,9 +675,17 @@ function init3DCharacters(){
    buildFighterModel(AI,false);
 
    setSt('✅ KARAKTER 3D & ANIMASI AKTIF!',true);
+   window.arena3DReady = true;
+   if (typeof window.onArena3DReadyCallback === 'function') {
+     window.onArena3DReadyCallback();
+   }
   }catch(e){
    console.error('Terjadi kesalahan saat memproses rig 3D:',e);
    setSt('⚡ Menggunakan Model Prosedural',true);
+   window.arena3DReady = true;
+   if (typeof window.onArena3DReadyCallback === 'function') {
+     window.onArena3DReadyCallback();
+   }
   }
  }
 }
@@ -700,33 +708,70 @@ function initArenaPortalTransitions(){
   screen.style.opacity = '1';
   screen.style.pointerEvents = 'auto';
 
-  const duration = 1100;
-  const start = performance.now();
-
-  function step(){
-   const elapsed = performance.now() - start;
-   const p = Math.min(1, elapsed / duration);
-   const pct = Math.round(p * 100);
-   if(barEl) barEl.style.width = pct + '%';
-   if(pctEl) pctEl.textContent = pct + '%';
-
-   if(p < 1){
+  if (onComplete) {
+    let p = 0;
+    const step = () => {
+      p += 0.05;
+      const pct = Math.min(100, Math.round(p * 100));
+      if (barEl) barEl.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (p < 1) {
+        requestAnimationFrame(step);
+      } else {
+        onComplete();
+      }
+    };
     requestAnimationFrame(step);
-   } else {
-    if(onComplete){
-     onComplete();
-    } else {
-     try { if(typeof ren !== 'undefined' && ren && sc && cam) ren.render(sc, cam); } catch(e){}
-     screen.style.opacity = '0';
-     setTimeout(() => { screen.style.pointerEvents = 'none'; }, 400);
-    }
-   }
+    return;
   }
-  requestAnimationFrame(step);
+
+  // Transisi masuk: Tunggu model 3D petarung, kompilasi GPU shader & render 3 frame
+  if (barEl) barEl.style.width = '30%';
+  if (pctEl) pctEl.textContent = '30%';
+
+  const finishRenderAndDismiss = () => {
+    if (barEl) barEl.style.width = '75%';
+    if (pctEl) pctEl.textContent = '75%';
+    if (subEl) subEl.textContent = 'Kompilasi shader GPU & rendering arena...';
+
+    try {
+      ren.compile(scene, cam);
+    } catch(e) {}
+
+    let warmFrames = 0;
+    const warmUp = () => {
+      try {
+        ren.render(scene, cam);
+      } catch(e) {}
+      warmFrames++;
+      if (warmFrames < 3) {
+        requestAnimationFrame(warmUp);
+      } else {
+        if (barEl) barEl.style.width = '100%';
+        if (pctEl) pctEl.textContent = '100%';
+        screen.style.opacity = '0';
+        setTimeout(() => { screen.style.pointerEvents = 'none'; }, 400);
+      }
+    };
+    requestAnimationFrame(warmUp);
+  };
+
+  if (window.arena3DReady) {
+    finishRenderAndDismiss();
+  } else {
+    window.onArena3DReadyCallback = () => {
+      finishRenderAndDismiss();
+    };
+    setTimeout(() => {
+      if (screen && screen.style.opacity !== '0') {
+        finishRenderAndDismiss();
+      }
+    }, 12000);
+  }
  }
 
  // Loading awal saat masuk arena
- showLoading('MEMASUKI BATTLE ARENA', 'Menginisialisasi ring pertarungan & robot Vorax...', null);
+ showLoading('MEMASUKI BATTLE ARENA', 'Menginisialisasi ring pertarungan & model 3D petarung...', null);
 
  // Pasang transisi loading mulus untuk setiap tombol kembali ke dunia 3D
  document.querySelectorAll('a[href*="main.html"]').forEach(btn => {
