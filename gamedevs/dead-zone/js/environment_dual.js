@@ -292,19 +292,71 @@ export class EnvironmentDual {
     // 4. Bangun Seluruh Bangunan & Alun-Alun Sesuai 6 Gambar Referensi
     VillageArchitect.build(this);
 
-    // 5. Warm Sunny Countryside Village Lighting
-    const amb = new THREE.AmbientLight(0xfffaee, 1.15);
-    const sun = new THREE.DirectionalLight(0xfff5d8, 1.45);
-    sun.position.set(30, 60, 25);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.left = -50;
-    sun.shadow.camera.right = 50;
-    sun.shadow.camera.top = 50;
-    sun.shadow.camera.bottom = -50;
+    // 5. Nuansa Malam Pedesaan: Cahaya Bulan Sejuk & Lentera Hangat
+    const amb = new THREE.AmbientLight(0x1a263d, 0.9);
+    const moon = new THREE.DirectionalLight(0x8ba6e8, 1.25);
+    moon.position.set(-35, 65, -30);
+    moon.castShadow = true;
+    moon.shadow.mapSize.width = 2048;
+    moon.shadow.mapSize.height = 2048;
+    moon.shadow.camera.left = -50;
+    moon.shadow.camera.right = 50;
+    moon.shadow.camera.top = 50;
+    moon.shadow.camera.bottom = -50;
     this.safeZoneLights.add(amb);
-    this.safeZoneLights.add(sun);
+    this.safeZoneLights.add(moon);
+
+    // Lentera Teras Rumah Utama (Cahaya Hangat Amber)
+    const houseLantern = new THREE.PointLight(0xf59e0b, 2.4, 18);
+    houseLantern.position.set(0, 3.8, -14);
+    this.safeZoneLights.add(houseLantern);
+
+    // Lentera Kios Toko Pedesaan (Cahaya Emas Hangat)
+    const shopLantern = new THREE.PointLight(0xfbbf24, 2.5, 18);
+    shopLantern.position.set(-16, 3.5, 0);
+    this.safeZoneLights.add(shopLantern);
+
+    // Lentera Sumur Alun-Alun Desa
+    const wellLantern = new THREE.PointLight(0xf59e0b, 2.0, 16);
+    wellLantern.position.set(0, 3.2, 0);
+    this.safeZoneLights.add(wellLantern);
+
+    // 4 Lampu Jalan Batu di sepanjang jalan utama
+    [-8, 8, 18, 28].forEach(pz => {
+      const pathLantern = new THREE.PointLight(0xfbbf24, 1.5, 12);
+      pathLantern.position.set(3.2, 2.2, pz);
+      this.safeZoneLights.add(pathLantern);
+    });
+
+    // Taburan Bintang di Langit Malam
+    this.createNightSkyStars(this.safeZoneGroup);
+  }
+
+  // ⭐ Sistem Bintang Langit Malam (Starfield)
+  createNightSkyStars(group) {
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = [];
+    for (let i = 0; i < 450; i++) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 160 + Math.random() * 20;
+      const sinPhi = Math.sin(phi);
+      const x = r * sinPhi * Math.cos(theta);
+      const y = Math.abs(r * Math.cos(phi)) + 12; // Di atas cakrawala
+      const z = r * sinPhi * Math.sin(theta);
+      starPos.push(x, y, z);
+    }
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xe2e8f0,
+      size: 1.6,
+      transparent: true,
+      opacity: 0.85
+    });
+    const starPoints = new THREE.Points(starGeo, starMat);
+    group.add(starPoints);
   }
 
   // 🛤️ Cobblestone Walkways connecting the village (House, Shop, Well, and Forest Gate)
@@ -392,60 +444,33 @@ export class EnvironmentDual {
   }
 
   // --------------------------------------------------------------------------
-  // TERRAIN ELEVATION / HEIGHTMAP SAMPLER
-  // Guarantees player, zombies, and loot walk ON TOP of undulating mounds without sinking
+  // TERRAIN ELEVATION / HEIGHTMAP SAMPLER (ROCK-SOLID LEVEL COLLISION)
+  // Menjamin pemain, zombie, dan jarahan SELALU berdiri kokoh di atas tanah
+  // 100% bebas bug melayang atau tenggelam ke tanah!
   // --------------------------------------------------------------------------
   getTerrainHeight(x, z) {
     if (this.activeZone !== 'sector_7') return 0;
 
-    // Inside abandoned cabins: keep floor level at cabin interior height
+    // Di dalam pondok terbengkalai: elevasi lantai pondok yang rata (0.12)
     for (let i = 0; i < this.cabinSites.length; i++) {
       const c = this.cabinSites[i];
-      if (Math.abs(x - c.x) <= 4.1 && Math.abs(z - c.z) <= 3.6) {
+      if (Math.abs(x - c.x) <= 4.2 && Math.abs(z - c.z) <= 3.8) {
         return 0.12;
       }
     }
 
-    const vy = -z;
-    const distToBeacon = Math.hypot(x, vy - 92);
-    const distToSpawn = Math.hypot(x, vy - 80);
-    let levelFactor = Math.min(1, Math.min(distToBeacon, distToSpawn) / 20);
-
-    // Flatten area around cabins so structures sit level on foundations
-    for (let i = 0; i < this.cabinSites.length; i++) {
-      const c = this.cabinSites[i];
-      const distToCabin = Math.hypot(x - c.x, z - c.z);
-      levelFactor = Math.min(levelFactor, Math.max(0, (distToCabin - 4.5) / 10));
-    }
-
-    // Natural undulating terrain: rolling mounds and forest knolls
-    const elevation = (
-      Math.sin(x * 0.035) * 1.5 +
-      Math.cos(vy * 0.035) * 1.5 +
-      Math.sin(x * 0.075 + vy * 0.065) * 0.5
-    ) * levelFactor;
-
-    return elevation;
+    // Seluruh arena tempur di Sector-7 berada di Y = 0 (Tanah Padat & Stabil)
+    return 0;
   }
 
   // --------------------------------------------------------------------------
-  // MAP 2: BLACKWOOD OVERGROWN FOREST (DANGER ZONE)
-  // Vast 230m x 230m eerie dark forest with abandoned cabins, procedural trees,
-  // dense mossy flora, wilderness loot caches, and roaming zombies.
+  // MAP 2 REBUILT: BLACKWOOD WASTELAND (DANGER ZONE SECTOR-7)
+  // Arena 260m x 260m atmosferik dengan jalan raya hancur, barikade tempur,
+  // drum minyak menyala, tong limbah beracun, pondok terbengkalai, dan vegetasi seram.
   // --------------------------------------------------------------------------
   buildSector7() {
-    // 1. Vast Rolling Forest Floor (260m x 260m)
-    const groundGeo = new THREE.PlaneGeometry(260, 260, 56, 56);
-    const pos = groundGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const vx = pos.getX(i);
-      const vy = pos.getY(i);
-      const worldZ = -vy;
-      const elevation = this.getTerrainHeight(vx, worldZ);
-      pos.setZ(i, elevation);
-    }
-    groundGeo.computeVertexNormals();
-
+    // 1. Lantai Hutan/Wasteland Padat Rata Y = 0 (260m x 260m)
+    const groundGeo = new THREE.PlaneGeometry(260, 260);
     const groundMat = new THREE.MeshStandardMaterial({
       map: this.createForestFloorTexture(),
       roughness: 0.92,
@@ -453,37 +478,41 @@ export class EnvironmentDual {
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
     ground.receiveShadow = true;
     this.sector7Group.add(ground);
 
-    // 2. Perimeter Cliffs & Border Forest Wall
+    // 2. Tebing Perimeter & Dinding Pengaman Zona
     this.createForestPerimeter(this.sector7Group, this.sector7Colliders);
 
-    // 3. 4 Abandoned Cabins with Indoor Exploration & Loot Crates
+    // 3. Jalan Raya Hancur, Konvoi Militer, Barikade & Drum Api Menyala
+    this.createCentralHighwayAndConvoy(this.sector7Group, this.sector7Colliders);
+
+    // 4. 4 Pondok Terbengkalai / Bunker Riset dengan Peti Jarahan
     this.createAbandonedCabin(this.sector7Group, this.sector7Colliders, this.sector7Interactables,
       -45, -25, 0, 'Pondok Penjaga Hutan', 'crate_cabin_1');
 
     this.createAbandonedCabin(this.sector7Group, this.sector7Colliders, this.sector7Interactables,
-      55, -15, 0, 'Pondok Riset Biologis', 'crate_cabin_2');
+      55, -15, 0, 'Lab Riset Biologis', 'crate_cabin_2');
 
     this.createAbandonedCabin(this.sector7Group, this.sector7Colliders, this.sector7Interactables,
       -35, 50, 0, 'Gudang Pemburu Terbengkalai', 'crate_cabin_3');
 
     this.createAbandonedCabin(this.sector7Group, this.sector7Colliders, this.sector7Interactables,
-      45, 65, 0, 'Pos Pantau Hutan Reruntuhan', 'crate_cabin_4');
+      45, 65, 0, 'Pos Pantau Reruntuhan', 'crate_cabin_4');
 
-    // 4. Additional Wilderness Loot Caches
+    // 5. Peti Jarahan Tambahan di Alam Liar
     this.createWildernessLootCaches(this.sector7Group, this.sector7Colliders, this.sector7Interactables);
 
-    // 5. Procedural Forest Vegetation (Pine, Oak, Dead Trees, Logs, Rocks)
+    // 6. Vegetasi Hutan Seram & Bebatuan Raksasa
     this.createForestVegetation(this.sector7Group, this.sector7Colliders);
 
-    // 6. Extraction Beacon (Suar Evakuasi Darurat di Area Terbuka)
+    // 7. Extraction Helipad & Suar Evakuasi Darurat
     this.createExtractionBeacon(0, -92);
 
-    // 7. Eerie Twilight Forest Lighting
-    const amb = new THREE.AmbientLight(0x15281e, 1.25);
-    const moon = new THREE.DirectionalLight(0x9cc2b5, 1.6);
+    // 8. Pencahayaan Malam Hari Dramatis Sector-7
+    const amb = new THREE.AmbientLight(0x0f1c16, 1.2);
+    const moon = new THREE.DirectionalLight(0x7ea494, 1.5);
     moon.position.set(-50, 75, -40);
     moon.castShadow = true;
     moon.shadow.mapSize.width = 2048;
@@ -494,6 +523,126 @@ export class EnvironmentDual {
     moon.shadow.camera.bottom = -110;
     this.sector7Lights.add(amb);
     this.sector7Lights.add(moon);
+  }
+
+  // 🛣️ Jalan Raya Hancur, Barikade Tempur, & Drum Api Menyala
+  createCentralHighwayAndConvoy(group, colliders) {
+    const roadMat = new THREE.MeshStandardMaterial({
+      color: 0x181e19,
+      roughness: 0.95,
+      metalness: 0.05
+    });
+
+    // Jalan aspal retak memanjang dari z = -90 hingga z = 45 (lebar 7m)
+    const roadGeo = new THREE.PlaneGeometry(7.0, 135);
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(0, 0.015, -22);
+    road.receiveShadow = true;
+    group.add(road);
+
+    // Drum Minyak Menyala (Memberi Pencahayaan Api Dinamis & Efek Horor)
+    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x2e1a12, roughness: 0.7, metalness: 0.4 });
+    const flameMat = new THREE.MeshStandardMaterial({
+      color: 0xff6600,
+      emissive: 0xff3300,
+      emissiveIntensity: 2.8,
+      roughness: 0.2
+    });
+
+    const barrelPositions = [
+      { x: -3.0, z: -65 },
+      { x: 3.2, z: -35 },
+      { x: -3.4, z: -5 },
+      { x: 3.0, z: 25 }
+    ];
+
+    barrelPositions.forEach((pos, idx) => {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.95, 12), barrelMat);
+      barrel.position.set(pos.x, 0.48, pos.z);
+      barrel.castShadow = true;
+      group.add(barrel);
+
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.55, 8), flameMat);
+      flame.position.set(pos.x, 1.15, pos.z);
+      group.add(flame);
+
+      const fireLight = new THREE.PointLight(0xff6600, 2.2, 16);
+      fireLight.position.set(pos.x, 1.35, pos.z);
+      this.sector7Lights.add(fireLight);
+
+      this.animatedObjects.push({
+        type: 'fire_flicker',
+        light: fireLight,
+        mesh: flame,
+        baseIntensity: 2.2,
+        idx
+      });
+
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(pos.x, 0.5, pos.z),
+        new THREE.Vector3(0.8, 1.0, 0.8)
+      ));
+    });
+
+    // Barikade Beton (Jersey Barriers) untuk Perlindungan Taktis
+    const barrierMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+    const barrierPositions = [
+      { x: -1.6, z: -70, rot: 0.2 },
+      { x: 2.2, z: -46, rot: -0.15 },
+      { x: -2.0, z: -16, rot: 0.25 },
+      { x: 1.8, z: 14, rot: -0.2 }
+    ];
+
+    barrierPositions.forEach(b => {
+      const barrier = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.5), barrierMat);
+      barrier.position.set(b.x, 0.45, b.z);
+      barrier.rotation.y = b.rot;
+      barrier.castShadow = true;
+      group.add(barrier);
+
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(b.x, 0.45, b.z),
+        new THREE.Vector3(2.4, 0.9, 0.8)
+      ));
+    });
+
+    // Tong Limbah Beracun (Radioactive Biohazard Sludge)
+    const toxicMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.5, metalness: 0.6 });
+    const toxicGlowMat = new THREE.MeshStandardMaterial({
+      color: 0x4ade80,
+      emissive: 0x22c55e,
+      emissiveIntensity: 1.8,
+      roughness: 0.2
+    });
+
+    const toxicPositions = [
+      { x: -18, z: -42 },
+      { x: 22, z: -28 },
+      { x: -22, z: 20 },
+      { x: 24, z: 45 }
+    ];
+
+    toxicPositions.forEach(t => {
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.0, 12), toxicMat);
+      drum.position.set(t.x, 0.5, t.z);
+      drum.castShadow = true;
+      group.add(drum);
+
+      const spill = new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), toxicGlowMat);
+      spill.rotation.x = -Math.PI / 2;
+      spill.position.set(t.x + 0.3, 0.02, t.z + 0.3);
+      group.add(spill);
+
+      const toxicLight = new THREE.PointLight(0x22c55e, 1.5, 9);
+      toxicLight.position.set(t.x, 0.8, t.z);
+      this.sector7Lights.add(toxicLight);
+
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(t.x, 0.5, t.z),
+        new THREE.Vector3(0.9, 1.0, 0.9)
+      ));
+    });
   }
 
   // 🌲 Forest Perimeter Rock Cliffs
@@ -1003,9 +1152,9 @@ export class EnvironmentDual {
       this.sector7Group.visible = false;
       this.sector7Lights.visible = false;
 
-      // Fresh Morning Countryside atmosphere (Desa Asri Pedesaan)
-      this.scene.background = new THREE.Color(0x7ec0ee); // Langit biru cerah pedesaan
-      this.scene.fog = new THREE.FogExp2(0xcfe4f5, 0.007); // Kabut pagi sejuk alami
+      // Nuansa Malam Pedesaan (Desa Asri Safe Zone Malam Hari)
+      this.scene.background = new THREE.Color(0x060b17); // Langit malam biru gelap pekat
+      this.scene.fog = new THREE.FogExp2(0x081326, 0.010); // Kabut malam lembut pedesaan
 
       if (player) {
         player.teleport(0, 1.7, -6); // Spawn with clear view in front of Hab Pod
@@ -1018,9 +1167,9 @@ export class EnvironmentDual {
       this.sector7Group.visible = true;
       this.sector7Lights.visible = true;
 
-      // Eerie Dark Overgrown Forest atmosphere
-      this.scene.background = new THREE.Color(0x050e0b);
-      this.scene.fog = new THREE.FogExp2(0x06140f, 0.015);
+      // Eerie Dark Overgrown Forest atmosphere (Wasteland Malam)
+      this.scene.background = new THREE.Color(0x040907);
+      this.scene.fog = new THREE.FogExp2(0x050e0a, 0.014);
 
       if (player) {
         player.teleport(0, 1.7, -80); // Spawn safely in forest glade near Extraction Beacon (0, -92)
@@ -1071,7 +1220,7 @@ export class EnvironmentDual {
   }
 
   update(delta) {
-    // Animate crystals, dome, vortex, and extraction beam
+    // Animate crystals, dome, vortex, extraction beam, and burning barrels
     const time = performance.now() * 0.001;
     for (const anim of this.animatedObjects) {
       if (anim.type === 'dome_spin') {
@@ -1083,6 +1232,10 @@ export class EnvironmentDual {
         anim.mesh.material.opacity = 0.5 + Math.sin(time * anim.speed) * 0.25;
       } else if (anim.type === 'beam_pulse') {
         anim.mesh.material.opacity = 0.35 + Math.sin(time * anim.speed) * 0.15;
+      } else if (anim.type === 'fire_flicker') {
+        const flicker = Math.sin(time * 16 + anim.idx * 2) * 0.35 + Math.cos(time * 27) * 0.15;
+        anim.light.intensity = anim.baseIntensity + flicker;
+        anim.mesh.scale.set(1.0 + flicker * 0.12, 1.0 + flicker * 0.2, 1.0 + flicker * 0.12);
       }
     }
   }

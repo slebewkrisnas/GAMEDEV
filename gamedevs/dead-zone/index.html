@@ -18,7 +18,7 @@
 </head>
 <body>
   <!-- Floating Button Kembali ke Dunia 3D -->
-  <button id="floating-back-world" title="Kembali ke Dunia 3D" onclick="if(document.exitPointerLock) document.exitPointerLock(); window.location.href='../main.html?from=camp'">
+  <button id="floating-back-world" title="Kembali ke Dunia 3D" onclick="if(window.deadZoneGame && typeof window.deadZoneGame.exitToWorld === 'function') { window.deadZoneGame.exitToWorld(); } else { if(document.exitPointerLock) document.exitPointerLock(); window.location.href='../main.html?from=camp'; }">
     <span>🗺️</span><span class="lbl">Dunia 3D</span>
   </button>
 
@@ -27,6 +27,23 @@
     <span class="device-label">MAIN:</span>
     <button id="btnModeLaptop" class="dev-btn active" title="Main pakai Laptop">💻 LAPTOP</button>
     <button id="btnModeHP" class="dev-btn" title="Main pakai HP">📱 HP</button>
+  </div>
+
+  <!-- Transition & Zone Warp Loading Screen -->
+  <div id="zone-loading-screen" class="zone-loading-screen hidden">
+    <div class="zone-loader-backdrop"></div>
+    <div class="zone-loader-box">
+      <div class="zone-loader-icon-wrap">
+        <div class="zone-loader-spinner" id="zoneLoaderSpinner"></div>
+        <span class="zone-loader-symbol" id="zoneLoaderSymbol">☣️</span>
+      </div>
+      <div class="zone-loader-title" id="zoneLoaderTitle">MEMASUKI SECTOR-7</div>
+      <div class="zone-loader-subtitle" id="zoneLoaderSubtitle">Menginisialisasi Lingkungan 3D & Shader...</div>
+      <div class="zone-loader-progress-track">
+        <div class="zone-loader-progress-fill" id="zoneLoaderFill"></div>
+      </div>
+      <div class="zone-loader-status" id="zoneLoaderStatus">MEMUAT... 0%</div>
+    </div>
   </div>
 
   <!-- 3D Canvas Container -->

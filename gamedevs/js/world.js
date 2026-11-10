@@ -48,7 +48,7 @@ export function resolveWallCollisions(pos) {
   }
 }
 
-// ==================== UTIL JALAN ====================
+// ==================== UTIL JALAN RAPI & BERSIH ====================
 function createRibbonGeometry(curve, width, segments, yOffset = 0) {
   const positions = [];
   const uvs = [];
@@ -61,8 +61,8 @@ function createRibbonGeometry(curve, width, segments, yOffset = 0) {
     const tangent = curve.getTangent(t);
     const perp = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
 
-    const widthVariance = 1 + Math.sin(t * 20) * 0.08;
-    const w = halfW * widthVariance;
+    // Lebar jalan lurus, rata, dan rapi tanpa lekukan bergelombang
+    const w = halfW;
 
     const left  = p.clone().addScaledVector(perp, w);
     const right = p.clone().addScaledVector(perp, -w);
@@ -70,8 +70,8 @@ function createRibbonGeometry(curve, width, segments, yOffset = 0) {
     positions.push(left.x, yOffset, left.z);
     positions.push(right.x, yOffset, right.z);
 
-    uvs.push(0, t * 6);
-    uvs.push(1, t * 6);
+    uvs.push(0, t * 12);
+    uvs.push(1, t * 12);
   }
 
   for (let i = 0; i < segments; i++) {
@@ -92,50 +92,80 @@ function createRibbonGeometry(curve, width, segments, yOffset = 0) {
 }
 
 function createPath(scene, curve, segments = 200) {
-  const borderGeo = createRibbonGeometry(curve, 3.0, segments, 0.015);
-  const borderMat = new THREE.MeshStandardMaterial({ color: 0x6a5638, roughness: 1.0 });
-  const border = new THREE.Mesh(borderGeo, borderMat);
-  border.receiveShadow = true;
-  scene.add(border);
+  // 1. Tepi Jalan / Curb Batu Rapih (Border)
+  const curbGeo = createRibbonGeometry(curve, 3.2, segments, 0.02);
+  const curbMat = new THREE.MeshStandardMaterial({
+    color: 0x3d352c,
+    roughness: 0.95,
+    metalness: 0.05
+  });
+  const curb = new THREE.Mesh(curbGeo, curbMat);
+  curb.receiveShadow = true;
+  scene.add(curb);
 
-  const mainGeo = createRibbonGeometry(curve, 2.4, segments, 0.025);
-  const mainMat = new THREE.MeshStandardMaterial({ color: 0xb89870, roughness: 0.95 });
+  // 2. Jalur Utama Paving / Cobblestone Mewah
+  const mainGeo = createRibbonGeometry(curve, 2.7, segments, 0.028);
+  const mainMat = new THREE.MeshStandardMaterial({
+    color: 0xba9b72,
+    roughness: 0.88,
+    metalness: 0.05
+  });
   const main = new THREE.Mesh(mainGeo, mainMat);
   main.receiveShadow = true;
   scene.add(main);
 
-  const centerGeo = createRibbonGeometry(curve, 0.9, segments, 0.032);
-  const centerMat = new THREE.MeshStandardMaterial({ color: 0xc8a880, roughness: 0.95 });
+  // 3. Garis Aksen Tengah Marmer Halus
+  const centerGeo = createRibbonGeometry(curve, 0.45, segments, 0.034);
+  const centerMat = new THREE.MeshStandardMaterial({
+    color: 0xd9c5a0,
+    roughness: 0.82
+  });
   const center = new THREE.Mesh(centerGeo, centerMat);
   center.receiveShadow = true;
   scene.add(center);
 }
 
-// ==================== MATERIAL & DETAIL JALAN ====================
-const pebbleMats = [
-  new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.95, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x7a7a70, roughness: 0.95, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0xaa9a80, roughness: 0.95, flatShading: true })
-];
+// ==================== LENTERA JALAN ESTETIK & RAPI ====================
+function scatterDetailsAlongPath(scene, curve, lanternCount = 8) {
+  const lanternPostMat = new THREE.MeshStandardMaterial({ color: 0x3e352b, roughness: 0.9 });
+  const lanternGlowMat = new THREE.MeshStandardMaterial({
+    color: 0xfff0aa,
+    emissive: 0xffb800,
+    emissiveIntensity: 1.2,
+    roughness: 0.2
+  });
 
-function scatterDetailsAlongPath(scene, curve, pebbleCount, grassCount) {
-  for (let i = 0; i < pebbleCount; i++) {
-    const t = Math.random();
+  for (let i = 0; i < lanternCount; i++) {
+    const t = (i + 0.5) / lanternCount;
     const p = curve.getPoint(t);
     const tangent = curve.getTangent(t);
     const perp = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
-    const side = Math.random() > 0.5 ? 1 : -1;
-    const dist = 1.3 + Math.random() * 0.8;
-    const offset = perp.clone().multiplyScalar(side * dist);
-    const pebble = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.08 + Math.random() * 0.12),
-      pebbleMats[Math.floor(Math.random() * pebbleMats.length)]
-    );
-    pebble.position.set(p.x + offset.x, 0.08, p.z + offset.z);
-    pebble.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-    pebble.castShadow = true;
-    pebble.receiveShadow = true;
-    scene.add(pebble);
+
+    // Pasang lentera batu rapi di kedua sisi jalan (bukan di tengah jalan)
+    [-2.1, 2.1].forEach(side => {
+      const g = new THREE.Group();
+      g.position.set(p.x + perp.x * side, 0, p.z + perp.z * side);
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.4, 8), lanternPostMat);
+      base.position.y = 0.2;
+      base.castShadow = true;
+      g.add(base);
+
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.3, 8), lanternPostMat);
+      pillar.position.y = 0.95;
+      pillar.castShadow = true;
+      g.add(pillar);
+
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), lanternGlowMat);
+      lamp.position.y = 1.65;
+      g.add(lamp);
+
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.22, 8), lanternPostMat);
+      cap.position.y = 1.85;
+      g.add(cap);
+
+      scene.add(g);
+    });
   }
 
   const grassMat = new THREE.MeshStandardMaterial({ color: 0x3a7a2a, roughness: 0.9 });
@@ -226,54 +256,51 @@ export function createWorld(scene) {
   grid.material.transparent = true;
   scene.add(grid);
 
-  // 1. Jalan Utama dari Spawn ke Central Plaza (z = 5)
+  // 1. Jalan Utama dari Spawn ke Central Plaza (z = 5) - Grand Boulevard Lurus & Megah
   const pathPoints = [
-    new THREE.Vector3(SPAWN_POS.x, 0.02, SPAWN_POS.z),
-    new THREE.Vector3(SPAWN_POS.x + 8, 0.02, 42),
-    new THREE.Vector3(SPAWN_POS.x - 6, 0.02, 28),
-    new THREE.Vector3(0, 0.02, 16),
+    new THREE.Vector3(0, 0.02, 52),
+    new THREE.Vector3(0, 0.02, 38),
+    new THREE.Vector3(0, 0.02, 26),
+    new THREE.Vector3(0, 0.02, 14),
     new THREE.Vector3(0, 0.02, 5)
   ];
   const pathCurve = new THREE.CatmullRomCurve3(pathPoints, false, 'catmullrom', 0.5);
   createPath(scene, pathCurve, 200);
 
-  // 2. Cabang Kiri (Perkebunan)
-  const branchLeftStart = pathCurve.getPoint(0.35);
+  // 2. Cabang Kiri (Taman Asri & Paviliun)
   const branchLeftPoints = [
-    new THREE.Vector3(branchLeftStart.x, 0.02, branchLeftStart.z),
-    new THREE.Vector3(-14, 0.02, branchLeftStart.z - 2),
-    new THREE.Vector3(-20, 0.02, 22),
+    new THREE.Vector3(0, 0.02, 26),
+    new THREE.Vector3(-10, 0.02, 24.5),
+    new THREE.Vector3(-18, 0.02, 23),
     new THREE.Vector3(-25, 0.02, 22)
   ];
   const branchLeftCurve = new THREE.CatmullRomCurve3(branchLeftPoints, false, 'catmullrom', 0.5);
   createPath(scene, branchLeftCurve, 120);
 
-  // 3. Cabang Kanan (Kamp Tentara)
-  const branchRightStart = pathCurve.getPoint(0.62);
+  // 3. Cabang Kanan (Kamp Dead Zone)
   const branchRightPoints = [
-    new THREE.Vector3(branchRightStart.x, 0.02, branchRightStart.z),
-    new THREE.Vector3(14, 0.02, branchRightStart.z - 3),
-    new THREE.Vector3(22, 0.02, -12),
+    new THREE.Vector3(0, 0.02, 5),
+    new THREE.Vector3(9, 0.02, 0),
+    new THREE.Vector3(17, 0.02, -6),
     new THREE.Vector3(25, 0.02, -12)
   ];
   const branchRightCurve = new THREE.CatmullRomCurve3(branchRightPoints, false, 'catmullrom', 0.5);
   createPath(scene, branchRightCurve, 120);
 
   // 4. Cabang Kanan Bawah (Battle Arena)
-  const branchArenaStart = pathCurve.getPoint(0.32);
   const branchArenaPoints = [
-    new THREE.Vector3(branchArenaStart.x, 0.02, branchArenaStart.z),
-    new THREE.Vector3(8, 0.02, 26),
-    new THREE.Vector3(14, 0.02, 22),
-    new THREE.Vector3(18, 0.02, 22)
+    new THREE.Vector3(0, 0.02, 26),
+    new THREE.Vector3(8, 0.02, 24.5),
+    new THREE.Vector3(15, 0.02, 23),
+    new THREE.Vector3(22, 0.02, 22)
   ];
   const branchArenaCurve = new THREE.CatmullRomCurve3(branchArenaPoints, false, 'catmullrom', 0.5);
   createPath(scene, branchArenaCurve, 120);
 
   // 5. Central Plaza Junction di (0, 0.02, 5)
   const junctionBorder = new THREE.Mesh(
-    new THREE.CircleGeometry(3.6, 32),
-    new THREE.MeshStandardMaterial({ color: 0x6a5638, roughness: 1.0 })
+    new THREE.CircleGeometry(3.8, 36),
+    new THREE.MeshStandardMaterial({ color: 0x3d352c, roughness: 0.95 })
   );
   junctionBorder.rotation.x = -Math.PI / 2;
   junctionBorder.position.set(0, 0.021, 5);
@@ -281,17 +308,17 @@ export function createWorld(scene) {
   scene.add(junctionBorder);
 
   const junctionMain = new THREE.Mesh(
-    new THREE.CircleGeometry(3.0, 32),
-    new THREE.MeshStandardMaterial({ color: 0xb89870, roughness: 0.95 })
+    new THREE.CircleGeometry(3.3, 36),
+    new THREE.MeshStandardMaterial({ color: 0xba9b72, roughness: 0.88, metalness: 0.05 })
   );
   junctionMain.rotation.x = -Math.PI / 2;
-  junctionMain.position.set(0, 0.026, 5);
+  junctionMain.position.set(0, 0.027, 5);
   junctionMain.receiveShadow = true;
   scene.add(junctionMain);
 
   const junctionCenter = new THREE.Mesh(
-    new THREE.CircleGeometry(1.2, 32),
-    new THREE.MeshStandardMaterial({ color: 0xc8a880, roughness: 0.95 })
+    new THREE.CircleGeometry(1.4, 36),
+    new THREE.MeshStandardMaterial({ color: 0xd9c5a0, roughness: 0.82 })
   );
   junctionCenter.rotation.x = -Math.PI / 2;
   junctionCenter.position.set(0, 0.033, 5);
@@ -301,7 +328,7 @@ export function createWorld(scene) {
   // 6. Pelataran Batu Melingkar untuk Patung GameDev 25 (-14, 5)
   const gamedevPlazaBorder = new THREE.Mesh(
     new THREE.RingGeometry(7.8, 9.8, 32),
-    new THREE.MeshStandardMaterial({ color: 0x6a5638, roughness: 1.0, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0x3d352c, roughness: 0.95, side: THREE.DoubleSide })
   );
   gamedevPlazaBorder.rotation.x = -Math.PI / 2;
   gamedevPlazaBorder.position.set(-14, 0.021, 5);
@@ -310,7 +337,7 @@ export function createWorld(scene) {
 
   const gamedevPlazaInner = new THREE.Mesh(
     new THREE.RingGeometry(8.0, 9.2, 32),
-    new THREE.MeshStandardMaterial({ color: 0xb89870, roughness: 0.95, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0xba9b72, roughness: 0.88, side: THREE.DoubleSide })
   );
   gamedevPlazaInner.rotation.x = -Math.PI / 2;
   gamedevPlazaInner.position.set(-14, 0.025, 5);
@@ -344,14 +371,14 @@ export function createWorld(scene) {
   const walkwayGameDevToLogoCurve = new THREE.CatmullRomCurve3(walkwayGameDevToLogoPoints, false, 'catmullrom', 0.5);
   createPath(scene, walkwayGameDevToLogoCurve, 50);
 
-  // Scatter detail kerikil & rumput di sepanjang jalan
-  scatterDetailsAlongPath(scene, pathCurve, 60, 40);
-  scatterDetailsAlongPath(scene, branchLeftCurve, 30, 20);
-  scatterDetailsAlongPath(scene, branchRightCurve, 30, 20);
-  scatterDetailsAlongPath(scene, branchArenaCurve, 30, 20);
-  scatterDetailsAlongPath(scene, roadToLogoCurve, 25, 15);
-  scatterDetailsAlongPath(scene, roadToGameDevCurve, 15, 10);
-  scatterDetailsAlongPath(scene, walkwayGameDevToLogoCurve, 20, 12);
+  // Pasang lentera jalan estetik di sepanjang tepi jalan
+  scatterDetailsAlongPath(scene, pathCurve, 6);
+  scatterDetailsAlongPath(scene, branchLeftCurve, 4);
+  scatterDetailsAlongPath(scene, branchRightCurve, 4);
+  scatterDetailsAlongPath(scene, branchArenaCurve, 3);
+  scatterDetailsAlongPath(scene, roadToLogoCurve, 3);
+  scatterDetailsAlongPath(scene, roadToGameDevCurve, 2);
+  scatterDetailsAlongPath(scene, walkwayGameDevToLogoCurve, 2);
 
   // 10. Batuan Pembatas Lingkar Dunia
   const boundarySegments = 60;

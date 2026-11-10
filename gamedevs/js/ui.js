@@ -11,11 +11,36 @@ export function initPortalOverlay() {
   portalOverlay.style.cssText = `
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at center, #66ccff 0%, #0a1a35 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #060911;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.8s ease;
-    z-index: 9999;
+    transition: opacity 0.4s ease;
+    z-index: 99999;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #fff;
+    text-align: center;
+  `;
+  portalOverlay.innerHTML = `
+    <div style="max-width: 420px; width: 90%; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px);">
+      <div id="portalVortexRing" style="width: 72px; height: 72px; border: 4px dashed #38bdf8; border-top: 4px solid #fff; border-radius: 50%; animation: portalSpin 1s linear infinite; box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);"></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div id="portalOverlayTitle" style="font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #38bdf8; text-transform: uppercase;">MEMASUKI PORTAL...</div>
+        <div id="portalOverlaySubtitle" style="font-size: 13px; color: #94a3b8; font-weight: 500;">Menyiapkan dunia 3D & kompilasi visual...</div>
+      </div>
+      <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 999px; overflow: hidden; position: relative;">
+        <div id="portalOverlayProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); transition: width 0.1s linear; border-radius: 999px; box-shadow: 0 0 10px #38bdf8;"></div>
+      </div>
+      <div id="portalOverlayPct" style="font-size: 12px; font-family: monospace; color: #cbd5e1; letter-spacing: 1px;">0%</div>
+    </div>
+    <style>
+      @keyframes portalSpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
   `;
   document.body.appendChild(portalOverlay);
 }
@@ -24,18 +49,69 @@ export function triggerPortalWarp(type, onComplete) {
   initPortalOverlay();
   if (worldAudioRef) worldAudioRef.playPortalWarp(type);
 
+  const titleEl = document.getElementById('portalOverlayTitle');
+  const subEl = document.getElementById('portalOverlaySubtitle');
+  const barEl = document.getElementById('portalOverlayProgress');
+  const pctEl = document.getElementById('portalOverlayPct');
+  const ringEl = document.getElementById('portalVortexRing');
+
   if (type === 'camp') {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #aaff66 0%, #0a1a05 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #0f1f14 0%, #030705 100%)';
+    if (titleEl) {
+      titleEl.textContent = 'MEMASUKI DEAD ZONE (SECTOR-7)';
+      titleEl.style.color = '#4ade80';
+    }
+    if (subEl) subEl.textContent = 'Memuat persenjataan, zombie AI, dan survival outpost...';
+    if (ringEl) {
+      ringEl.style.borderColor = '#4ade80';
+      ringEl.style.borderTopColor = '#fff';
+      ringEl.style.boxShadow = '0 0 25px rgba(74, 222, 128, 0.6)';
+    }
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #22c55e, #10b981)';
   } else if (type === 'arena') {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #ffaa44 0%, #300a20 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #26110f 0%, #080302 100%)';
+    if (titleEl) {
+      titleEl.textContent = 'MEMASUKI BATTLE ARENA';
+      titleEl.style.color = '#f87171';
+    }
+    if (subEl) subEl.textContent = 'Menyiapkan arena duel, robot petarung, dan sistem kombat...';
+    if (ringEl) {
+      ringEl.style.borderColor = '#f87171';
+      ringEl.style.borderTopColor = '#fff';
+      ringEl.style.boxShadow = '0 0 25px rgba(248, 113, 113, 0.6)';
+    }
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #f87171, #fb923c)';
   } else {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #66ccff 0%, #0a1a35 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #0c1a2e 0%, #040810 100%)';
+    if (titleEl) {
+      titleEl.textContent = 'MEMASUKI PORTAL';
+      titleEl.style.color = '#38bdf8';
+    }
+    if (subEl) subEl.textContent = 'Menyiapkan dunia 3D & memuat aset grafis...';
+    if (ringEl) {
+      ringEl.style.borderColor = '#38bdf8';
+      ringEl.style.borderTopColor = '#fff';
+      ringEl.style.boxShadow = '0 0 25px rgba(56, 189, 248, 0.6)';
+    }
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #38bdf8, #818cf8)';
   }
 
   portalOverlay.style.opacity = '1';
-  setTimeout(() => {
-    if (typeof onComplete === 'function') onComplete();
-  }, 850);
+  portalOverlay.style.pointerEvents = 'auto';
+
+  let currentPct = 0;
+  const interval = setInterval(() => {
+    currentPct += 10;
+    if (currentPct > 100) currentPct = 100;
+    if (barEl) barEl.style.width = `${currentPct}%`;
+    if (pctEl) pctEl.textContent = `${currentPct}%`;
+    if (currentPct >= 100) {
+      clearInterval(interval);
+      setTimeout(() => {
+        if (typeof onComplete === 'function') onComplete();
+      }, 200);
+    }
+  }, 90);
 }
 
 // ==================== AUDIO UI ====================
@@ -140,20 +216,12 @@ export function updateCompassHUD(playerPos, currentYaw) {
 // ==================== GLOBAL QUEST HUD TRACKER ====================
 export function updateQuestHUD() {
   try {
-    const hasFruit = localStorage.getItem('gamedev_meta_fruit_cleared') === '1' || parseInt(localStorage.getItem('gamedev_meta_fruit_score') || 0) >= 200;
     const hasDeadZone = localStorage.getItem('gamedev_meta_deadzone_cleared') === '1';
     const hasArena = localStorage.getItem('gamedev_meta_arena_champion') === '1';
 
-    const qFruit = document.getElementById('qFruitItem');
-    const qFruitSt = document.getElementById('qFruitStatus');
-    if (qFruit && qFruitSt) {
-      if (hasFruit) {
-        qFruit.classList.add('completed');
-        qFruitSt.textContent = '✅';
-      } else {
-        qFruit.classList.remove('completed');
-        qFruitSt.textContent = '⏳';
-      }
+    const qGarden = document.getElementById('qGardenItem');
+    if (qGarden) {
+      qGarden.classList.add('completed');
     }
 
     const qDZ = document.getElementById('qDeadZoneItem');
@@ -217,8 +285,6 @@ export function openKioskModal() {
   const kioskBody = document.getElementById('kioskBody');
   if (!kioskModal || !kioskBody) return;
 
-  const fruitScore = parseInt(localStorage.getItem('gamedev_meta_fruit_score') || '0');
-  const fruitDone = localStorage.getItem('gamedev_meta_fruit_cleared') === '1' || fruitScore >= 200;
   const dzKills = parseInt(localStorage.getItem('gamedev_meta_deadzone_kills') || '0');
   const dzDone = localStorage.getItem('gamedev_meta_deadzone_cleared') === '1';
   const arenaWins = parseInt(localStorage.getItem('gamedev_meta_arena_wins') || '0');
@@ -226,8 +292,8 @@ export function openKioskModal() {
 
   kioskBody.innerHTML = `
     <div class="kiosk-stat-row">
-      <div class="kiosk-stat-label"><span>🍎</span> Kebun Buah (Fruit Block Blast)</div>
-      <div class="kiosk-stat-val">${fruitDone ? '🏆 JUARA' : '⏳ DALAM PROSES'} (${fruitScore} Poin)</div>
+      <div class="kiosk-stat-label"><span>🌸</span> Taman Asri & Paviliun Air Mancur</div>
+      <div class="kiosk-stat-val">🌿 TERJELAJAHI (Area Santai)</div>
     </div>
     <div class="kiosk-stat-row">
       <div class="kiosk-stat-label"><span>💀</span> Kamp Militer (Dead Zone FPS)</div>

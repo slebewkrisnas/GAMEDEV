@@ -122,21 +122,21 @@ function createGatePost(x, z) {
 createGatePost(PLANT_X2, entranceZ1);
 createGatePost(PLANT_X2, entranceZ2);
 
-// ==================== ⭐ PAPAN NAMA FRUIT BLOCK BLAST (TINGGI) ⭐ ====================
-function createFruitBlastSignTexture() {
+// ==================== ⭐ PAPAN NAMA TAMAN ASRI & PERKEBUNAN ⭐ ====================
+function createGardenSignTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 384;
   const ctx = canvas.getContext('2d');
 
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#d4a870');
-  grad.addColorStop(0.5, '#b8863f');
-  grad.addColorStop(1, '#8a6438');
+  grad.addColorStop(0, '#2d6a4f');
+  grad.addColorStop(0.5, '#1b4332');
+  grad.addColorStop(1, '#081c15');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = 'rgba(90, 60, 30, 0.25)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
   ctx.lineWidth = 2;
   for (let y = 30; y < canvas.height; y += 45) {
     ctx.beginPath();
@@ -145,30 +145,30 @@ function createFruitBlastSignTexture() {
     ctx.stroke();
   }
 
-  ctx.strokeStyle = '#5a3a1a';
-  ctx.lineWidth = 18;
+  ctx.strokeStyle = '#d8f3dc';
+  ctx.lineWidth = 14;
   ctx.strokeRect(9, 9, canvas.width - 18, canvas.height - 18);
-  ctx.strokeStyle = '#ffe066';
+  ctx.strokeStyle = '#74c69d';
   ctx.lineWidth = 3;
-  ctx.strokeRect(26, 26, canvas.width - 52, canvas.height - 52);
+  ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 88px "Baloo 2", Arial, sans-serif';
-  ctx.lineWidth = 12;
-  ctx.strokeStyle = '#3a1a08';
-  ctx.strokeText('FRUIT BLOCK BLAST', canvas.width / 2, 125);
+  ctx.font = 'bold 80px "Baloo 2", Arial, sans-serif';
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = '#081c15';
+  ctx.strokeText('TAMAN ASRI & KEBUN', canvas.width / 2, 125);
   const textGrad = ctx.createLinearGradient(0, 70, 0, 170);
-  textGrad.addColorStop(0, '#fff7c2');
-  textGrad.addColorStop(1, '#ffb020');
+  textGrad.addColorStop(0, '#ffffff');
+  textGrad.addColorStop(1, '#95d5b2');
   ctx.fillStyle = textGrad;
-  ctx.fillText('FRUIT BLOCK BLAST', canvas.width / 2, 125);
+  ctx.fillText('TAMAN ASRI & KEBUN', canvas.width / 2, 125);
 
-  const fruits = ['🍎', '🍌', '🍇', '🍊', '🍉', '🍓'];
-  const spacing = canvas.width / (fruits.length + 1);
+  const botanicals = ['🌸', '🌻', '🍎', '🌿', '🍇', '🌷'];
+  const spacing = canvas.width / (botanicals.length + 1);
   ctx.font = '96px Arial, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-  fruits.forEach((fruit, i) => {
-    ctx.fillText(fruit, spacing * (i + 1), 288);
+  botanicals.forEach((item, i) => {
+    ctx.fillText(item, spacing * (i + 1), 288);
   });
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -177,7 +177,7 @@ function createFruitBlastSignTexture() {
   return tex;
 }
 
-const signTexture = createFruitBlastSignTexture();
+const signTexture = createGardenSignTexture();
 const signFaceMat = new THREE.MeshStandardMaterial({
   map: signTexture,
   roughness: 0.75,
@@ -648,113 +648,95 @@ createCropSign(PLANT_X2 - 1.6, PLANT.cz - 2, 'BUNGA');
 
 // ==================== END PERKEBUNAN INDAH ====================
 
-// ==================== ⭐ PORTAL DI AKHIR PERKEBUNAN ⭐ ====================
-// const PORTAL_POS = new THREE.Vector3(PLANT_X1 + 4, 0, PLANT.cz);
+// ==================== ⭐ PAVILIUN AIR MANCUR & TAMAN BUNGA ⭐ ====================
+// Menggantikan portal lama dengan paviliun air mancur asri untuk bersantai
 const portalGroup = new THREE.Group();
 portalGroup.position.copy(PORTAL_POS);
 portalGroup.rotation.y = Math.PI / 2;
 
-const portalBaseMat = new THREE.MeshStandardMaterial({
-  color: 0x1a2f52,
-  roughness: 0.5,
-  metalness: 0.4
+const fountainBasinMat = new THREE.MeshStandardMaterial({
+  color: 0xe2e8f0,
+  roughness: 0.4,
+  metalness: 0.1
 });
-const portalBase = new THREE.Mesh(
-  new THREE.CylinderGeometry(1.5, 1.7, 0.18, 24),
-  portalBaseMat
+const fountainBasin = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.4, 2.8, 0.5, 32),
+  fountainBasinMat
 );
-portalBase.position.y = 0.25;
-portalBase.castShadow = true;
-portalBase.receiveShadow = true;
-portalGroup.add(portalBase);
+fountainBasin.position.y = 0.25;
+fountainBasin.castShadow = true;
+fountainBasin.receiveShadow = true;
+portalGroup.add(fountainBasin);
 
-const portalRingMat = new THREE.MeshStandardMaterial({
-  color: 0x4a7ab5,
-  emissive: 0x2a5a95,
-  emissiveIntensity: 0.8,
-  roughness: 0.35,
-  metalness: 0.7
-});
-const portalRing = new THREE.Mesh(
-  new THREE.TorusGeometry(1.7, 0.22, 16, 48),
-  portalRingMat
+const fountainPillar = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.35, 0.5, 1.8, 16),
+  fountainBasinMat
 );
-portalRing.position.y = 2.4;
-portalRing.castShadow = true;
-portalGroup.add(portalRing);
+fountainPillar.position.y = 1.2;
+fountainPillar.castShadow = true;
+portalGroup.add(fountainPillar);
 
-const portalAccentMat = new THREE.MeshStandardMaterial({
-  color: 0xff8c1a,
-  emissive: 0xff8c1a,
-  emissiveIntensity: 1.8,
-  roughness: 0.3
-});
-const portalAccent = new THREE.Mesh(
-  new THREE.TorusGeometry(1.7, 0.07, 12, 48),
-  portalAccentMat
+const fountainUpperTier = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.2, 0.4, 0.35, 24),
+  fountainBasinMat
 );
-portalAccent.position.y = 2.4;
-portalAccent.position.z = 0.12;
-portalGroup.add(portalAccent);
+fountainUpperTier.position.y = 1.9;
+fountainUpperTier.castShadow = true;
+portalGroup.add(fountainUpperTier);
 
-const portalSurfaceMat = new THREE.MeshBasicMaterial({
-  color: 0x66ccff,
+const fountainWaterMat = new THREE.MeshStandardMaterial({
+  color: 0x38bdf8,
+  roughness: 0.1,
+  metalness: 0.2,
   transparent: true,
-  opacity: 0.55,
-  side: THREE.DoubleSide
+  opacity: 0.8
 });
-portalSurface = new THREE.Mesh(
-  new THREE.CircleGeometry(1.5, 32),
-  portalSurfaceMat
+const fountainWater = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.2, 2.2, 0.1, 32),
+  fountainWaterMat
 );
-portalSurface.position.y = 2.4;
-portalGroup.add(portalSurface);
+fountainWater.position.y = 0.48;
+portalGroup.add(fountainWater);
 
-// portalParticles exported
-for (let i = 0; i < 24; i++) {
-  const p = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 6, 6),
-    new THREE.MeshBasicMaterial({ color: 0x88ddff })
-  );
-  const angle = (i / 24) * Math.PI * 2;
-  p.position.set(Math.cos(angle) * 2.1, 2.4, Math.sin(angle) * 0.4);
-  portalGroup.add(p);
-  portalParticles.push({ mesh: p, angle });
-}
+// Kolam air atas
+const upperWater = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.05, 1.05, 0.1, 24),
+  fountainWaterMat
+);
+upperWater.position.y = 2.0;
+portalGroup.add(upperWater);
 
-portalLight = new THREE.PointLight(0x66ccff, 3, 15);
+// Pancuran kristal & lentera taman
+const fountainSpout = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.28),
+  new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x06b6d4, emissiveIntensity: 1.2, roughness: 0.2 })
+);
+fountainSpout.position.y = 2.4;
+portalGroup.add(fountainSpout);
+
+portalSurface = fountainWater; // Kompatibilitas animasi loop
+
+portalLight = new THREE.PointLight(0x38bdf8, 2.2, 14);
 portalLight.position.set(0, 2.4, 0);
 portalGroup.add(portalLight);
 
-function createPortalText() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = 'bold 80px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = '#0a1a35';
-  ctx.strokeText('PORTAL', canvas.width / 2, canvas.height / 2);
-  ctx.fillStyle = '#66ccff';
-  ctx.fillText('PORTAL', canvas.width / 2, canvas.height / 2);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  return tex;
+// 4 Bangku Taman Kayu di sekeliling Paviliun
+const benchMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 });
+for (let b = 0; b < 4; b++) {
+  const angle = (b / 4) * Math.PI * 2 + Math.PI / 4;
+  const bench = new THREE.Group();
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.45), benchMat);
+  seat.position.y = 0.45;
+  seat.castShadow = true;
+  bench.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.06), benchMat);
+  back.position.set(0, 0.72, -0.2);
+  back.castShadow = true;
+  bench.add(back);
+  bench.position.set(Math.cos(angle) * 4.2, 0, Math.sin(angle) * 4.2);
+  bench.rotation.y = -angle + Math.PI / 2;
+  portalGroup.add(bench);
 }
-const portalTextMat = new THREE.MeshBasicMaterial({
-  map: createPortalText(),
-  transparent: true,
-  side: THREE.DoubleSide
-});
-const portalTextPlate = new THREE.Mesh(
-  new THREE.PlaneGeometry(2.4, 0.6),
-  portalTextMat
-);
-portalTextPlate.position.set(0, 4.4, 0);
-portalGroup.add(portalTextPlate);
 
 scene.add(portalGroup);
 
@@ -1507,12 +1489,12 @@ const hasArenaTrophy = localStorage.getItem('gamedev_meta_arena_champion') === '
 createTrophyPedestal(
   'fruit',
   'Piala Kebun Kristal',
-  'Berhasil meraih skor tinggi dan memanen buah di Fruit Block Blast!',
-  '🍎',
+  'Telah menjelajahi seluruh area Kebun Bunga & Paviliun Air Mancur!',
+  '🌸',
   new THREE.Vector3(-7.5, 0, 2.5),
-  hasFruitTrophy,
-  0xfacc15,
-  0x10b981
+  true,
+  0x10b981,
+  0x34d399
 );
 
 createTrophyPedestal(

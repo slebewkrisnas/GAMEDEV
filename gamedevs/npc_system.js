@@ -14,7 +14,7 @@ export const NPC_DATA = {
     avatar: '👨‍🌾',
     dialogues: [
       'Halo penjelajah! Buah apel, jeruk, dan lemon di kebun ini siap dipanen.',
-      'Kalau kamu suka teka-teki santai dan kombo buah manis, masuki portal biru di sana menuju game Fruit Block Blast!',
+      'Kamu bisa bersantai di taman bunga dan paviliun air mancur kami yang sejuk dan asri!',
       'Tanaman di sini tumbuh subur karena tanahnya selalu kita siram tiap pagi.'
     ]
   },

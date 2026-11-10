@@ -247,45 +247,139 @@ class DeadZoneGame {
     this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah, Pande Besi, & Tabib', 3.0);
   }
 
-  // Switch cleanly between Safe Zone & Sector-7 Wasteland
+  // Fullscreen Loading Transition Screen between Zones & Portals
+  showZoneLoadingScreen({ title, subtitle, symbol = '☣️', accent = '#00e5ff', duration = 1000, onHalfway, onComplete }) {
+    const screen = document.getElementById('zone-loading-screen');
+    const titleEl = document.getElementById('zoneLoaderTitle');
+    const subEl = document.getElementById('zoneLoaderSubtitle');
+    const symEl = document.getElementById('zoneLoaderSymbol');
+    const fillEl = document.getElementById('zoneLoaderFill');
+    const statEl = document.getElementById('zoneLoaderStatus');
+    const spinEl = document.getElementById('zoneLoaderSpinner');
+
+    if (!screen) {
+      if (onHalfway) onHalfway();
+      if (onComplete) onComplete();
+      return;
+    }
+
+    if (titleEl) {
+      titleEl.textContent = title;
+      titleEl.style.color = accent;
+    }
+    if (subEl) subEl.textContent = subtitle;
+    if (symEl) symEl.textContent = symbol;
+    if (spinEl) spinEl.style.borderColor = accent;
+    if (fillEl) fillEl.style.background = `linear-gradient(90deg, ${accent}, #38bdf8)`;
+
+    screen.classList.remove('hidden');
+
+    let startTime = performance.now();
+    let halfwayTriggered = false;
+
+    const animateProgress = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const pct = Math.round(progress * 100);
+
+      if (fillEl) fillEl.style.width = `${pct}%`;
+      if (statEl) statEl.textContent = `MEMUAT... ${pct}%`;
+
+      if (progress >= 0.5 && !halfwayTriggered) {
+        halfwayTriggered = true;
+        if (typeof onHalfway === 'function') onHalfway();
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animateProgress);
+      } else {
+        setTimeout(() => {
+          screen.classList.add('hidden');
+          if (typeof onComplete === 'function') onComplete();
+        }, 150);
+      }
+    };
+
+    requestAnimationFrame(animateProgress);
+  }
+
+  // Keluar kembali ke Dunia 3D dengan transisi loading mulus
+  exitToWorld() {
+    this.showZoneLoadingScreen({
+      title: 'KEMBALI KE DUNIA 3D',
+      subtitle: 'Menyimpan progres petualangan & memuat kembali alun-alun...',
+      symbol: '🗺️',
+      accent: '#38bdf8',
+      duration: 1000,
+      onComplete: () => {
+        if (document.exitPointerLock) document.exitPointerLock();
+        window.location.href = '../main.html?from=camp';
+      }
+    });
+  }
+
+  // Switch cleanly between Safe Zone & Sector-7 Wasteland with Smooth Loading
   switchZone(zoneName) {
-    this.zoneSwitchCooldown = 2.5;
+    this.zoneSwitchCooldown = 3.5;
     sound.playTeleportSound();
-    this.currentState = this.STATES.PLAYING;
-    this.ui.showScreen('playing');
 
-    this.environment.setZoneActive(zoneName, this.player);
-    GameState.activeZone = zoneName;
+    const isSector7 = zoneName === 'sector_7';
+    this.showZoneLoadingScreen({
+      title: isSector7 ? 'MEMASUKI SECTOR-7 (ZONA ZOMBIE)' : 'EVAKUASI KE DESA ASRI (SAFE ZONE)',
+      subtitle: isSector7
+        ? 'PERINGATAN: Memuat mutan zombie & area reruntuhan hutan...'
+        : 'Evakuasi Berhasil! Menyimpan jarahan & memuat perlindungan...',
+      symbol: isSector7 ? '☣️' : '🛡️',
+      accent: isSector7 ? '#ef4444' : '#00e5ff',
+      duration: 1100,
+      onHalfway: () => {
+        this.environment.setZoneActive(zoneName, this.player);
+        GameState.activeZone = zoneName;
 
-    // Reset player velocity and input states to ensure immediate smooth WASD response
-    this.player.velocity.set(0, 0, 0);
-    this.player.moveForward = false;
-    this.player.moveBackward = false;
-    this.player.moveLeft = false;
-    this.player.moveRight = false;
-    this.player.isInputEnabled = true;
+        // Reset player velocity and input states to ensure immediate smooth WASD response
+        this.player.velocity.set(0, 0, 0);
+        this.player.moveForward = false;
+        this.player.moveBackward = false;
+        this.player.moveLeft = false;
+        this.player.moveRight = false;
+        this.player.isInputEnabled = true;
 
-    if (zoneName === 'safe_zone') {
-      this.weaponManager.setHolstered(true);
-      this.zombiesManager.clearAll();
-      this.lootManager.clearDrops();
-      this.ui.showAnnouncement('KEMBALI KE DESA ASRI', 'Evakuasi Sukses! Semua jarahan tersimpan aman di desa.', 3.0);
-    } else {
-      // sector_7 (Blackwood Forest)
-      this.weaponManager.setHolstered(false);
-      this.ui.showAnnouncement(
-        'HUTAN TERBENGKALAI (SECTOR-7)',
-        'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
-        4.0
-      );
-      this.waveManager.startWave(1);
-    }
+        if (zoneName === 'safe_zone') {
+          this.weaponManager.setHolstered(true);
+          this.zombiesManager.clearAll();
+          this.lootManager.clearDrops();
+        } else {
+          // sector_7 (Blackwood Forest)
+          this.weaponManager.setHolstered(false);
+          this.waveManager.startWave(1);
+        }
 
-    this.ui.updateHUD();
+        this.ui.updateHUD();
 
-    if (!this.player.isTouchMode) {
-      this.player.requestPointerLock();
-    }
+        // Pre-render 2 frame saat tertutup loading agar shader & bayangan selesai dikompilasi
+        try {
+          this.renderer.render(this.scene, this.camera);
+        } catch (e) {}
+      },
+      onComplete: () => {
+        this.currentState = this.STATES.PLAYING;
+        this.ui.showScreen('playing');
+
+        if (zoneName === 'safe_zone') {
+          this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
+        } else {
+          this.ui.showAnnouncement(
+            'HUTAN TERBENGKALAI (SECTOR-7)',
+            'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
+            4.0
+          );
+        }
+
+        if (!this.player.isTouchMode) {
+          this.player.requestPointerLock();
+        }
+      }
+    });
   }
 
   pauseGame() {

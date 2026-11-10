@@ -154,6 +154,11 @@ function dismissLoadingScreen() {
   isGameStarted = true;
   updateLoadingUI(100, 'Dunia Siap! Masuk ke permainan...');
 
+  // Pre-render 2 frame agar GPU shader & tekstur selesai dikompilasi sebelum loading screen dibuka
+  try {
+    renderer.render(scene, camera);
+  } catch (e) {}
+
   loadingScreen.classList.add('fade-out');
   setTimeout(() => {
     if (loadingVideo) {
@@ -206,11 +211,6 @@ if (fromGame === 'camp' || fromGame === 'deadzone') {
   player.rotation.y = -Math.PI / 2;
   setYaw(Math.PI / 2);
   campPortalCooldown = 3.5;
-} else if (fromGame === 'kebun' || fromGame === 'farm' || fromGame === 'fruit') {
-  player.position.set(PORTAL_POS.x + 2.5, 0, PORTAL_POS.z);
-  player.rotation.y = Math.PI / 2;
-  setYaw(-Math.PI / 2);
-  portalCooldown = 3.5;
 } else if (fromGame === 'arena' || fromGame === 'fight') {
   player.position.set(ARENA_PORTAL_POS.x - 2.5, 0, ARENA_PORTAL_POS.z);
   player.rotation.y = -Math.PI / 2;
@@ -224,8 +224,6 @@ if (fromGame && loadingSubtitle) {
     loadingSubtitle.textContent = 'Kembali dari Dead Zone, memuat kembali Dunia 3D...';
   } else if (fromGame === 'arena' || fromGame === 'fight') {
     loadingSubtitle.textContent = 'Kembali dari Battle Arena, memuat kembali Dunia 3D...';
-  } else {
-    loadingSubtitle.textContent = 'Kembali dari Fruit Block Blast, memuat kembali Dunia 3D...';
   }
 }
 if (hintEl && fromGame) {
@@ -233,8 +231,6 @@ if (hintEl && fromGame) {
     hintEl.textContent = '💀 Kembali dari Dead Zone! Klik di layar untuk lanjut jalan';
   } else if (fromGame === 'arena' || fromGame === 'fight') {
     hintEl.textContent = '⚔️ Kembali dari Battle Arena! Klik di layar untuk lanjut jalan';
-  } else {
-    hintEl.textContent = '🍎 Kembali dari Fruit Block Blast! Klik di layar untuk lanjut jalan';
   }
 }
 
@@ -407,18 +403,6 @@ function animate() {
   }
 
   // ===== CEK MASUK PORTAL =====
-  if (portalCooldown > 0) portalCooldown -= delta;
-  const dpx = player.position.x - PORTAL_POS.x;
-  const dpz = player.position.z - PORTAL_POS.z;
-  const distPortal = Math.hypot(dpx, dpz);
-  if (distPortal < 1.4 && portalCooldown <= 0) {
-    portalCooldown = 999;
-    if (portalLight) portalLight.intensity = 8;
-    triggerPortalWarp('kebun', () => {
-      window.location.href = 'index.html';
-    });
-  }
-
   if (campPortalCooldown > 0) campPortalCooldown -= delta;
   const dpcx = player.position.x - CAMP_PORTAL_POS.x;
   const dpcz = player.position.z - CAMP_PORTAL_POS.z;
