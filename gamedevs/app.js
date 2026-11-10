@@ -416,6 +416,9 @@ function animate() {
     }
   }
 
+  // Pastikan posisi player selalu mematuhi batas pagar keliling & dinding (Anti-Tembus & Anti-Bug)
+  resolveWallCollisions(player.position);
+
   // ===== CEK MASUK PORTAL =====
   if (campPortalCooldown > 0) campPortalCooldown -= delta;
   const dpcx = player.position.x - CAMP_PORTAL_POS.x;
@@ -505,3 +508,5 @@ window.__characterMixer = getCharacterMixer;
 window.__animActions = getAnimActions;
 window.__currentActionName = getCurrentActionName;
 window.THREE = THREE;
+window.__scene = scene;
+window.__resolveWallCollisions = resolveWallCollisions;

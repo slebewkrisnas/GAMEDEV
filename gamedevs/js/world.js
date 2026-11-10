@@ -26,6 +26,7 @@ export function addWallSegment(x1, z1, x2, z2) {
 }
 
 export function resolveWallCollisions(pos) {
+  // 1. Tabrakan Dinding Kotak & Fasilitas Internal
   for (const wall of collisionWalls) {
     const minX = wall.minX - PLAYER_RADIUS;
     const maxX = wall.maxX + PLAYER_RADIUS;
@@ -45,6 +46,18 @@ export function resolveWallCollisions(pos) {
       else if (minDist === distTop)   pos.z = minZ;
       else                            pos.z = maxZ;
     }
+  }
+
+  // 2. Tabrakan Pagar Keliling Dunia (Perimeter Boundary Clamp - Anti Tembus & Anti Bug)
+  // Radius pagar dunia adalah WORLD_RADIUS (60m).
+  // Dengan tebal pilar/pagar ~0.5m dan radius player = 0.5m, batas aman terjauh
+  // yang bisa dicapai pusat player adalah R_max = WORLD_RADIUS - 0.75m (59.25m).
+  const distFromCenter = Math.hypot(pos.x, pos.z);
+  const maxSafeRadius = WORLD_RADIUS - 0.75;
+  if (distFromCenter > maxSafeRadius) {
+    const clampRatio = maxSafeRadius / distFromCenter;
+    pos.x *= clampRatio;
+    pos.z *= clampRatio;
   }
 }
 
@@ -196,49 +209,204 @@ function scatterDetailsAlongPath(scene, curve, lanternCount = 8) {
   }
 }
 
-// ==================== DINDING BATUAN PEMBATAS ====================
-const rockMats = [
-  new THREE.MeshStandardMaterial({ color: 0x6b6b6b, roughness: 0.95, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.9, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x5a5a5a, roughness: 0.95, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.9, flatShading: true }),
-  new THREE.MeshStandardMaterial({ color: 0x606050, roughness: 0.95, flatShading: true })
-];
+// ==================== PAGAR MEWAH PEMBATAS DUNIA (ESTATE PERIMETER FENCE) ====================
+export function createBoundaryFence(scene) {
+  const fenceGroup = new THREE.Group();
+  fenceGroup.name = 'boundaryFenceGroup';
 
-function getRandomRockMat() {
-  return rockMats[Math.floor(Math.random() * rockMats.length)];
-}
+  // Material Mewah & Realistis
+  const woodMat = new THREE.MeshStandardMaterial({
+    color: 0x3d271d, // Kayu Jati Tua Berkelas
+    roughness: 0.72,
+    metalness: 0.08
+  });
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: 0x546e7a, // Batu Andesit Kokoh
+    roughness: 0.85,
+    flatShading: true
+  });
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: 0x212124, // Besi Tempa Hitam Antik
+    roughness: 0.5,
+    metalness: 0.8
+  });
+  const lanternGoldMat = new THREE.MeshStandardMaterial({
+    color: 0xd4af37,
+    roughness: 0.35,
+    metalness: 0.75
+  });
+  const lanternGlassMat = new THREE.MeshStandardMaterial({
+    color: 0xfff9db,
+    emissive: 0xffb703,
+    emissiveIntensity: 1.4,
+    roughness: 0.2
+  });
 
-function createBoundaryRock(scene, x, z, scale = 1) {
-  const rockGroup = new THREE.Group();
-  const size = (2 + Math.random() * 1.5) * scale;
-  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(size, 0), getRandomRockMat());
-  rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-  rock.position.y = size * 0.75;
-  rock.castShadow = true;
-  rock.receiveShadow = true;
-  rockGroup.add(rock);
+  const numSegments = 96;
+  const radius = WORLD_RADIUS; // 60 meter
 
-  if (Math.random() > 0.4) {
-    const size2 = (1.2 + Math.random() * 1) * scale;
-    const rock2 = new THREE.Mesh(new THREE.DodecahedronGeometry(size2, 0), getRandomRockMat());
-    rock2.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-    rock2.position.set((Math.random() - 0.5) * size * 1.5, size2 * 0.6, (Math.random() - 0.5) * size * 1.5);
-    rock2.castShadow = true;
-    rock2.receiveShadow = true;
-    rockGroup.add(rock2);
+  // Geometri yang dapat digunakan kembali secara efisien
+  const pedestalGeo = new THREE.BoxGeometry(0.52, 0.55, 0.52);
+  const postBodyGeo = new THREE.BoxGeometry(0.34, 2.1, 0.34);
+  const postCapGeo = new THREE.ConeGeometry(0.32, 0.35, 4);
+
+  const topRailGeo = new THREE.BoxGeometry(0.12, 0.12, 1);
+  const midRailGeo = new THREE.BoxGeometry(0.10, 0.10, 1);
+  const bottomRailGeo = new THREE.BoxGeometry(0.14, 0.14, 1);
+
+  const picketBodyGeo = new THREE.BoxGeometry(0.085, 1.75, 0.085);
+  const picketTipGeo = new THREE.ConeGeometry(0.08, 0.24, 4);
+
+  const lanternArmGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.55, 6);
+  const lanternCapGeo = new THREE.ConeGeometry(0.24, 0.18, 6);
+  const lanternGlassGeo = new THREE.CylinderGeometry(0.16, 0.12, 0.32, 6);
+
+  for (let i = 0; i < numSegments; i++) {
+    const theta1 = (i / numSegments) * Math.PI * 2;
+    const theta2 = ((i + 1) / numSegments) * Math.PI * 2;
+
+    const x1 = Math.cos(theta1) * radius;
+    const z1 = Math.sin(theta1) * radius;
+    const x2 = Math.cos(theta2) * radius;
+    const z2 = Math.sin(theta2) * radius;
+
+    const midX = (x1 + x2) / 2;
+    const midZ = (z1 + z2) / 2;
+    const panelWidth = Math.hypot(x2 - x1, z2 - z1);
+    const panelAngle = Math.atan2(x2 - x1, z2 - z1);
+
+    // 1. Tiang Pilar Utama pada Titik (x1, z1)
+    const postGroup = new THREE.Group();
+    postGroup.position.set(x1, 0, z1);
+
+    // Pondasi Batu Andesit
+    const pedestal = new THREE.Mesh(pedestalGeo, stoneMat);
+    pedestal.position.y = 0.275;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    postGroup.add(pedestal);
+
+    // Badan Tiang Kayu Jati
+    const postBody = new THREE.Mesh(postBodyGeo, woodMat);
+    postBody.position.y = 1.35;
+    postBody.castShadow = true;
+    postBody.receiveShadow = true;
+    postGroup.add(postBody);
+
+    // Mahkota Piramida Besi Tempa
+    const postCap = new THREE.Mesh(postCapGeo, ironMat);
+    postCap.rotation.y = Math.PI / 4;
+    postCap.position.y = 2.52;
+    postCap.castShadow = true;
+    postGroup.add(postCap);
+
+    // Lentera Antik di setiap 6 pilar (Total 16 lentera estetik di sekeliling batas dunia)
+    if (i % 6 === 0) {
+      const lanternGroup = new THREE.Group();
+      lanternGroup.position.y = 2.45;
+
+      const arm = new THREE.Mesh(lanternArmGeo, ironMat);
+      arm.rotation.z = Math.PI / 6;
+      arm.position.set(0.15, 0.2, 0);
+      lanternGroup.add(arm);
+
+      const lampTop = new THREE.Mesh(lanternCapGeo, lanternGoldMat);
+      lampTop.position.set(0.28, 0.45, 0);
+      lampTop.castShadow = true;
+      lanternGroup.add(lampTop);
+
+      const lampGlass = new THREE.Mesh(lanternGlassGeo, lanternGlassMat);
+      lampGlass.position.set(0.28, 0.25, 0);
+      lanternGroup.add(lampGlass);
+
+      const light = new THREE.PointLight(0xffb74d, 1.2, 12, 1.5);
+      light.position.set(0.28, 0.25, 0);
+      lanternGroup.add(light);
+
+      postGroup.add(lanternGroup);
+    }
+
+    fenceGroup.add(postGroup);
+
+    // 2. Panel Pagar (Palang Rel & Jeruji Tegak Runcing)
+    const panelGroup = new THREE.Group();
+    panelGroup.position.set(midX, 0, midZ);
+    panelGroup.rotation.y = panelAngle;
+
+    // Palang Rel Atas
+    const topRail = new THREE.Mesh(topRailGeo, woodMat);
+    topRail.scale.z = panelWidth;
+    topRail.position.y = 2.05;
+    topRail.castShadow = true;
+    topRail.receiveShadow = true;
+    panelGroup.add(topRail);
+
+    // Palang Rel Tengah
+    const midRail = new THREE.Mesh(midRailGeo, woodMat);
+    midRail.scale.z = panelWidth;
+    midRail.position.y = 1.15;
+    midRail.castShadow = true;
+    midRail.receiveShadow = true;
+    panelGroup.add(midRail);
+
+    // Palang Rel Bawah
+    const bottomRail = new THREE.Mesh(bottomRailGeo, woodMat);
+    bottomRail.scale.z = panelWidth;
+    bottomRail.position.y = 0.32;
+    bottomRail.castShadow = true;
+    bottomRail.receiveShadow = true;
+    panelGroup.add(bottomRail);
+
+    // Jeruji Vertikal (7 Jeruji per panel dengan ujung tombak lancip)
+    const numPickets = 7;
+    for (let p = 1; p <= numPickets; p++) {
+      const offsetZ = ((p / (numPickets + 1)) - 0.5) * panelWidth;
+
+      const picketBody = new THREE.Mesh(picketBodyGeo, woodMat);
+      picketBody.position.set(0, 1.15, offsetZ);
+      picketBody.castShadow = true;
+      picketBody.receiveShadow = true;
+      panelGroup.add(picketBody);
+
+      const picketTip = new THREE.Mesh(picketTipGeo, ironMat);
+      picketTip.rotation.y = Math.PI / 4;
+      picketTip.position.set(0, 2.13, offsetZ);
+      picketTip.castShadow = true;
+      panelGroup.add(picketTip);
+    }
+
+    // Aksen Silang Klasik (X-Brace) di antara rel tengah dan bawah
+    const braceLen = Math.hypot(panelWidth / 2, 0.83);
+    const braceAng = Math.atan2(0.83, panelWidth / 2);
+    const braceGeo = new THREE.BoxGeometry(0.04, 0.08, braceLen);
+
+    const brace1 = new THREE.Mesh(braceGeo, woodMat);
+    brace1.position.set(0.03, 0.73, -panelWidth / 4);
+    brace1.rotation.x = braceAng;
+    panelGroup.add(brace1);
+
+    const brace2 = new THREE.Mesh(braceGeo, woodMat);
+    brace2.position.set(0.03, 0.73, -panelWidth / 4);
+    brace2.rotation.x = -braceAng;
+    panelGroup.add(brace2);
+
+    const brace3 = new THREE.Mesh(braceGeo, woodMat);
+    brace3.position.set(0.03, 0.73, panelWidth / 4);
+    brace3.rotation.x = braceAng;
+    panelGroup.add(brace3);
+
+    const brace4 = new THREE.Mesh(braceGeo, woodMat);
+    brace4.position.set(0.03, 0.73, panelWidth / 4);
+    brace4.rotation.x = -braceAng;
+    panelGroup.add(brace4);
+
+    fenceGroup.add(panelGroup);
+
+    // Daftarkan ke sistem tabrakan kotak juga untuk redundansi proteksi
+    addWallSegment(x1, z1, x2, z2);
   }
 
-  const size3 = 0.8 * scale;
-  const rock3 = new THREE.Mesh(new THREE.DodecahedronGeometry(size3, 0), getRandomRockMat());
-  rock3.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-  rock3.position.set((Math.random() - 0.5) * size * 1.2, size3 * 0.4, (Math.random() - 0.5) * size * 1.2);
-  rock3.castShadow = true;
-  rock3.receiveShadow = true;
-  rockGroup.add(rock3);
-
-  rockGroup.position.set(x, 0, z);
-  scene.add(rockGroup);
+  scene.add(fenceGroup);
 }
 
 // ==================== FUNGSI UTAMA PEMBANGUNAN DUNIA ====================
@@ -330,18 +498,8 @@ export function createWorld(scene) {
   scatterDetailsAlongPath(scene, branchArenaCurve, 4);
   scatterDetailsAlongPath(scene, branchCampCurve, 4);
 
-  // 10. Batuan Pembatas Lingkar Dunia
-  const boundarySegments = 60;
-  for (let i = 0; i < boundarySegments; i++) {
-    const angle = (i / boundarySegments) * Math.PI * 2;
-    const radiusVar = WORLD_RADIUS + (Math.random() - 0.5) * 2;
-    const x = Math.cos(angle) * radiusVar;
-    const z = Math.sin(angle) * radiusVar;
-    const scale = 1 + Math.random() * 0.6;
-    const distToSpawn = Math.sqrt((x - SPAWN_POS.x) ** 2 + (z - SPAWN_POS.z) ** 2);
-    if (distToSpawn < 4) continue;
-    createBoundaryRock(scene, x, z, scale);
-  }
+  // 10. Pagar Mewah Pembatas Lingkar Dunia (Estate Perimeter Fence - Bebas Bug & Anti Tembus)
+  createBoundaryFence(scene);
 
   // 11. Awan di Langit
   const cloudMat = new THREE.MeshStandardMaterial({
