@@ -143,30 +143,48 @@ export class LootManager {
       // Distance check to player
       const dist = playerPos.distanceTo(drop.mesh.position);
       if (dist < 1.8) {
-        if (GameState.backpack.length < GameState.backpackMaxSlots) {
-          GameState.addItemToBackpack(drop.itemData);
-          sound.playLootSound();
+    const countToTake = drop.itemData.count || drop.itemData.quantity || 1;
+    const invRes = GameState.addItemToInventory(drop.itemData, countToTake, true);
 
-          if (uiManager) {
-            uiManager.showAnnouncement(
-              'BURUAN DIAMBIL!',
-              `+1 ${drop.itemData.icon} ${drop.itemData.name} (${GameState.formatRp(drop.itemData.value)})`,
-              1.8
-            );
-            uiManager.updateHUD();
-          }
+    if (invRes.success && invRes.countAdded > 0) {
+      sound.playLootSound();
+      if (GameState.backpack && GameState.backpack.length < GameState.backpackMaxSlots) {
+        GameState.addItemToBackpack({ ...drop.itemData });
+      }
 
-          // Remove pickup mesh from 3D world
-          this.lootGroup.remove(drop.mesh);
-          drop.mesh.geometry.dispose();
-          drop.mesh.material.dispose();
-          this.drops.splice(i, 1);
-        } else if (this.noticeCooldown <= 0) {
-          if (uiManager) {
-            uiManager.showAnnouncement('TAS RANSEL PENUH!', 'Tidak dapat mengambil hasil buruan.', 1.5);
-          }
-          this.noticeCooldown = 2.0;
+      if (invRes.remaining > 0) {
+        // Partial pickup: player took some, remaining stays on ground
+        drop.itemData.count = invRes.remaining;
+        drop.itemData.quantity = invRes.remaining;
+        if (uiManager) {
+          uiManager.showAnnouncement(
+            'DIAMBIL SEBAGIAN!',
+            `+${invRes.countAdded}x ${drop.itemData.name} (Sisa ${invRes.remaining}x di tanah)`,
+            1.8
+          );
+          uiManager.updateHUD();
         }
+      } else {
+        // Full pickup: remove mesh from world
+        if (uiManager) {
+          uiManager.showAnnouncement(
+            'BURUAN DIAMBIL!',
+            `+${invRes.countAdded}x ${drop.itemData.icon || '📦'} ${drop.itemData.name} (${GameState.formatRp(drop.itemData.value || 0)})`,
+            1.8
+          );
+          uiManager.updateHUD();
+        }
+        this.lootGroup.remove(drop.mesh);
+        drop.mesh.geometry.dispose();
+        drop.mesh.material.dispose();
+        this.drops.splice(i, 1);
+      }
+    } else if (this.noticeCooldown <= 0) {
+      if (uiManager) {
+        uiManager.showAnnouncement('INVENTARIS PENUH!', 'Kapasitas 60 slot penuh! Rapikan di Safehouse.', 1.8);
+      }
+      this.noticeCooldown = 2.0;
+    }
       }
     }
   }

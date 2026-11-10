@@ -554,10 +554,21 @@ export class ShopManager {
 
     if (this.modalInventory) {
       this.modalInventory.addEventListener('click', (e) => {
+        // Selection of Inventory Slot
         const slotEl = e.target.closest('[data-inv-slot]');
         if (slotEl) {
           const sIdx = parseInt(slotEl.dataset.invSlot, 10);
           this.selectedInvSlot = sIdx;
+          this.selectedEquipSlot = null;
+          this.renderInventoryModal();
+          return;
+        }
+
+        // Selection of Equipment Slot
+        const equipEl = e.target.closest('[data-equip-slot]');
+        if (equipEl && !e.target.closest('button')) {
+          this.selectedEquipSlot = equipEl.dataset.equipSlot;
+          this.selectedInvSlot = null;
           this.renderInventoryModal();
           return;
         }
@@ -565,7 +576,31 @@ export class ShopManager {
         const target = e.target.closest('button');
         if (!target) return;
 
-        if (target.dataset.action === 'use-inv-item') {
+        if (target.dataset.action === 'equip-item') {
+          const sIdx = parseInt(target.dataset.slot, 10);
+          const res = GameState.equipItem(sIdx);
+          if (res.success) {
+            this.selectedInvSlot = null;
+            this.selectedEquipSlot = res.slot;
+            this.renderInventoryModal();
+            if (this.ui) this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        } else if (target.dataset.action === 'unequip-item') {
+          const slotName = target.dataset.slot;
+          const res = GameState.unequipItem(slotName);
+          if (res.success) {
+            this.selectedEquipSlot = null;
+            this.renderInventoryModal();
+            if (this.ui) this.ui.updateHUD();
+          } else {
+            alert(res.message);
+          }
+        } else if (target.dataset.action === 'open-split-modal') {
+          const sIdx = parseInt(target.dataset.slot, 10);
+          this.openSplitModal(sIdx);
+        } else if (target.dataset.action === 'use-inv-item') {
           const sIdx = parseInt(target.dataset.slot, 10);
           const res = GameState.useItemFromInventory(sIdx, this.ui ? this.ui.player : null);
           alert(res.message);
@@ -581,11 +616,46 @@ export class ShopManager {
           this.openMarketplaceModal('sell');
         } else if (target.dataset.action === 'drop-inv-item') {
           const sIdx = parseInt(target.dataset.slot, 10);
-          if (confirm('Yakin ingin membuang barang ini dari inventaris?')) {
-            GameState.dropItemFromInventory(sIdx, 1);
+          if (confirm('Yakin ingin membuang barang ini dari inventaris ke tanah?')) {
+            const pPos = (this.ui && this.ui.player) ? this.ui.player.yawObject.position : null;
+            const lootMgr = this.lootManager || (this.ui ? this.ui.lootManager : null);
+            GameState.dropItem(sIdx, 1, pPos, lootMgr);
             this.selectedInvSlot = null;
             this.renderInventoryModal();
           }
+        }
+      });
+    }
+
+    // --- SPLIT STACK MODAL CONTROLS & EVENTS ---
+    const splitModal = document.getElementById('modal-split-stack');
+    const splitRange = document.getElementById('split-range-input');
+    const splitNum = document.getElementById('split-number-input');
+    const btnCancelSplit = document.getElementById('btn-cancel-split');
+    const btnCloseSplit = document.getElementById('btn-close-split');
+    const btnConfirmSplit = document.getElementById('btn-confirm-split');
+
+    if (splitRange && splitNum) {
+      splitRange.addEventListener('input', (e) => {
+        splitNum.value = e.target.value;
+      });
+      splitNum.addEventListener('input', (e) => {
+        splitRange.value = e.target.value;
+      });
+    }
+
+    if (btnCancelSplit) btnCancelSplit.addEventListener('click', () => this.closeSplitModal());
+    if (btnCloseSplit) btnCloseSplit.addEventListener('click', () => this.closeSplitModal());
+    if (btnConfirmSplit) {
+      btnConfirmSplit.addEventListener('click', () => {
+        if (this.splitTargetSlot === null || this.splitTargetSlot === undefined) return;
+        const count = parseInt(splitNum ? splitNum.value : 1, 10) || 1;
+        const res = GameState.splitStack(this.splitTargetSlot, count);
+        this.closeSplitModal();
+        if (res.success) {
+          this.renderInventoryModal();
+        } else {
+          alert(res.message);
         }
       });
     }
@@ -1483,6 +1553,27 @@ export class ShopManager {
     }
   }
 
+  openSplitModal(slotIndex) {
+    const slot = (Array.isArray(GameState.inventory) && slotIndex < GameState.inventory.length) ? GameState.inventory[slotIndex] : null;
+    if (!slot || (slot.quantity || slot.count || 0) <= 1) return;
+    const max = (slot.quantity || slot.count || 0) - 1;
+    this.splitTargetSlot = slotIndex;
+    const modal = document.getElementById('modal-split-stack');
+    const range = document.getElementById('split-range-input');
+    const num = document.getElementById('split-number-input');
+    const prev = document.getElementById('split-item-preview');
+    if (prev) prev.textContent = `${slot.item?.name || slot.itemId} (Total: ${slot.quantity || slot.count}x)`;
+    if (range) { range.min = 1; range.max = max; range.value = 1; }
+    if (num) { num.min = 1; num.max = max; num.value = 1; }
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  closeSplitModal() {
+    const modal = document.getElementById('modal-split-stack');
+    if (modal) modal.classList.add('hidden');
+    this.splitTargetSlot = null;
+  }
+
   // --- INVENTORY MODAL CONTROLLER ---
   openInventoryModal() {
     this.closeAllModals();
@@ -1523,8 +1614,66 @@ export class ShopManager {
       else fillEl.classList.remove('danger');
     }
 
-    const filteredItems = GameState.getInventoryItems(this.invCategory, this.invSearchQuery, this.invSortBy);
+    // 1. Render Left Equipment Panel
+    const equipPanel = document.getElementById('inv-equipment-panel');
+    if (equipPanel) {
+      const prof = GameState.playerProfile || { name: 'Survivor', level: 1 };
+      const lvlData = GameState.getPlayerLevelData ? GameState.getPlayerLevelData() : { level: 1, rankTitle: 'Rookie Scavenger' };
+      const eq = GameState.equipment || {};
+      const slots = [
+        { key: 'primary', label: 'Senjata Utama (1)', defIcon: '⚡' },
+        { key: 'secondary', label: 'Senjata Samping (2)', defIcon: '🔫' },
+        { key: 'melee', label: 'Senjata Jarak Dekat (3)', defIcon: '🗡️' },
+        { key: 'throwable', label: 'Taktis / Peledak (4)', defIcon: '🎋' },
+        { key: 'armor', label: 'Rompi Tempur Taktis', defIcon: '🛡️' }
+      ];
 
+      let eqHtml = `
+        <div class="inv-char-card">
+          <div class="inv-char-avatar">👤</div>
+          <div class="inv-char-meta">
+            <span class="inv-char-name">${prof.name || 'Survivor'} (Lv. ${lvlData.level})</span>
+            <span class="inv-char-rank">${lvlData.rankTitle || 'Rookie Scavenger'}</span>
+          </div>
+        </div>
+        <div class="inv-equip-list">
+      `;
+
+      slots.forEach(s => {
+        const item = eq[s.key];
+        const isSelected = (this.selectedEquipSlot === s.key) ? 'selected' : '';
+        const isActiveWep = (GameState.activeEquipSlot === s.key) ? 'active-weapon' : '';
+        if (item && item.item) {
+          const itm = item.item;
+          const ammoInfo = item.customData && typeof item.customData.ammoInMag === 'number' ? ` (${item.customData.ammoInMag} Peluru)` : '';
+          eqHtml += `
+            <div class="equip-slot-item ${isSelected} ${isActiveWep}" data-equip-slot="${s.key}">
+              <div class="equip-slot-icon">${itm.icon || s.defIcon}</div>
+              <div class="equip-slot-info">
+                <div class="equip-slot-tag">${s.label}</div>
+                <div class="equip-slot-name">${itm.name}${ammoInfo}</div>
+              </div>
+              <button class="btn-unequip-mini" data-action="unequip-item" data-slot="${s.key}" title="Lepas ke inventaris">Lepas</button>
+            </div>
+          `;
+        } else {
+          eqHtml += `
+            <div class="equip-slot-item equip-slot-empty ${isSelected}" data-equip-slot="${s.key}">
+              <div class="equip-slot-icon" style="opacity: 0.4;">${s.defIcon}</div>
+              <div class="equip-slot-info">
+                <div class="equip-slot-tag">${s.label}</div>
+                <div class="equip-slot-name" style="color: #64748b; font-style: italic;">Kosong</div>
+              </div>
+            </div>
+          `;
+        }
+      });
+      eqHtml += `</div>`;
+      equipPanel.innerHTML = eqHtml;
+    }
+
+    // 2. Render 60-Slot Tactical Grid
+    const filteredItems = GameState.getInventoryItems(this.invCategory, this.invSearchQuery, this.invSortBy);
     const gridEl = document.getElementById('inv-grid-slots');
     if (gridEl) {
       let slotsHtml = '';
@@ -1562,24 +1711,33 @@ export class ShopManager {
       gridEl.innerHTML = slotsHtml;
     }
 
+    // 3. Render Item Detail & Inspection Panel
     const detailEl = document.getElementById('inv-detail-panel');
     if (detailEl) {
-      const selectedData = (this.selectedInvSlot !== null && Array.isArray(GameState.inventory) && this.selectedInvSlot < GameState.inventory.length)
-        ? GameState.inventory[this.selectedInvSlot]
-        : null;
+      let activeItem = null;
+      let isEquippedSlot = false;
+      let equipSlotName = null;
 
-      if (!selectedData || !selectedData.item) {
+      if (this.selectedEquipSlot && GameState.equipment && GameState.equipment[this.selectedEquipSlot]) {
+        activeItem = GameState.equipment[this.selectedEquipSlot];
+        isEquippedSlot = true;
+        equipSlotName = this.selectedEquipSlot;
+      } else if (this.selectedInvSlot !== null && Array.isArray(GameState.inventory) && this.selectedInvSlot < GameState.inventory.length) {
+        activeItem = GameState.inventory[this.selectedInvSlot];
+      }
+
+      if (!activeItem || !activeItem.item) {
         detailEl.innerHTML = `
           <div class="inv-detail-empty">
             <div style="font-size: 40px; opacity: 0.35;">🎒</div>
-            <div style="font-weight: 600; color: #94a3b8;">Pilih salah satu item di inventaris</div>
-            <div style="font-size: 11px; color: #64748b;">Klik pada slot berisi barang untuk melihat detail spesifikasi, khasiat medis, amunisi, atau menjualnya ke pasar.</div>
+            <div style="font-weight: 600; color: #94a3b8;">Pilih salah satu item di inventaris atau equipment</div>
+            <div style="font-size: 11px; color: #64748b;">Klik pada slot berisi barang untuk melihat detail spesifikasi tempur, statistik, memasang senjata, atau menjualnya.</div>
           </div>
         `;
       } else {
-        const itm = selectedData.item;
-        const count = selectedData.count;
-        const unitVal = itm.value || 0;
+        const itm = activeItem.item;
+        const count = activeItem.quantity || activeItem.count || 1;
+        const unitVal = itm.sellPrice || itm.value || 0;
         const totalVal = unitVal * count;
         const rarity = itm.rarity || 'common';
 
@@ -1589,7 +1747,9 @@ export class ShopManager {
         else if (rarity === 'epic') rarityBadgeColor = '#a855f7';
         else if (rarity === 'legendary') rarityBadgeColor = '#eab308';
 
-        const isUsable = (itm.category === 'medical' || itm.category === 'ammunition' || itm.category === 'weapons' || itm.id === 'bamboo_trap' || itm.type === 'consumable');
+        const isEquippable = itm.equippable || itm.category === 'weapons' || itm.type === 'weapon' || itm.type === 'trap';
+        const isUsable = (itm.category === 'medical' || itm.category === 'ammunition' || itm.usable || itm.type === 'consumable');
+        const canSplit = !isEquippedSlot && count > 1;
 
         detailEl.innerHTML = `
           <div class="inv-detail-icon-wrap">
@@ -1599,8 +1759,9 @@ export class ShopManager {
           <div class="inv-detail-badges">
             <span class="inv-badge-pill" style="background: rgba(255,255,255,0.08); color: #cbd5e1;">${(itm.category || 'misc').toUpperCase()}</span>
             <span class="inv-badge-pill" style="background: ${rarityBadgeColor}22; color: ${rarityBadgeColor}; border: 1px solid ${rarityBadgeColor};">${rarity.toUpperCase()}</span>
+            ${isEquippedSlot ? `<span class="inv-badge-pill" style="background: rgba(34,197,94,0.2); color: #86efac; border: 1px solid #22c55e;">DIPASANG</span>` : ''}
           </div>
-          <div class="inv-detail-desc">${itm.description || 'Barang survival dari ekspedisi hutan Sector-7.'}</div>
+          <div class="inv-detail-desc">${itm.description || 'Peralatan tempur survival Sector-7.'}</div>
           <div class="inv-detail-stats">
             <div class="inv-detail-stat-row">
               <span>Jumlah Dimiliki:</span>
@@ -1614,13 +1775,25 @@ export class ShopManager {
               <span>Total Estimasi Nilai:</span>
               <strong style="color: #38bdf8;">${GameState.formatRp(totalVal)}</strong>
             </div>
+            ${itm.stats?.damage ? `<div class="inv-detail-stat-row"><span>Kerusakan (Damage):</span><strong style="color: #f87171;">${itm.stats.damage} HP</strong></div>` : ''}
+            ${itm.stats?.headshotDamage ? `<div class="inv-detail-stat-row"><span>Critical Headshot:</span><strong style="color: #ef4444;">${itm.stats.headshotDamage} HP</strong></div>` : ''}
+            ${itm.stats?.magCapacity ? `<div class="inv-detail-stat-row"><span>Kapasitas Magasin:</span><strong style="color: #fbbf24;">${itm.stats.magCapacity} Butir</strong></div>` : ''}
+            ${itm.stats?.ammoType ? `<div class="inv-detail-stat-row"><span>Kaliber Amunisi:</span><strong style="color: #38bdf8;">${itm.stats.ammoType.toUpperCase()}</strong></div>` : ''}
+            ${itm.stats?.noiseRadius ? `<div class="inv-detail-stat-row"><span>Jangkauan Suara:</span><strong style="color: #cbd5e1;">${itm.stats.noiseRadius} meter</strong></div>` : ''}
             ${itm.heal ? `<div class="inv-detail-stat-row"><span>Efek Pemulihan:</span><strong style="color: #22c55e;">+${itm.heal} HP Vitalitas</strong></div>` : ''}
             ${itm.buffType ? `<div class="inv-detail-stat-row"><span>Efek Khusus:</span><strong style="color: #fbbf24;">${itm.buffType === 'stamina_boost' ? 'Stamina Boost +30%' : 'Kebal Racun Stalker'}</strong></div>` : ''}
           </div>
           <div class="inv-detail-actions">
-            ${isUsable ? `<button class="btn-inv-use" data-action="use-inv-item" data-slot="${this.selectedInvSlot}">⚡ GUNAKAN BARANG</button>` : ''}
-            <button class="btn-inv-sell" data-action="sell-to-market-direct" data-slot="${this.selectedInvSlot}">🏪 JUAL KE PASAR DESA</button>
-            <button class="btn-inv-drop" data-action="drop-inv-item" data-slot="${this.selectedInvSlot}">🗑️ BUANG DARI INVENTARIS</button>
+            ${isEquippedSlot
+              ? `<button class="btn-inv-unequip" data-action="unequip-item" data-slot="${equipSlotName}">🛡️ LEPAS DARI EQUIPMENT</button>`
+              : (isEquippable ? `<button class="btn-inv-equip" data-action="equip-item" data-slot="${this.selectedInvSlot}">⚔️ PASANG KE LOADOUT</button>` : '')
+            }
+            ${!isEquippedSlot && isUsable ? `<button class="btn-inv-use" data-action="use-inv-item" data-slot="${this.selectedInvSlot}">⚡ GUNAKAN BARANG</button>` : ''}
+            ${canSplit ? `<button class="btn-inv-split" data-action="open-split-modal" data-slot="${this.selectedInvSlot}">🔢 BAGI TUMPUKAN</button>` : ''}
+            ${!isEquippedSlot ? `
+              <button class="btn-inv-sell" data-action="sell-to-market-direct" data-slot="${this.selectedInvSlot}">🏪 JUAL KE PASAR DESA</button>
+              <button class="btn-inv-drop" data-action="drop-inv-item" data-slot="${this.selectedInvSlot}">🗑️ BUANG KE TANAH</button>
+            ` : ''}
           </div>
         `;
       }

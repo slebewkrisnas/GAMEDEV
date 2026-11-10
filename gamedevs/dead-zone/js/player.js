@@ -141,8 +141,39 @@ export class Player {
     console.warn("Pointer Lock Error encountered.");
   }
 
+  freezeControls() {
+    this.isFrozen = true;
+    this.isInputEnabled = false;
+    this.moveForward = false;
+    this.moveBackward = false;
+    this.moveLeft = false;
+    this.moveRight = false;
+    this.isSprinting = false;
+    this.velocity.set(0, 0, 0);
+    this.exitPointerLock();
+  }
+
+  unfreezeControls() {
+    this.isFrozen = false;
+    this.isInputEnabled = true;
+  }
+
   onKeyDown(e) {
-    if (!this.isInputEnabled || this.isDead) return;
+    // If typing inside an input field or modal, suppress player movement and hotkeys
+    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable)) {
+      if (e.code === 'Escape' && this.onEscapeCallback) {
+        this.onEscapeCallback();
+      }
+      return;
+    }
+
+    if (!this.isInputEnabled || this.isFrozen || this.isDead) {
+      if (e.code === 'Escape' && this.onEscapeCallback) {
+        this.onEscapeCallback();
+      }
+      return;
+    }
 
     switch (e.code) {
       case 'KeyW':
@@ -246,16 +277,32 @@ export class Player {
     if (this.isDead) return;
     switch (slot) {
       case 1:
-        if (this.weapons) this.weapons.switchWeapon('pulse_pistol');
+        if (this.weapons) {
+          if (!this.weapons.switchSlot('primary')) {
+            this.weapons.switchWeapon('plasma_rifle');
+          }
+        }
         break;
       case 2:
-        if (this.weapons) this.weapons.switchWeapon('scatter_blaster');
+        if (this.weapons) {
+          if (!this.weapons.switchSlot('secondary')) {
+            this.weapons.switchWeapon('pulse_pistol');
+          }
+        }
         break;
       case 3:
-        if (this.weapons) this.weapons.switchWeapon('plasma_rifle');
+        if (this.weapons) {
+          if (!this.weapons.switchSlot('melee')) {
+            this.weapons.switchWeapon('machete');
+          }
+        }
         break;
       case 4:
-        if (this.weapons) this.weapons.switchWeapon('machete');
+        if (this.weapons) {
+          if (!this.weapons.switchSlot('throwable')) {
+            this.deployBambooTrap();
+          }
+        }
         break;
       case 5:
         this.useNanoStim(this.ui);

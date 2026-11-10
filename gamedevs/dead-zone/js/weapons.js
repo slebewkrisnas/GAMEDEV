@@ -139,6 +139,12 @@ export class WeaponManager {
     this.headshotDamage = initialConfig.headshotDamage;
     this.isMouseDown = false;
 
+    // Weapon Switching State Machine (IDLE -> SWITCHING_OUT -> SWITCHING_IN -> READY)
+    this.switchState = 'IDLE';
+    this.switchTimer = 0;
+    this.switchDuration = 0.18; // 0.18s switch-out + 0.18s switch-in
+    this.pendingWeaponId = null;
+
     // Combat statistics
     this.totalShots = 0;
     this.totalHits = 0;
@@ -475,14 +481,75 @@ export class WeaponManager {
   }
 
   // --------------------------------------------------------------------------
-  // WEAPON SWITCHING
+  // WEAPON SWITCHING & INVENTORY AMMUNITION SYNCHRONIZATION
   // --------------------------------------------------------------------------
+  getAmmoItemId(weaponId) {
+    switch (weaponId) {
+      case 'pulse_pistol': return 'ammo_pistol';
+      case 'scatter_blaster': return 'ammo_shotgun';
+      case 'plasma_rifle': return 'ammo_rifle';
+      default: return null;
+    }
+  }
+
+  getReserveAmmo(weaponId) {
+    const ammoItemId = this.getAmmoItemId(weaponId);
+    if (!ammoItemId || !Array.isArray(GameState.inventory)) {
+      return this.weaponData[weaponId]?.reserveAmmo || 0;
+    }
+    let total = 0;
+    for (const slot of GameState.inventory) {
+      if (slot) {
+        const slotId = slot.itemId || (slot.item ? slot.item.id : slot.id);
+        if (slotId === ammoItemId) {
+          total += (slot.quantity || slot.count || 0);
+        }
+      }
+    }
+    if (total > 0) return total;
+    return this.weaponData[weaponId]?.reserveAmmo || 0;
+  }
+
+  switchSlot(slotName) {
+    if (!GameState.equipment || !GameState.equipment[slotName]) {
+      return false;
+    }
+    const item = GameState.equipment[slotName];
+    const weaponId = item.itemId || item.id;
+    if (WEAPON_CONFIGS[weaponId]) {
+      return this.switchWeapon(weaponId);
+    }
+    return false;
+  }
+
+  cycleWeapons(direction = 1) {
+    // Prioritize equipped weapons from GameState.equipment
+    const equipped = [];
+    if (GameState.equipment) {
+      ['secondary', 'primary', 'melee'].forEach(s => {
+        const itm = GameState.equipment[s];
+        if (itm && WEAPON_CONFIGS[itm.itemId || itm.id]) {
+          equipped.push(itm.itemId || itm.id);
+        }
+      });
+    }
+    const list = equipped.length > 0
+      ? [...new Set(equipped)]
+      : Object.keys(WEAPON_CONFIGS).filter(id => GameState.ownedWeapons.includes(id));
+
+    if (list.length <= 1) return;
+    const idx = list.indexOf(this.currentWeaponId);
+    const nextIdx = (idx + (direction > 0 ? 1 : -1) + list.length) % list.length;
+    this.switchWeapon(list[nextIdx]);
+  }
+
   switchWeapon(weaponId) {
     if (!WEAPON_CONFIGS[weaponId]) return false;
-    if (this.currentWeaponId === weaponId) return true;
+    if (this.currentWeaponId === weaponId && this.switchState === 'IDLE') return true;
 
-    // Check ownership in GameState
-    if (!GameState.ownedWeapons.includes(weaponId)) {
+    // Check ownership in GameState or if weapon is currently equipped
+    const isEquipped = GameState.equipment && Object.values(GameState.equipment).some(s => s && (s.itemId === weaponId || s.id === weaponId));
+    if (!GameState.ownedWeapons.includes(weaponId) && !isEquipped) {
       sound.playDryFire();
       if (this.uiManager) {
         this.uiManager.showAnnouncement('SENJATA TERKUNCI 🔒', 'Beli di Toko Serba Ada Desa', 1.8);
@@ -497,25 +564,55 @@ export class WeaponManager {
       if (this.uiManager) this.uiManager.showReloadProgressBar(false);
     }
 
-    // Save previous weapon state
+    // Save previous weapon state to instance customData and weaponData
     const prevData = this.weaponData[this.currentWeaponId];
     if (prevData) {
       prevData.ammoInMag = this.ammoInMag;
-      prevData.reserveAmmo = this.reserveAmmo;
+    }
+    const activeEquip = GameState.getActiveEquippedItem ? GameState.getActiveEquippedItem() : null;
+    if (activeEquip && activeEquip.customData) {
+      activeEquip.customData.ammoInMag = this.ammoInMag;
     }
 
-    // Switch ID and config
+    // Initiate SWITCHING_OUT state machine
+    this.pendingWeaponId = weaponId;
+    this.switchState = 'SWITCHING_OUT';
+    this.switchTimer = this.switchDuration;
+
+    sound.playWeaponSwitch();
+    return true;
+  }
+
+  _completeWeaponSwitch(weaponId) {
     this.currentWeaponId = weaponId;
     const cfg = WEAPON_CONFIGS[weaponId];
 
+    // Synchronize active equipment slot in GameState
+    if (GameState.equipment) {
+      for (const [slotKey, slotItem] of Object.entries(GameState.equipment)) {
+        if (slotItem && (slotItem.itemId === weaponId || slotItem.id === weaponId)) {
+          GameState.activeEquipSlot = slotKey;
+          break;
+        }
+      }
+    }
+
     // Load new weapon state
-    const curData = this.weaponData[weaponId];
+    const curData = this.weaponData[weaponId] || { ammoInMag: cfg.magCapacity, reserveAmmo: cfg.defaultReserve };
     this.magCapacity = cfg.magCapacity;
-    this.ammoInMag = curData.ammoInMag;
-    this.reserveAmmo = curData.reserveAmmo;
+
+    // Instance ammo synchronization
+    const activeEquip = GameState.getActiveEquippedItem ? GameState.getActiveEquippedItem() : null;
+    if (activeEquip && activeEquip.customData && typeof activeEquip.customData.ammoInMag === 'number') {
+      this.ammoInMag = activeEquip.customData.ammoInMag;
+    } else {
+      this.ammoInMag = curData.ammoInMag;
+    }
+
+    this.reserveAmmo = this.getReserveAmmo(weaponId);
     this.maxReserveAmmo = cfg.maxReserve;
     this.fireRate = cfg.fireRate;
-    this.fireCooldown = 0.15; // Small switch delay
+    this.fireCooldown = 0.12;
     this.reloadDuration = cfg.reloadDuration;
     this.bodyDamage = cfg.bodyDamage;
     this.headshotDamage = cfg.headshotDamage;
@@ -535,39 +632,22 @@ export class WeaponManager {
       this.muzzleLight.visible = false;
     }
 
-    // Brief weapon swap animation
-    this.weaponGroup.position.y = this.defaultWeaponPos.y - 0.12;
-    this.weaponGroup.rotation.x = -0.3;
-
-    // Sound
-    sound.playWeaponSwitch();
-
     // Update UI
     if (this.uiManager) {
       this.uiManager.updateAmmo(this.ammoInMag, this.reserveAmmo);
       this.uiManager.updateWeaponName(cfg.name);
       this.uiManager.updateQuickSelectBar(this.currentWeaponId, this.weaponData);
       this.uiManager.showAnnouncement(cfg.name, 'Senjata Aktif Dipilih', 1.2);
-      this.uiManager.showReloadAlert(this.ammoInMag === 0);
+      this.uiManager.showReloadAlert(this.ammoInMag === 0 && !cfg.isMelee);
     }
-
-    return true;
   }
 
   nextWeapon() {
-    const list = Object.keys(WEAPON_CONFIGS).filter(id => GameState.ownedWeapons.includes(id));
-    if (list.length <= 1) return;
-    const idx = list.indexOf(this.currentWeaponId);
-    const nextIdx = (idx + 1) % list.length;
-    this.switchWeapon(list[nextIdx]);
+    this.cycleWeapons(1);
   }
 
   prevWeapon() {
-    const list = Object.keys(WEAPON_CONFIGS).filter(id => GameState.ownedWeapons.includes(id));
-    if (list.length <= 1) return;
-    const idx = list.indexOf(this.currentWeaponId);
-    const prevIdx = (idx - 1 + list.length) % list.length;
-    this.switchWeapon(list[prevIdx]);
+    this.cycleWeapons(-1);
   }
 
   // --------------------------------------------------------------------------
@@ -665,7 +745,7 @@ export class WeaponManager {
   }
 
   shoot() {
-    if (this.isHolstered) return;
+    if (this.isHolstered || this.switchState !== 'IDLE') return;
     const canShootPointer = (document.pointerLockElement !== null) || this.isTouchMode;
     if (!canShootPointer || this.isReloading || this.fireCooldown > 0) {
       return;
@@ -787,14 +867,17 @@ export class WeaponManager {
   }
 
   reload() {
-    if (this.isReloading || this.currentWeaponId === 'machete' || this.ammoInMag >= this.magCapacity || this.reserveAmmo <= 0) {
+    this.reserveAmmo = this.getReserveAmmo(this.currentWeaponId);
+    if (this.isReloading || this.switchState !== 'IDLE' || this.currentWeaponId === 'machete' || this.ammoInMag >= this.magCapacity || this.reserveAmmo <= 0) {
       return;
     }
 
     this.isReloading = true;
     this.reloadTimer = this.reloadDuration;
-    this.uiManager.showReloadAlert(false);
-    this.uiManager.showReloadProgressBar(true);
+    if (this.uiManager) {
+      this.uiManager.showReloadAlert(false);
+      this.uiManager.showReloadProgressBar(true);
+    }
 
     sound.playReload();
   }
@@ -813,6 +896,31 @@ export class WeaponManager {
   update(delta) {
     if (this.fireCooldown > 0) {
       this.fireCooldown -= delta;
+    }
+
+    // Weapon Switching State Machine (SWITCHING_OUT -> SWITCHING_IN -> IDLE)
+    if (this.switchState === 'SWITCHING_OUT') {
+      this.switchTimer -= delta;
+      const progress = 1 - Math.max(0, this.switchTimer) / this.switchDuration;
+      this.weaponGroup.position.y = this.defaultWeaponPos.y - progress * 0.25;
+      this.weaponGroup.rotation.x = -progress * 0.45;
+      if (this.switchTimer <= 0) {
+        this._completeWeaponSwitch(this.pendingWeaponId);
+        this.switchState = 'SWITCHING_IN';
+        this.switchTimer = this.switchDuration;
+      }
+      return;
+    } else if (this.switchState === 'SWITCHING_IN') {
+      this.switchTimer -= delta;
+      const progress = Math.max(0, this.switchTimer) / this.switchDuration;
+      this.weaponGroup.position.y = this.defaultWeaponPos.y - progress * 0.25;
+      this.weaponGroup.rotation.x = -progress * 0.45;
+      if (this.switchTimer <= 0) {
+        this.switchState = 'IDLE';
+        this.weaponGroup.position.copy(this.defaultWeaponPos);
+        this.weaponGroup.rotation.set(0, 0, 0);
+      }
+      return;
     }
 
     // Automatic fire support for Automatic Rifle
@@ -865,19 +973,59 @@ export class WeaponManager {
   finishReload() {
     this.isReloading = false;
     const needed = this.magCapacity - this.ammoInMag;
-    const toLoad = Math.min(needed, this.reserveAmmo);
-    this.ammoInMag += toLoad;
-    this.reserveAmmo -= toLoad;
+    const ammoItemId = this.getAmmoItemId(this.currentWeaponId);
+    let loaded = 0;
 
-    this.weaponData[this.currentWeaponId].ammoInMag = this.ammoInMag;
-    this.weaponData[this.currentWeaponId].reserveAmmo = this.reserveAmmo;
+    // Deduct ammo from player's inventory stacks first (Single Source of Truth)
+    if (ammoItemId && Array.isArray(GameState.inventory)) {
+      let toTake = needed;
+      for (let i = 0; i < GameState.inventory.length; i++) {
+        const slot = GameState.inventory[i];
+        if (slot) {
+          const slotId = slot.itemId || (slot.item ? slot.item.id : slot.id);
+          if (slotId === ammoItemId) {
+            const currentQty = slot.quantity || slot.count || 0;
+            const take = Math.min(toTake, currentQty);
+            GameState.removeItemFromInventory(i, take, false);
+            loaded += take;
+            toTake -= take;
+            if (toTake <= 0) break;
+          }
+        }
+      }
+    }
+
+    // Fallback to legacy weaponData reserve if needed
+    if (loaded < needed && this.reserveAmmo > 0) {
+      const takeFallback = Math.min(needed - loaded, this.reserveAmmo);
+      this.reserveAmmo -= takeFallback;
+      loaded += takeFallback;
+    }
+
+    this.ammoInMag += loaded;
+    this.reserveAmmo = this.getReserveAmmo(this.currentWeaponId);
+
+    if (this.weaponData[this.currentWeaponId]) {
+      this.weaponData[this.currentWeaponId].ammoInMag = this.ammoInMag;
+      this.weaponData[this.currentWeaponId].reserveAmmo = this.reserveAmmo;
+    }
+
+    // Update active equipment instance customData
+    const activeEquip = GameState.getActiveEquippedItem ? GameState.getActiveEquippedItem() : null;
+    if (activeEquip) {
+      if (!activeEquip.customData) activeEquip.customData = {};
+      activeEquip.customData.ammoInMag = this.ammoInMag;
+    }
+    GameState.saveToStorage();
 
     this.weaponGroup.position.copy(this.defaultWeaponPos);
     this.weaponGroup.rotation.set(0, 0, 0);
 
-    this.uiManager.showReloadProgressBar(false);
-    this.uiManager.updateAmmo(this.ammoInMag, this.reserveAmmo);
-    this.uiManager.updateQuickSelectBar(this.currentWeaponId, this.weaponData);
+    if (this.uiManager) {
+      this.uiManager.showReloadProgressBar(false);
+      this.uiManager.updateAmmo(this.ammoInMag, this.reserveAmmo);
+      this.uiManager.updateQuickSelectBar(this.currentWeaponId, this.weaponData);
+    }
   }
 
   getAccuracy() {

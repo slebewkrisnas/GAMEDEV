@@ -790,6 +790,42 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 11 November 2026 (Rilis Pembaruan V6 — Complete Player Inventory System Rebuild, Equipment Slots, Weapon State Machine & Schema V6 Persistence):
+  - Arsitektur Master Item Tunggal (Single Source of Truth):
+    * `ITEM_DEFINITIONS` mencakup 26 item terlengkap (Senjata, Amunisi, Medis, Material, Buruan Zombi, Ranjau, Miscellaneous).
+    * `createItemInstance(itemId, quantity, customData)` menghasilkan instance unik dengan `instanceId` (`inst_...`), data kustom (seperti `ammoInMag`), dan durability.
+    * `wrapSlotInstance(instance, slotIndex)` menjamin kompatibilitas ganda (properti modern `itemId`, `quantity` dan properti warisan `item`, `count`).
+  - Sistem Kontainer Inventaris 60-Slot Taktis & Interaksi Lengkap:
+    * Kapasitas deterministik 60 slot dengan penumpukan otomatis hingga `maxStack`.
+    * Penanganan overflow bersih: kelebihan tumpukan mengalir ke slot berikutnya tanpa kehilangan item.
+    * Batas tegas 60 slot: penolakan aman saat inventaris penuh.
+    * Fitur Pembagian Tumpukan (`splitStack`): dialog modal slider interaktif (`#modal-split-stack`) membagi stack item ke slot kosong.
+    * Fitur Penggabungan & Pemindahan Slot (`mergeSlots`, `moveItem`): menggabungkan stack sejenis atau memindahkan/menukar posisi slot.
+    * Fitur Pembuangan Item (`dropItem`): membuang item ke koordinat 3D dunia game dengan visual drop berputar dan label jarahan.
+  - Sistem Equipment Karakter (5 Slot Taktis):
+    * Slot khusus: `primary` (Senjata Utama), `secondary` (Senjata Samping), `melee` (Senjata Jarak Dekat), `throwable` (Ranjau/Peledak), dan `armor` (Rompi Tempur).
+    * Mekanisme Pasang/Lepas Atomik (`equipItem`, `unequipItem`) dengan pertukaran instan jika slot terisi, serta proteksi penolakan lepas jika inventaris 60 slot penuh.
+  - Manajemen Senjata & State Machine Pergantian Senjata:
+    * Status mesin pergantian senjata: `IDLE` -> `SWITCHING_OUT` -> `SWITCHING_IN` -> `READY` dengan animasi turun-naik senjata yang halus dan tanpa bug tembak saat transisi.
+    * Sinkronisasi Amunisi Realistis: peluru magasin tersimpan langsung di `customData.ammoInMag` item instance.
+    * Perhitungan Cadangan Amunisi dari Inventaris: cadangan peluru dihitung langsung dari tumpukan amunisi di inventaris (`ammo_pistol`, `ammo_shotgun`, `ammo_rifle`).
+    * Pengurangan Amunisi saat Reload: mengisi magasin langsung memotong peluru dari slot inventaris secara deterministik.
+    * Dukungan Tombol Cepat Slot 1-4 dan Roda Mouse (`cycleWeapons`).
+  - Tata Letak UI 3-Panel Profesional & Responsif:
+    * Panel Kiri: Profil survivor, level, avatar, dan 5 slot equipment interaktif beserta tombol lepas cepat.
+    * Panel Tengah: Bilah kapasitas progresif, kotak pencarian real-time, filter kategori, sort dropdown, dan kisi 60 slot grid.
+    * Panel Kanan: Inspeksi mendalam (statistik senjata, khasiat medis, nilai pasar, berat) dan tombol aksi kontekstual (Equip, Unequip, Use, Split, Drop, Sell).
+  - Integrasi Gudang Penyimpanan Safehouse (Stash Container):
+    * Metode `depositToStash`, `withdrawFromStash`, `depositAllToStash`, dan `withdrawAllFromStash` untuk memindahkan barang antara tas dan brankas rumah.
+  - Jarahan Dunia Game (World Loot Drops) & Pengambilan Parsial:
+    * `spawnSpecificDrop` menampilkan drop 3D terapung; jika inventaris hampir penuh, pemain mengambil jumlah yang muat dan menyisakan sisanya di dunia.
+  - Persistensi LocalStorage Versi 6 & Migrasi Otomatis Bebas Kehilangan Data:
+    * Skema penyimpanan V6 menyimpan `inventory`, `equipment`, `activeEquipSlot`, `stash`, `wallet`, dan profil pemain.
+    * Migrasi otomatis data warisan V1-V5: konversi aman tanpa menghapus progres pemain lama.
+  - Verifikasi Pengujian Menyeluruh (9 Suite 100% Lulus):
+    * Test suite `inventory_rebuild_v6.test.js` memverifikasi seluruh 9 pengujian inti baru.
+    * Seluruh 9 test file di `gamedevs/dead-zone/js/tests/` lulus 100% tanpa kesalahan.
+
 * 11 November 2026 (Rilis Pembaruan V5 — Major Economy, 60-Slot Inventory, Dynamic Marketplace & Player Profile System):
   - Sistem Inventaris Pemain Berkapasitas Tinggi (60-Slot High-Capacity Inventory):
     * Kapasitas awal 60 slot penyimpanan terstruktur dengan indikator kapasitas real-time "X / 60 Terpakai (Y Kosong)".

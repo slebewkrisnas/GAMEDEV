@@ -1,310 +1,688 @@
 // gameState.js - Central State, Economy & Inventory Engine for Sci-Fi Survival
 // Currency: Rupiah (Rp)
 
-export const ITEMS = {
-  SCRAP_METAL: {
+// ============================================================================
+// DEAD ZONE — MASTER ITEM DATA ARCHITECTURE (V6 UNIFIED INVENTORY ENGINE)
+// Single Source of Truth for Definitions, Instances, Containers & Equipment
+// ============================================================================
+
+export const ITEM_DEFINITIONS = {
+  scrap_metal: {
+    itemId: 'scrap_metal',
     id: 'scrap_metal',
     name: 'Kayu & Besi Tempa',
     type: 'material',
     category: 'materials',
+    subCategory: 'building',
     rarity: 'common',
-    value: 15000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.2,
+    sellable: true,
+    sellPrice: 15000,
+    value: 15000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🪵',
     description: 'Bahan bangunan pedesaan, laku dijual atau dipakai renovasi rumah.'
   },
-  POWER_CONVERTER: {
+  power_converter: {
+    itemId: 'power_converter',
     id: 'power_converter',
     name: 'Komponen Mesin Desa',
     type: 'material',
     category: 'materials',
+    subCategory: 'building',
     rarity: 'uncommon',
-    value: 40000,
     maxStack: 50,
+    stackable: true,
+    weight: 0.5,
+    sellable: true,
+    sellPrice: 40000,
+    value: 40000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '⚙️',
     description: 'Komponen mekanik penting untuk upgrade Rumah Juragan Desa (Lv 3).'
   },
-  BIO_TISSUE: {
+  bio_tissue: {
+    itemId: 'bio_tissue',
     id: 'bio_tissue',
     name: 'Daging Mutan Hutan',
     type: 'loot',
     category: 'zombie_drops',
+    subCategory: 'monster_part',
     rarity: 'common',
-    value: 25000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.25,
+    sellable: true,
+    sellPrice: 25000,
+    value: 25000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🥩',
     description: 'Sampel biologis zombie hutan bernilai jual tinggi di pengepul desa.'
   },
-  XENON_CORE: {
+  xenon_core: {
+    itemId: 'xenon_core',
     id: 'xenon_core',
     name: 'Batu Permata Hutan',
     type: 'loot',
     category: 'zombie_drops',
+    subCategory: 'gem',
     rarity: 'rare',
-    value: 80000,
     maxStack: 30,
+    stackable: true,
+    weight: 0.1,
+    sellable: true,
+    sellPrice: 80000,
+    value: 80000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '💎',
     description: 'Batu permata berkilau langka dari monster elit hutan rimba, bernilai Rp 80.000.'
   },
-  TITAN_CORE: {
+  titan_core: {
+    itemId: 'titan_core',
     id: 'titan_core',
     name: 'Inti Titan Raksasa',
     type: 'loot',
     category: 'zombie_drops',
+    subCategory: 'monster_core',
     rarity: 'legendary',
-    value: 100000, // Rebalanced: Rp 100.000 agar rifle Rp 500.000 tetap prestisius
     maxStack: 10,
+    stackable: true,
+    weight: 0.8,
+    sellable: true,
+    sellPrice: 100000,
+    value: 100000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '👑',
     description: 'Inti energi titan langka dari Boss Titan Sector-7, bernilai jual Rp 100.000 di Toko Desa.'
   },
-  NANO_STIM: {
+  nano_stim: {
+    itemId: 'nano_stim',
     id: 'nano_stim',
     name: 'Ramuan Jamu Herbal (+40 HP)',
     type: 'consumable',
     category: 'medical',
+    subCategory: 'healing',
     rarity: 'common',
-    value: 30000,
-    heal: 40,
     maxStack: 20,
+    stackable: true,
+    weight: 0.15,
+    sellable: true,
+    sellPrice: 30000,
+    value: 30000,
+    usable: true,
+    heal: 40,
+    equippable: false,
+    droppable: true,
     icon: '🌿',
     description: 'Racikan tanaman herbal penambah +40 HP instan (tekan [Q] saat bertempur).'
   },
-  MEDKIT: {
+  medkit: {
+    itemId: 'medkit',
     id: 'medkit',
     name: 'Militer Medkit (+80 HP)',
     type: 'consumable',
     category: 'medical',
+    subCategory: 'healing',
     rarity: 'rare',
-    value: 50000,
-    heal: 80,
     maxStack: 10,
+    stackable: true,
+    weight: 0.4,
+    sellable: true,
+    sellPrice: 50000,
+    value: 50000,
+    usable: true,
+    heal: 80,
+    equippable: false,
+    droppable: true,
     icon: '🧰',
     description: 'Kotak P3K medis militer pemulih 80 HP darah vital.'
   },
-  BANDAGE: {
+  bandage: {
+    itemId: 'bandage',
     id: 'bandage',
     name: 'Perban Darurat (+20 HP)',
     type: 'consumable',
     category: 'medical',
+    subCategory: 'healing',
     rarity: 'common',
-    value: 12000,
-    heal: 20,
     maxStack: 30,
+    stackable: true,
+    weight: 0.05,
+    sellable: true,
+    sellPrice: 12000,
+    value: 12000,
+    usable: true,
+    heal: 20,
+    equippable: false,
+    droppable: true,
     icon: '🩹',
     description: 'Perban steril antiseptik pemulih 20 HP darah seketika.'
   },
-  JAMU_KENCUR: {
+  jamu_kencur: {
+    itemId: 'jamu_kencur',
     id: 'jamu_kencur',
     name: 'Jamu Beras Kencur (Stamina 2x)',
     type: 'consumable',
     category: 'medical',
+    subCategory: 'buff',
     rarity: 'uncommon',
+    maxStack: 20,
+    stackable: true,
+    weight: 0.2,
+    sellable: true,
+    sellPrice: 45000,
     value: 45000,
+    usable: true,
     buffType: 'stamina_boost',
     duration: 60,
-    maxStack: 20,
+    equippable: false,
+    droppable: true,
     icon: '🌾',
     description: 'Racikan beras kencur tradisional mempercepat regenerasi stamina 2x lipat selama 60 detik.'
   },
-  JAMU_KUNYIT: {
+  jamu_kunyit: {
+    itemId: 'jamu_kunyit',
     id: 'jamu_kunyit',
     name: 'Jamu Kunyit Asam (Kebal Racun)',
     type: 'consumable',
     category: 'medical',
+    subCategory: 'buff',
     rarity: 'uncommon',
+    maxStack: 20,
+    stackable: true,
+    weight: 0.2,
+    sellable: true,
+    sellPrice: 50000,
     value: 50000,
+    usable: true,
     buffType: 'poison_immune',
     duration: 60,
-    maxStack: 20,
+    equippable: false,
+    droppable: true,
     icon: '🫚',
     description: 'Ramuan kunyit asam alami memberikan kekebalan total terhadap gas beracun selama 60 detik.'
   },
-  BAMBOO_TRAP: {
+  bamboo_trap: {
+    itemId: 'bamboo_trap',
     id: 'bamboo_trap',
     name: 'Ranjau Paku Bambu',
     type: 'trap',
     category: 'materials',
+    subCategory: 'trap',
     rarity: 'uncommon',
-    value: 20000,
     maxStack: 20,
+    stackable: true,
+    weight: 0.35,
+    sellable: true,
+    sellPrice: 20000,
+    value: 20000,
+    usable: true,
+    equippable: true,
+    equipSlot: 'throwable',
+    droppable: true,
     icon: '🎋',
+    stats: { damage: 50, slowPct: 50, slowDuration: 5 },
     description: 'Ranjau paku runcing bambu desa. Memberikan 50 damage dan memperlambat musuh 50% selama 5 detik.'
   },
-  METAL_PARTS: {
+  metal_parts: {
+    itemId: 'metal_parts',
     id: 'metal_parts',
     name: 'Baut & Komponen Logam',
     type: 'material',
     category: 'materials',
+    subCategory: 'crafting',
     rarity: 'common',
-    value: 20000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.15,
+    sellable: true,
+    sellPrice: 20000,
+    value: 20000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🔩',
     description: 'Komponen logam presisi dan baut tempa tahan karat.'
   },
-  WOOD: {
+  wood: {
+    itemId: 'wood',
     id: 'wood',
     name: 'Kayu Rimba',
     type: 'material',
     category: 'materials',
+    subCategory: 'crafting',
     rarity: 'common',
-    value: 10000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.4,
+    sellable: true,
+    sellPrice: 10000,
+    value: 10000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🪵',
     description: 'Kayu gelondongan rimba bahan kerajinan dan perangkap.'
   },
-  CLOTH: {
+  cloth: {
+    itemId: 'cloth',
     id: 'cloth',
     name: 'Kain Serat Tekstil',
     type: 'material',
     category: 'materials',
+    subCategory: 'crafting',
     rarity: 'common',
-    value: 8000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.05,
+    sellable: true,
+    sellPrice: 8000,
+    value: 8000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🧵',
     description: 'Serat kain tahan air untuk meracik perban dan tas.'
   },
-  ZOMBIE_TEETH: {
+  zombie_teeth: {
+    itemId: 'zombie_teeth',
     id: 'zombie_teeth',
     name: 'Taring Zombi Hutan',
     type: 'loot',
     category: 'zombie_drops',
+    subCategory: 'monster_part',
     rarity: 'common',
-    value: 18000,
     maxStack: 99,
+    stackable: true,
+    weight: 0.05,
+    sellable: true,
+    sellPrice: 18000,
+    value: 18000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🦷',
     description: 'Taring runcing zombi hutan buruan bernilai jual tinggi.'
   },
-  ZOMBIE_CLAW: {
+  zombie_claw: {
+    itemId: 'zombie_claw',
     id: 'zombie_claw',
     name: 'Cakar Mutan Beracun',
     type: 'loot',
     category: 'zombie_drops',
+    subCategory: 'monster_part',
     rarity: 'uncommon',
-    value: 35000,
     maxStack: 50,
+    stackable: true,
+    weight: 0.1,
+    sellable: true,
+    sellPrice: 35000,
+    value: 35000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🦅',
     description: 'Cakar cadas mutan berbahaya buruan para kolektor.'
   },
-  RADIO_BATTERY: {
+  radio_battery: {
+    itemId: 'radio_battery',
     id: 'radio_battery',
     name: 'Baterai Komunikasi',
     type: 'misc',
     category: 'misc',
+    subCategory: 'electronic',
     rarity: 'uncommon',
-    value: 22000,
     maxStack: 30,
+    stackable: true,
+    weight: 0.3,
+    sellable: true,
+    sellPrice: 22000,
+    value: 22000,
+    usable: false,
+    equippable: false,
+    droppable: true,
     icon: '🔋',
     description: 'Baterai lithium berkapasitas tinggi untuk perangkat radio darurat.'
   },
-  RATION_PACK: {
+  ration_pack: {
+    itemId: 'ration_pack',
     id: 'ration_pack',
     name: 'Ransum Makanan Darurat',
     type: 'misc',
     category: 'misc',
+    subCategory: 'food',
     rarity: 'common',
-    value: 15000,
-    heal: 15,
     maxStack: 30,
+    stackable: true,
+    weight: 0.25,
+    sellable: true,
+    sellPrice: 15000,
+    value: 15000,
+    usable: true,
+    heal: 15,
+    equippable: false,
+    droppable: true,
     icon: '🥫',
     description: 'Makanan kaleng berenergi tinggi pemulih 15 HP stamina.'
   },
-  AMMO_PISTOL: {
+  ammo_pistol: {
+    itemId: 'ammo_pistol',
     id: 'ammo_pistol',
     name: 'Amunisi 9mm Pistol (24 btr)',
     type: 'ammo',
     category: 'ammunition',
+    subCategory: 'ammo_9mm',
     rarity: 'common',
+    maxStack: 999,
+    stackable: true,
+    weight: 0.015,
+    sellable: true,
+    sellPrice: 15000,
     value: 15000,
     count: 24,
-    maxStack: 999,
     weaponId: 'pulse_pistol',
+    usable: true,
+    equippable: false,
+    droppable: true,
     icon: '🔫',
     description: 'Satu kotak 24 butir peluru 9mm untuk Tactical Pistol.'
   },
-  AMMO_SHOTGUN: {
+  ammo_shotgun: {
+    itemId: 'ammo_shotgun',
     id: 'ammo_shotgun',
     name: 'Amunisi 12-Gauge (12 btr)',
     type: 'ammo',
     category: 'ammunition',
+    subCategory: 'ammo_12g',
     rarity: 'uncommon',
+    maxStack: 999,
+    stackable: true,
+    weight: 0.04,
+    sellable: true,
+    sellPrice: 25000,
     value: 25000,
     count: 12,
-    maxStack: 999,
     weaponId: 'scatter_blaster',
+    usable: true,
+    equippable: false,
+    droppable: true,
     icon: '💥',
     description: 'Satu kotak 12 butir peluru buckshot untuk Scatter Shotgun.'
   },
-  AMMO_RIFLE: {
+  ammo_rifle: {
+    itemId: 'ammo_rifle',
     id: 'ammo_rifle',
     name: 'Amunisi 7.62mm Rifle (30 btr)',
     type: 'ammo',
     category: 'ammunition',
+    subCategory: 'ammo_762',
     rarity: 'rare',
+    maxStack: 999,
+    stackable: true,
+    weight: 0.025,
+    sellable: true,
+    sellPrice: 35000,
     value: 35000,
     count: 30,
-    maxStack: 999,
     weaponId: 'plasma_rifle',
+    usable: true,
+    equippable: false,
+    droppable: true,
     icon: '⚡',
     description: 'Satu kotak 30 butir amunisi rifle kaliber 7.62mm.'
   },
-  PLASMA_AMMO: {
+  plasma_ammo: {
+    itemId: 'plasma_ammo',
     id: 'plasma_ammo',
     name: 'Amunisi 7.62mm Rifle (30 btr)',
     type: 'ammo',
     category: 'ammunition',
+    subCategory: 'ammo_762',
     rarity: 'rare',
+    maxStack: 999,
+    stackable: true,
+    weight: 0.025,
+    sellable: true,
+    sellPrice: 35000,
     value: 35000,
     count: 30,
-    maxStack: 999,
     weaponId: 'plasma_rifle',
+    usable: true,
+    equippable: false,
+    droppable: true,
     icon: '📦',
     description: 'Satu kotak 30 butir amunisi rifle kaliber 7.62mm.'
   },
-  WEAPON_PISTOL: {
+  pulse_pistol: {
+    itemId: 'pulse_pistol',
     id: 'pulse_pistol',
     name: 'Tactical Pistol 9mm',
     type: 'weapon',
     category: 'weapons',
+    subCategory: 'pistol',
     rarity: 'common',
-    value: 50000,
-    icon: '🔫',
     maxStack: 1,
+    stackable: false,
+    weight: 1.1,
+    sellable: true,
+    sellPrice: 50000,
+    value: 50000,
+    usable: false,
+    equippable: true,
+    equipSlot: 'secondary',
+    weaponId: 'pulse_pistol',
+    ammoType: 'ammo_pistol',
+    droppable: true,
+    icon: '🔫',
+    stats: {
+      damage: 35,
+      headshotDamage: 70,
+      fireRate: 0.22,
+      magCapacity: 12,
+      reloadTime: 1.3,
+      noiseRadius: 22,
+      range: 45,
+      isAutomatic: false
+    },
     description: 'Pistol semi-otomatis 9mm bawaan pemburu.'
   },
-  WEAPON_SHOTGUN: {
+  scatter_blaster: {
+    itemId: 'scatter_blaster',
     id: 'scatter_blaster',
     name: 'Scatter Shotgun 12-Gauge',
     type: 'weapon',
     category: 'weapons',
+    subCategory: 'shotgun',
     rarity: 'uncommon',
-    value: 250000,
-    icon: '💥',
     maxStack: 1,
+    stackable: false,
+    weight: 3.2,
+    sellable: true,
+    sellPrice: 250000,
+    value: 250000,
+    usable: false,
+    equippable: true,
+    equipSlot: 'primary',
+    weaponId: 'scatter_blaster',
+    ammoType: 'ammo_shotgun',
+    droppable: true,
+    icon: '💥',
+    stats: {
+      damage: 144,
+      headshotDamage: 312,
+      fireRate: 0.70,
+      magCapacity: 6,
+      reloadTime: 2.0,
+      noiseRadius: 55,
+      range: 25,
+      isAutomatic: false,
+      pellets: 6
+    },
     description: 'Shotgun aksi pompa 12-gauge dengan sebaran mematikan.'
   },
-  WEAPON_RIFLE: {
+  plasma_rifle: {
+    itemId: 'plasma_rifle',
     id: 'plasma_rifle',
     name: 'Senapan Taktis 7.62mm',
     type: 'weapon',
     category: 'weapons',
+    subCategory: 'rifle',
     rarity: 'rare',
-    value: 500000,
-    icon: '⚡',
     maxStack: 1,
+    stackable: false,
+    weight: 3.6,
+    sellable: true,
+    sellPrice: 500000,
+    value: 500000,
+    usable: false,
+    equippable: true,
+    equipSlot: 'primary',
+    weaponId: 'plasma_rifle',
+    ammoType: 'ammo_rifle',
+    droppable: true,
+    icon: '⚡',
+    stats: {
+      damage: 28,
+      headshotDamage: 105,
+      fireRate: 0.11,
+      magCapacity: 30,
+      reloadTime: 1.8,
+      noiseRadius: 42,
+      range: 60,
+      isAutomatic: true
+    },
     description: 'Senapan serbu militer otomatis berakurasi tinggi.'
   },
-  WEAPON_MACHETE: {
+  machete: {
+    itemId: 'machete',
     id: 'machete',
     name: 'Golok Pedesaan',
     type: 'weapon',
     category: 'weapons',
+    subCategory: 'melee',
     rarity: 'common',
-    value: 35000,
-    icon: '🗡️',
     maxStack: 1,
+    stackable: false,
+    weight: 0.9,
+    sellable: true,
+    sellPrice: 35000,
+    value: 35000,
+    usable: false,
+    equippable: true,
+    equipSlot: 'melee',
+    weaponId: 'machete',
+    ammoType: null,
+    droppable: true,
+    icon: '🗡️',
+    stats: {
+      damage: 45,
+      headshotDamage: 80,
+      fireRate: 0.55,
+      magCapacity: 1,
+      reloadTime: 0,
+      noiseRadius: 0,
+      range: 2.3,
+      staminaCost: 1.0,
+      isMelee: true
+    },
     description: 'Bilah baja tempa tajam untuk tebasan senyap tanpa suara.'
   }
 };
+
+// Aliases for backward compatibility with existing tests & systems
+export const ITEMS = {
+  SCRAP_METAL: ITEM_DEFINITIONS.scrap_metal,
+  POWER_CONVERTER: ITEM_DEFINITIONS.power_converter,
+  BIO_TISSUE: ITEM_DEFINITIONS.bio_tissue,
+  XENON_CORE: ITEM_DEFINITIONS.xenon_core,
+  TITAN_CORE: ITEM_DEFINITIONS.titan_core,
+  NANO_STIM: ITEM_DEFINITIONS.nano_stim,
+  MEDKIT: ITEM_DEFINITIONS.medkit,
+  BANDAGE: ITEM_DEFINITIONS.bandage,
+  JAMU_KENCUR: ITEM_DEFINITIONS.jamu_kencur,
+  JAMU_KUNYIT: ITEM_DEFINITIONS.jamu_kunyit,
+  BAMBOO_TRAP: ITEM_DEFINITIONS.bamboo_trap,
+  METAL_PARTS: ITEM_DEFINITIONS.metal_parts,
+  WOOD: ITEM_DEFINITIONS.wood,
+  CLOTH: ITEM_DEFINITIONS.cloth,
+  ZOMBIE_TEETH: ITEM_DEFINITIONS.zombie_teeth,
+  ZOMBIE_CLAW: ITEM_DEFINITIONS.zombie_claw,
+  RADIO_BATTERY: ITEM_DEFINITIONS.radio_battery,
+  RATION_PACK: ITEM_DEFINITIONS.ration_pack,
+  AMMO_PISTOL: ITEM_DEFINITIONS.ammo_pistol,
+  AMMO_SHOTGUN: ITEM_DEFINITIONS.ammo_shotgun,
+  AMMO_RIFLE: ITEM_DEFINITIONS.ammo_rifle,
+  PLASMA_AMMO: ITEM_DEFINITIONS.plasma_ammo,
+  WEAPON_PISTOL: ITEM_DEFINITIONS.pulse_pistol,
+  WEAPON_SHOTGUN: ITEM_DEFINITIONS.scatter_blaster,
+  WEAPON_RIFLE: ITEM_DEFINITIONS.plasma_rifle,
+  WEAPON_MACHETE: ITEM_DEFINITIONS.machete
+};
+
+export function getItemDefinition(rawIdOrItem) {
+  if (!rawIdOrItem) return null;
+  if (typeof rawIdOrItem === 'object') {
+    if (rawIdOrItem.itemId && ITEM_DEFINITIONS[rawIdOrItem.itemId]) return ITEM_DEFINITIONS[rawIdOrItem.itemId];
+    if (rawIdOrItem.id && ITEM_DEFINITIONS[rawIdOrItem.id]) return ITEM_DEFINITIONS[rawIdOrItem.id];
+    return rawIdOrItem;
+  }
+  if (ITEM_DEFINITIONS[rawIdOrItem]) return ITEM_DEFINITIONS[rawIdOrItem];
+  const found = Object.values(ITEM_DEFINITIONS).find(d => d.itemId === rawIdOrItem || d.id === rawIdOrItem);
+  return found || null;
+}
+
+export function createItemInstance(rawIdOrItem, quantity = 1, customData = {}) {
+  const def = getItemDefinition(rawIdOrItem);
+  if (!def) return null;
+  const actualId = def.itemId || def.id;
+
+  const defaultCustom = {};
+  if (def.category === 'weapons' || def.type === 'weapon') {
+    defaultCustom.ammoInMag = (customData && typeof customData.ammoInMag === 'number')
+      ? customData.ammoInMag
+      : (def.stats ? def.stats.magCapacity : (def.magCapacity || 1));
+    defaultCustom.durability = (customData && typeof customData.durability === 'number')
+      ? customData.durability
+      : 100;
+  }
+
+  const instId = 'inst_' + actualId + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+
+  return {
+    instanceId: instId,
+    itemId: actualId,
+    quantity: Math.max(1, quantity),
+    durability: (customData && typeof customData.durability === 'number') ? customData.durability : 100,
+    customData: { ...defaultCustom, ...customData }
+  };
+}
+
+export function wrapSlotInstance(instance, slotIndex = 0) {
+  if (!instance) return null;
+  const def = getItemDefinition(instance.itemId);
+  return {
+    slotIndex,
+    instanceId: instance.instanceId,
+    itemId: instance.itemId,
+    quantity: instance.quantity,
+    count: instance.quantity, // backward compatibility
+    durability: instance.durability || 100,
+    customData: instance.customData || {},
+    item: def || {} // backward compatibility
+  };
+}
 
 export const CRAFTING_RECIPES = [
   {
@@ -494,10 +872,20 @@ class StateManager {
     ];
 
     // =========================================================================
-    // 60-SLOT PLAYER INVENTORY (STACKABLE ITEMS & CATEGORIES)
+    // 60-SLOT UNIFIED INVENTORY & EQUIPMENT CONTAINER ARCHITECTURE (V6)
     // =========================================================================
     this.inventoryMaxSlots = 60; // 60 slot kapasitas awal
-    this.inventory = [];         // Array slot inventaris stackable
+    this.inventory = [];         // Array slot inventaris terindeks (panjang <= 60)
+
+    // Equipment Slots: Primary, Secondary, Melee, Throwable, Armor
+    this.equipment = {
+      primary: null,
+      secondary: wrapSlotInstance(createItemInstance('pulse_pistol', 1, { ammoInMag: 12 }), -1),
+      melee: wrapSlotInstance(createItemInstance('machete', 1), -1),
+      throwable: null,
+      armor: null
+    };
+    this.activeEquipSlot = 'secondary';
 
     // =========================================================================
     // SISTEM MARKETPLACE & PENJUALAN SIMULASI REALISTIS
@@ -1010,99 +1398,279 @@ class StateManager {
   clearBackpackOnDeath() {
     const lostItems = [...this.backpack];
     this.backpack = [];
+    // Clear unequipped inventory items that are not protected by secure pouch
+    const secureIds = this.securePouch.map(p => p.id || p.itemId);
+    if (Array.isArray(this.inventory)) {
+      for (let i = 0; i < this.inventory.length; i++) {
+        const slot = this.inventory[i];
+        if (slot && !secureIds.includes(slot.itemId)) {
+          this.inventory[i] = null;
+        }
+      }
+    }
     this.recordPlayerDeath();
     this.saveToStorage();
     return lostItems;
   }
 
   // =========================================================================
-  // MODUL 1: MANAJEMEN INVENTARIS 60 SLOT & STACKABLE ITEMS
+  // MODUL 1: MANAJEMEN INVENTARIS 60 SLOT & STACKABLE ITEMS (V6 REBUILD)
   // =========================================================================
 
   normalizeItem(item) {
     if (!item) return null;
-    const base = Object.values(ITEMS).find(i => i.id === item.id) || {};
+    const def = getItemDefinition(item.id || item.itemId || item);
+    if (def) return { ...def };
     return {
-      id: item.id || base.id,
-      name: item.name || base.name || 'Barang Misterius',
-      icon: item.icon || base.icon || '📦',
-      type: item.type || base.type || 'misc',
-      category: item.category || base.category || (base.type === 'material' ? 'materials' : (base.type === 'loot' ? 'zombie_drops' : (base.type === 'ammo' ? 'ammunition' : (base.type === 'consumable' ? 'medical' : (base.type === 'weapon' ? 'weapons' : 'misc'))))),
-      rarity: item.rarity || base.rarity || 'common',
-      value: typeof item.value === 'number' ? item.value : (base.value || 10000),
-      description: item.description || base.description || '',
-      heal: item.heal || base.heal || 0,
-      buffType: item.buffType || base.buffType || null,
-      duration: item.duration || base.duration || 0,
-      weaponId: item.weaponId || base.weaponId || null,
-      maxStack: item.maxStack || base.maxStack || (base.type === 'weapon' ? 1 : (base.type === 'ammo' ? 999 : 99))
+      itemId: item.id || item.itemId || 'unknown',
+      id: item.id || item.itemId || 'unknown',
+      name: item.name || 'Barang Misterius',
+      icon: item.icon || '📦',
+      type: item.type || 'misc',
+      category: item.category || 'misc',
+      rarity: item.rarity || 'common',
+      value: typeof item.value === 'number' ? item.value : 10000,
+      sellPrice: typeof item.sellPrice === 'number' ? item.sellPrice : 10000,
+      description: item.description || '',
+      maxStack: item.maxStack || 99,
+      stackable: item.maxStack ? item.maxStack > 1 : true,
+      weight: item.weight || 0.1,
+      sellable: item.sellable !== undefined ? item.sellable : true,
+      usable: !!item.usable,
+      equippable: !!item.equippable,
+      equipSlot: item.equipSlot || null,
+      droppable: item.droppable !== undefined ? item.droppable : true,
+      heal: item.heal || 0,
+      buffType: item.buffType || null,
+      duration: item.duration || 0,
+      weaponId: item.weaponId || null
     };
   }
 
   addItemToInventory(rawItem, count = 1, save = true) {
-    const item = this.normalizeItem(rawItem);
-    if (!item || count <= 0) return { success: false, message: 'Item tidak valid.' };
-    if (!Array.isArray(this.inventory)) this.inventory = [];
+    if (!rawItem || count <= 0) return { success: false, countAdded: 0, remaining: count, message: 'Item tidak valid.' };
+    const def = getItemDefinition(rawItem);
+    if (!def) return { success: false, countAdded: 0, remaining: count, message: 'Item definition tidak ditemukan.' };
+
+    if (!Array.isArray(this.inventory)) {
+      this.inventory = [];
+    }
 
     let remaining = count;
-    const maxStack = item.maxStack || 99;
+    const maxStack = def.maxStack || (def.stackable ? 99 : 1);
 
-    // 1. Prioritas stack ke slot yang memiliki ID sama dan belum mencapai maxStack
-    for (const slot of this.inventory) {
-      if (slot.item.id === item.id && slot.count < maxStack) {
-        const space = maxStack - slot.count;
-        const take = Math.min(remaining, space);
-        slot.count += take;
-        remaining -= take;
-        if (remaining <= 0) break;
+    // 1. Prioritas stack ke slot yang memiliki itemId sama dan belum mencapai maxStack
+    if (def.stackable) {
+      for (let i = 0; i < this.inventory.length; i++) {
+        const slot = this.inventory[i];
+        if (slot) {
+          const slotId = slot.itemId || (slot.item ? slot.item.id : slot.id);
+          const currentQty = slot.quantity || slot.count || 0;
+          if (slotId === def.itemId && currentQty < maxStack) {
+            const space = maxStack - currentQty;
+            const take = Math.min(remaining, space);
+            slot.quantity = currentQty + take;
+            slot.count = slot.quantity;
+            remaining -= take;
+            if (remaining <= 0) break;
+          }
+        }
       }
     }
 
-    // 2. Jika masih bersisa, tempatkan di slot baru selama kapasitas inventaris mencukupi
+    // 2. Tempatkan di slot null/kosong pertama atau push jika length < inventoryMaxSlots
     while (remaining > 0) {
-      if (this.inventory.length >= this.inventoryMaxSlots) {
+      const usedCount = this.getInventoryUsedSlots();
+      if (usedCount >= this.inventoryMaxSlots) {
         if (save) this.saveToStorage();
         return {
           success: remaining < count,
           countAdded: count - remaining,
-          message: `Inventaris penuh (${this.inventory.length}/${this.inventoryMaxSlots} Slot Terpakai)!`
+          remaining,
+          message: `Inventaris penuh (${usedCount}/${this.inventoryMaxSlots} Slot Terpakai)!`
         };
       }
+
       const take = Math.min(remaining, maxStack);
-      this.inventory.push({
-        slotIndex: this.inventory.length,
-        item: { ...item },
-        count: take
-      });
+      const instance = createItemInstance(def.itemId, take, rawItem.customData || {});
+
+      // Cari lubang null di antara slot
+      let targetIdx = this.inventory.findIndex(s => s === null || s === undefined);
+      if (targetIdx !== -1) {
+        this.inventory[targetIdx] = wrapSlotInstance(instance, targetIdx);
+      } else if (this.inventory.length < this.inventoryMaxSlots) {
+        targetIdx = this.inventory.length;
+        this.inventory.push(wrapSlotInstance(instance, targetIdx));
+      } else {
+        if (save) this.saveToStorage();
+        return {
+          success: remaining < count,
+          countAdded: count - remaining,
+          remaining,
+          message: `Inventaris penuh (${usedCount}/${this.inventoryMaxSlots} Slot Terpakai)!`
+        };
+      }
       remaining -= take;
     }
 
-    this.recordItemCollected(count);
+    this.recordItemCollected(count - remaining);
     if (save) this.saveToStorage();
     return {
       success: true,
-      countAdded: count,
-      message: `Berhasil menyimpan ${count}x ${item.name} ke inventaris!`
+      countAdded: count - remaining,
+      remaining: 0,
+      message: `Berhasil menyimpan ${count}x ${def.name} ke inventaris!`
     };
   }
 
   removeItemFromInventory(slotIndex, count = 1, save = true) {
-    if (!Array.isArray(this.inventory)) this.inventory = [];
-    if (slotIndex < 0 || slotIndex >= this.inventory.length) {
+    if (!Array.isArray(this.inventory) || slotIndex < 0 || slotIndex >= this.inventory.length) {
       return { success: false, message: 'Slot inventaris tidak ditemukan.' };
     }
     const slot = this.inventory[slotIndex];
-    const take = Math.min(count, slot.count);
-    slot.count -= take;
-    const itemCopy = { ...slot.item };
+    if (!slot) return { success: false, message: 'Slot kosong.' };
 
-    if (slot.count <= 0) {
-      this.inventory.splice(slotIndex, 1);
-      this.inventory.forEach((s, idx) => { s.slotIndex = idx; });
+    const take = Math.min(count, slot.quantity);
+    slot.quantity -= take;
+    slot.count = slot.quantity;
+    const itemCopy = { ...(slot.item || getItemDefinition(slot.itemId)) };
+
+    if (slot.quantity <= 0) {
+      this.inventory[slotIndex] = null;
     }
 
     if (save) this.saveToStorage();
     return { success: true, item: itemCopy, countRemoved: take };
+  }
+
+  splitStack(slotIndex, count) {
+    if (!Array.isArray(this.inventory) || slotIndex < 0 || slotIndex >= this.inventory.length) {
+      return { success: false, message: 'Slot tidak valid.' };
+    }
+    const slot = this.inventory[slotIndex];
+    if (!slot || slot.quantity <= 1) {
+      return { success: false, message: 'Item tidak dapat dibagi (jumlah <= 1).' };
+    }
+    if (count <= 0 || count >= slot.quantity) {
+      return { success: false, message: `Jumlah pembagian tidak valid (1 s/d ${slot.quantity - 1}).` };
+    }
+
+    let emptyIdx = this.inventory.findIndex(s => s === null || s === undefined);
+    if (emptyIdx === -1) {
+      if (this.inventory.length < this.inventoryMaxSlots) {
+        emptyIdx = this.inventory.length;
+      } else {
+        return { success: false, message: 'Tidak ada slot kosong untuk membagi tumpukan!' };
+      }
+    }
+
+    slot.quantity -= count;
+    slot.count = slot.quantity;
+
+    const newInstance = createItemInstance(slot.itemId || (slot.item ? slot.item.id : slot.id), count, slot.customData);
+    const wrapped = wrapSlotInstance(newInstance, emptyIdx);
+    if (emptyIdx < this.inventory.length) {
+      this.inventory[emptyIdx] = wrapped;
+    } else {
+      this.inventory.push(wrapped);
+    }
+
+    this.saveToStorage();
+    return {
+      success: true,
+      fromSlot: slotIndex,
+      toSlot: emptyIdx,
+      count,
+      message: `Berhasil membagi ${count}x item ke slot #${emptyIdx + 1}.`
+    };
+  }
+
+  mergeSlots(fromSlotIndex, toSlotIndex) {
+    if (fromSlotIndex === toSlotIndex) return { success: false, message: 'Slot sama.' };
+    if (!Array.isArray(this.inventory)) return { success: false, message: 'Inventaris tidak valid.' };
+    if (fromSlotIndex < 0 || fromSlotIndex >= this.inventory.length || toSlotIndex < 0 || toSlotIndex >= this.inventory.length) {
+      return { success: false, message: 'Indeks slot di luar batas.' };
+    }
+
+    const fromSlot = this.inventory[fromSlotIndex];
+    if (!fromSlot) return { success: false, message: 'Slot asal kosong.' };
+
+    const toSlot = this.inventory[toSlotIndex];
+
+    // Case 1: Target slot is empty -> Move
+    if (!toSlot) {
+      this.inventory[toSlotIndex] = fromSlot;
+      this.inventory[toSlotIndex].slotIndex = toSlotIndex;
+      this.inventory[fromSlotIndex] = null;
+      this.saveToStorage();
+      return { success: true, action: 'moved' };
+    }
+
+    // Case 2: Target slot has same item and is stackable -> Merge
+    const def = getItemDefinition(fromSlot.itemId);
+    if (fromSlot.itemId === toSlot.itemId && def && def.stackable) {
+      const space = (def.maxStack || 99) - toSlot.quantity;
+      if (space > 0) {
+        const take = Math.min(fromSlot.quantity, space);
+        toSlot.quantity += take;
+        toSlot.count = toSlot.quantity;
+        fromSlot.quantity -= take;
+        fromSlot.count = fromSlot.quantity;
+        if (fromSlot.quantity <= 0) {
+          this.inventory[fromSlotIndex] = null;
+        }
+        this.saveToStorage();
+        return { success: true, action: 'merged', transferred: take };
+      }
+    }
+
+    // Case 3: Different item or stack full -> Swap
+    const temp = this.inventory[fromSlotIndex];
+    this.inventory[fromSlotIndex] = this.inventory[toSlotIndex];
+    this.inventory[toSlotIndex] = temp;
+    this.inventory[fromSlotIndex].slotIndex = fromSlotIndex;
+    this.inventory[toSlotIndex].slotIndex = toSlotIndex;
+    this.saveToStorage();
+    return { success: true, action: 'swapped' };
+  }
+
+  moveItem(fromSlotIndex, toSlotIndex) {
+    return this.mergeSlots(fromSlotIndex, toSlotIndex);
+  }
+
+  dropItem(slotIndex, count = 1, playerPosition = null, lootManager = null) {
+    if (!Array.isArray(this.inventory) || slotIndex < 0 || slotIndex >= this.inventory.length) {
+      return { success: false, message: 'Slot tidak valid.' };
+    }
+    const slot = this.inventory[slotIndex];
+    if (!slot) return { success: false, message: 'Slot kosong.' };
+
+    const take = Math.min(count, slot.quantity);
+    const def = getItemDefinition(slot.itemId);
+
+    if (lootManager && playerPosition) {
+      lootManager.spawnSpecificDrop(playerPosition, {
+        id: slot.itemId,
+        itemId: slot.itemId,
+        ...def,
+        count: take,
+        quantity: take,
+        customData: slot.customData
+      });
+    }
+
+    this.removeItemFromInventory(slotIndex, take, true);
+    return {
+      success: true,
+      countRemoved: take,
+      droppedCount: take,
+      item: def,
+      message: `Membuang ${take}x ${def ? def.name : 'item'} ke dunia.`
+    };
+  }
+
+  dropItemFromInventory(slotIndex, count = 1) {
+    return this.dropItem(slotIndex, count);
   }
 
   useItemFromInventory(slotIndex, player = null) {
@@ -1111,7 +1679,8 @@ class StateManager {
       return { success: false, message: 'Slot tidak valid.' };
     }
     const slot = this.inventory[slotIndex];
-    const item = slot.item;
+    if (!slot) return { success: false, message: 'Slot kosong.' };
+    const item = slot.item || getItemDefinition(slot.itemId);
 
     // A. Kategori Medis & Obat-Obatan
     if (item.category === 'medical' || item.type === 'consumable') {
@@ -1151,16 +1720,17 @@ class StateManager {
       return { success: true, message: `Mengisi amunisi ${item.name} (+${ammoCount} butir peluru)!` };
     }
 
-    // C. Kategori Senjata
+    // C. Kategori Senjata (Equip to active slot)
     if (item.category === 'weapons' || item.type === 'weapon') {
-      if (player && player.weapons) {
-        player.weapons.switchWeapon(item.id);
-        return { success: true, message: `Menyiapkan senjata ${item.name}!` };
+      const equipRes = this.equipItem(slotIndex);
+      if (equipRes.success && player && player.weapons && item.weaponId) {
+        player.weapons.switchWeapon(item.weaponId);
       }
+      return equipRes;
     }
 
     // D. Ranjau Bambu
-    if (item.id === 'bamboo_trap') {
+    if (item.id === 'bamboo_trap' || item.itemId === 'bamboo_trap') {
       if (player && typeof player.deployBambooTrap === 'function') {
         player.deployBambooTrap();
         this.removeItemFromInventory(slotIndex, 1, true);
@@ -1171,12 +1741,128 @@ class StateManager {
     return { success: false, message: 'Barang ini tidak dapat digunakan secara langsung.' };
   }
 
-  dropItemFromInventory(slotIndex, count = 1) {
-    return this.removeItemFromInventory(slotIndex, count, true);
+  // =========================================================================
+  // MODUL EQUIPMENT CONTAINER & SLOT MANAGEMENT
+  // =========================================================================
+
+  equipItem(slotIndex, targetSlot = null) {
+    if (!Array.isArray(this.inventory) || slotIndex < 0 || slotIndex >= this.inventory.length || !this.inventory[slotIndex]) {
+      return { success: false, message: 'Slot inventaris tidak valid atau kosong.' };
+    }
+    const slotData = this.inventory[slotIndex];
+    const def = getItemDefinition(slotData.itemId);
+    if (!def || !def.equippable) {
+      return { success: false, message: 'Barang ini bukan perlengkapan yang bisa dipasang.' };
+    }
+
+    let slotToUse = targetSlot || def.equipSlot;
+    if (!slotToUse) {
+      if (def.category === 'weapons') {
+        if (def.subCategory === 'melee') slotToUse = 'melee';
+        else if (def.subCategory === 'pistol') slotToUse = 'secondary';
+        else slotToUse = 'primary';
+      } else if (def.type === 'trap') {
+        slotToUse = 'throwable';
+      }
+    }
+
+    if (!['primary', 'secondary', 'melee', 'throwable', 'armor'].includes(slotToUse)) {
+      return { success: false, message: 'Slot perlengkapan tidak valid.' };
+    }
+
+    if (slotToUse === 'melee' && def.subCategory !== 'melee') {
+      return { success: false, message: 'Slot Melee hanya untuk senjata jarak dekat.' };
+    }
+    if (slotToUse === 'throwable' && def.equipSlot !== 'throwable' && def.type !== 'trap') {
+      return { success: false, message: 'Slot Throwable hanya untuk jebakan / lemparan.' };
+    }
+
+    const oldEquipped = this.equipment[slotToUse];
+    const newEquipped = {
+      instanceId: slotData.instanceId,
+      itemId: slotData.itemId,
+      quantity: 1,
+      durability: slotData.durability || 100,
+      customData: { ...(slotData.customData || {}) }
+    };
+
+    if (slotData.quantity > 1) {
+      slotData.quantity -= 1;
+      slotData.count = slotData.quantity;
+      if (oldEquipped) {
+        const emptyIdx = this.inventory.findIndex(s => s === null);
+        if (emptyIdx === -1) {
+          return { success: false, message: 'Inventaris penuh, tidak dapat menukar perlengkapan.' };
+        }
+        this.inventory[emptyIdx] = wrapSlotInstance(oldEquipped, emptyIdx);
+      }
+    } else {
+      if (oldEquipped) {
+        this.inventory[slotIndex] = wrapSlotInstance(oldEquipped, slotIndex);
+      } else {
+        this.inventory[slotIndex] = null;
+      }
+    }
+
+    this.equipment[slotToUse] = wrapSlotInstance(newEquipped, -1);
+    if (def.weaponId && !this.ownedWeapons.includes(def.weaponId)) {
+      this.ownedWeapons.push(def.weaponId);
+    }
+
+    this.saveToStorage();
+    return {
+      success: true,
+      slot: slotToUse,
+      equipped: this.equipment[slotToUse],
+      unequipped: oldEquipped,
+      message: `Berhasil memasang ${def.name} di slot ${slotToUse.toUpperCase()}!`
+    };
+  }
+
+  unequipItem(equipSlot) {
+    if (!['primary', 'secondary', 'melee', 'throwable', 'armor'].includes(equipSlot)) {
+      return { success: false, message: 'Slot tidak valid.' };
+    }
+    const equipped = this.equipment[equipSlot];
+    if (!equipped) {
+      return { success: false, message: 'Slot perlengkapan kosong.' };
+    }
+
+    const emptyIdx = this.inventory.findIndex(s => s === null);
+    if (emptyIdx === -1) {
+      return { success: false, message: 'Inventaris penuh! Kosongkan slot sebelum melepas perlengkapan.' };
+    }
+
+    this.inventory[emptyIdx] = wrapSlotInstance(equipped, emptyIdx);
+    this.equipment[equipSlot] = null;
+
+    if (this.activeEquipSlot === equipSlot) {
+      if (this.equipment.secondary) this.activeEquipSlot = 'secondary';
+      else if (this.equipment.melee) this.activeEquipSlot = 'melee';
+      else if (this.equipment.primary) this.activeEquipSlot = 'primary';
+      else this.activeEquipSlot = null;
+    }
+
+    this.saveToStorage();
+    return {
+      success: true,
+      unequipped: equipped,
+      message: `Berhasil melepas ${equipped.item ? equipped.item.name : 'perlengkapan'} ke inventaris.`
+    };
+  }
+
+  getEquippedItem(slotName) {
+    return this.equipment ? this.equipment[slotName] : null;
+  }
+
+  getActiveEquippedWeapon() {
+    if (!this.equipment || !this.activeEquipSlot) return null;
+    return this.equipment[this.activeEquipSlot];
   }
 
   getInventoryUsedSlots() {
-    return Array.isArray(this.inventory) ? this.inventory.length : 0;
+    if (!Array.isArray(this.inventory)) return 0;
+    return this.inventory.filter(s => s !== null && s !== undefined).length;
   }
 
   getInventoryCapacity() {
@@ -1187,35 +1873,138 @@ class StateManager {
     return Math.max(0, this.getInventoryCapacity() - this.getInventoryUsedSlots());
   }
 
-  getInventoryItems(category = 'all', searchQuery = '', sortBy = 'name') {
+  getInventoryItems(category = 'all', searchQuery = '', sortBy = 'name_asc') {
     if (!Array.isArray(this.inventory)) return [];
-    let items = this.inventory.map((slot, idx) => ({ ...slot, originalSlot: idx }));
+    let items = [];
+    for (let i = 0; i < this.inventory.length; i++) {
+      const slot = this.inventory[i];
+      if (slot !== null && slot !== undefined) {
+        items.push({ ...slot, originalSlot: i, slotIndex: i });
+      }
+    }
 
     if (category && category !== 'all') {
-      items = items.filter(s => s.item.category === category);
+      items = items.filter(s => {
+        const itm = s.item || getItemDefinition(s.itemId);
+        if (!itm) return false;
+        if (category === 'consumables') return itm.category === 'medical' || itm.usable;
+        if (category === 'loot') return itm.category === 'zombie_drops' || itm.type === 'loot';
+        return itm.category === category || itm.type === category;
+      });
     }
 
     if (searchQuery && searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      items = items.filter(s =>
-        s.item.name.toLowerCase().includes(q) ||
-        (s.item.description && s.item.description.toLowerCase().includes(q))
-      );
+      items = items.filter(s => {
+        const itm = s.item || getItemDefinition(s.itemId);
+        return itm && (
+          (itm.name && itm.name.toLowerCase().includes(q)) ||
+          (itm.description && itm.description.toLowerCase().includes(q))
+        );
+      });
     }
 
     const rarityOrder = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
     items.sort((a, b) => {
-      if (sortBy === 'name' || sortBy === 'name_asc') return a.item.name.localeCompare(b.item.name);
-      if (sortBy === 'name_desc') return b.item.name.localeCompare(a.item.name);
-      if (sortBy === 'count' || sortBy === 'qty_desc') return b.count - a.count;
-      if (sortBy === 'qty_asc') return a.count - b.count;
-      if (sortBy === 'price' || sortBy === 'price_desc') return (b.item.value || 0) - (a.item.value || 0);
-      if (sortBy === 'price_asc') return (a.item.value || 0) - (b.item.value || 0);
-      if (sortBy === 'rarity' || sortBy === 'rarity_desc') return (rarityOrder[b.item.rarity] || 0) - (rarityOrder[a.item.rarity] || 0);
-      return 0;
+      const itmA = a.item || getItemDefinition(a.itemId) || {};
+      const itmB = b.item || getItemDefinition(b.itemId) || {};
+      if (sortBy === 'name' || sortBy === 'name_asc') return (itmA.name || '').localeCompare(itmB.name || '');
+      if (sortBy === 'name_desc') return (itmB.name || '').localeCompare(itmA.name || '');
+      if (sortBy === 'count' || sortBy === 'qty_desc') return (b.quantity || b.count || 0) - (a.quantity || a.count || 0);
+      if (sortBy === 'qty_asc') return (a.quantity || a.count || 0) - (b.quantity || b.count || 0);
+      if (sortBy === 'price' || sortBy === 'price_desc' || sortBy === 'value_desc') return (itmB.value || itmB.sellPrice || 0) - (itmA.value || itmA.sellPrice || 0);
+      if (sortBy === 'price_asc' || sortBy === 'value_asc') return (itmA.value || itmA.sellPrice || 0) - (itmB.value || itmB.sellPrice || 0);
+      if (sortBy === 'rarity' || sortBy === 'rarity_desc') return (rarityOrder[itmB.rarity] || 0) - (rarityOrder[itmA.rarity] || 0);
+      if (sortBy === 'weight_desc') return (itmB.weight || 0) - (itmA.weight || 0);
+      if (sortBy === 'weight_asc') return (itmA.weight || 0) - (itmB.weight || 0);
+      return a.slotIndex - b.slotIndex;
     });
 
     return items;
+  }
+
+  // =========================================================================
+  // MODUL STORAGE / WAREHOUSE (PETI STASH SAFEHOUSE DESA)
+  // =========================================================================
+
+  depositToStash(invSlotIndex, count = null) {
+    if (!Array.isArray(this.inventory) || invSlotIndex < 0 || invSlotIndex >= this.inventory.length || !this.inventory[invSlotIndex]) {
+      return { success: false, message: 'Slot inventaris tidak valid.' };
+    }
+    const slot = this.inventory[invSlotIndex];
+    const def = getItemDefinition(slot.itemId);
+    const take = Math.min(count || slot.quantity, slot.quantity);
+
+    if (!Array.isArray(this.stash)) this.stash = [];
+
+    if (def && def.stackable) {
+      for (const stSlot of this.stash) {
+        if (stSlot && stSlot.itemId === slot.itemId && (stSlot.quantity || stSlot.count) < (def.maxStack || 99)) {
+          const space = (def.maxStack || 99) - (stSlot.quantity || stSlot.count);
+          const add = Math.min(take, space);
+          stSlot.quantity = (stSlot.quantity || stSlot.count) + add;
+          stSlot.count = stSlot.quantity;
+          this.removeItemFromInventory(invSlotIndex, add, false);
+          this.saveToStorage();
+          return { success: true, count: add, message: `Menyimpan ${add}x ${def.name} ke Stash.` };
+        }
+      }
+    }
+
+    if (this.stash.length >= this.stashMaxSlots) {
+      return { success: false, message: 'Peti Stash sudah penuh!' };
+    }
+
+    this.removeItemFromInventory(invSlotIndex, take, false);
+    const newInst = createItemInstance(slot.itemId, take, slot.customData);
+    this.stash.push(wrapSlotInstance(newInst, this.stash.length));
+    this.saveToStorage();
+    return { success: true, count: take, message: `Menyimpan ${take}x ${def.name} ke Stash.` };
+  }
+
+  withdrawFromStash(stashIndex, count = null) {
+    if (!Array.isArray(this.stash) || stashIndex < 0 || stashIndex >= this.stash.length || !this.stash[stashIndex]) {
+      return { success: false, message: 'Slot Stash tidak valid.' };
+    }
+    const stSlot = this.stash[stashIndex];
+    const def = getItemDefinition(stSlot.itemId || stSlot.id);
+    const take = Math.min(count || stSlot.quantity || stSlot.count || 1, stSlot.quantity || stSlot.count || 1);
+
+    const addRes = this.addItemToInventory(stSlot.itemId || stSlot.id, take, false);
+    if (!addRes.success || addRes.countAdded === 0) {
+      return { success: false, message: 'Inventaris penuh!' };
+    }
+
+    const currentQty = (stSlot.quantity || stSlot.count || 1) - addRes.countAdded;
+    stSlot.quantity = currentQty;
+    stSlot.count = currentQty;
+    if (stSlot.quantity <= 0) {
+      this.stash.splice(stashIndex, 1);
+    }
+    this.saveToStorage();
+    return { success: true, count: addRes.countAdded, message: `Mengambil ${addRes.countAdded}x ${def.name} dari Stash.` };
+  }
+
+  depositAllToStash() {
+    let depositedCount = 0;
+    for (let i = 0; i < this.inventory.length; i++) {
+      if (this.inventory[i]) {
+        const res = this.depositToStash(i, this.inventory[i].quantity);
+        if (res.success) depositedCount++;
+        else break;
+      }
+    }
+    return { success: depositedCount > 0, count: depositedCount };
+  }
+
+  withdrawAllFromStash() {
+    let withdrawnCount = 0;
+    while (this.stash.length > 0) {
+      const res = this.withdrawFromStash(0, this.stash[0].quantity || this.stash[0].count);
+      if (res.success) withdrawnCount++;
+      else break;
+    }
+    return { success: withdrawnCount > 0, count: withdrawnCount };
   }
 
   // =========================================================================
@@ -1580,17 +2369,24 @@ class StateManager {
   }
 
   // =========================================================================
-  // PERSISTENSI PENYIMPANAN BROWSER & DATA MIGRATION ENGINE
+  // PERSISTENSI PENYIMPANAN BROWSER & DATA MIGRATION ENGINE (V6 UNIFIED)
   // =========================================================================
   saveToStorage() {
     if (typeof localStorage === 'undefined') return;
     try {
       const data = {
-        version: 5,
-        saveVersion: 5,
+        version: 6,
+        saveVersion: 6,
         wallet: this.wallet,
         backpack: this.backpack,
-        stash: this.stash,
+        stash: Array.isArray(this.stash) ? this.stash.map((s, idx) => s ? {
+          slotIndex: idx,
+          instanceId: s.instanceId,
+          itemId: s.itemId,
+          quantity: s.quantity || s.count || 1,
+          durability: s.durability || 100,
+          customData: s.customData || {}
+        } : null) : [],
         securePouch: this.securePouch,
         bounties: this.bounties,
         backpackTier: this.backpackTier,
@@ -1601,9 +2397,56 @@ class StateManager {
         playerShopStall: this.playerShopStall,
         playerShopRegister: this.playerShopRegister,
 
-        // Data Inventaris 60 Slot, Marketplace & Profil
-        inventory: this.inventory,
+        // Data Inventaris 60 Slot & Equipment Container
+        inventory: Array.isArray(this.inventory) ? this.inventory.map((slot, idx) => slot ? {
+          slotIndex: idx,
+          instanceId: slot.instanceId,
+          itemId: slot.itemId,
+          quantity: slot.quantity || slot.count || 1,
+          durability: slot.durability || 100,
+          customData: slot.customData || {}
+        } : null) : [],
         inventoryMaxSlots: this.inventoryMaxSlots,
+        equipment: {
+          primary: this.equipment && this.equipment.primary ? {
+            instanceId: this.equipment.primary.instanceId,
+            itemId: this.equipment.primary.itemId,
+            quantity: this.equipment.primary.quantity || 1,
+            durability: this.equipment.primary.durability || 100,
+            customData: this.equipment.primary.customData || {}
+          } : null,
+          secondary: this.equipment && this.equipment.secondary ? {
+            instanceId: this.equipment.secondary.instanceId,
+            itemId: this.equipment.secondary.itemId,
+            quantity: this.equipment.secondary.quantity || 1,
+            durability: this.equipment.secondary.durability || 100,
+            customData: this.equipment.secondary.customData || {}
+          } : null,
+          melee: this.equipment && this.equipment.melee ? {
+            instanceId: this.equipment.melee.instanceId,
+            itemId: this.equipment.melee.itemId,
+            quantity: this.equipment.melee.quantity || 1,
+            durability: this.equipment.melee.durability || 100,
+            customData: this.equipment.melee.customData || {}
+          } : null,
+          throwable: this.equipment && this.equipment.throwable ? {
+            instanceId: this.equipment.throwable.instanceId,
+            itemId: this.equipment.throwable.itemId,
+            quantity: this.equipment.throwable.quantity || 1,
+            durability: this.equipment.throwable.durability || 100,
+            customData: this.equipment.throwable.customData || {}
+          } : null,
+          armor: this.equipment && this.equipment.armor ? {
+            instanceId: this.equipment.armor.instanceId,
+            itemId: this.equipment.armor.itemId,
+            quantity: this.equipment.armor.quantity || 1,
+            durability: this.equipment.armor.durability || 100,
+            customData: this.equipment.armor.customData || {}
+          } : null
+        },
+        activeEquipSlot: this.activeEquipSlot,
+
+        // Marketplace, Profil & Statistik
         marketplaceListings: this.marketplaceListings,
         transactionHistory: this.transactionHistory,
         playerProfile: this.playerProfile,
@@ -1625,7 +2468,6 @@ class StateManager {
         const data = JSON.parse(raw);
         if (typeof data.wallet === 'number') this.wallet = data.wallet;
         if (Array.isArray(data.backpack)) this.backpack = data.backpack;
-        if (Array.isArray(data.stash)) this.stash = data.stash;
         if (Array.isArray(data.securePouch)) this.securePouch = data.securePouch;
         if (Array.isArray(data.bounties)) {
           data.bounties.forEach(savedB => {
@@ -1645,15 +2487,55 @@ class StateManager {
         if (Array.isArray(data.playerShopStall)) this.playerShopStall = data.playerShopStall;
         if (typeof data.playerShopRegister === 'number') this.playerShopRegister = data.playerShopRegister;
 
-        // Load & Migrasi Inventaris 60 Slot
+        // Inisialisasi Stash Container
+        if (Array.isArray(data.stash)) {
+          this.stash = data.stash.map((s, idx) => {
+            if (!s) return null;
+            const inst = createItemInstance(s.itemId || s.id, s.quantity || s.count || 1, s.customData);
+            return wrapSlotInstance(inst, idx);
+          }).filter(Boolean);
+        }
+
+        // Inisialisasi & Migrasi 60-Slot Inventaris
         if (typeof data.inventoryMaxSlots === 'number') this.inventoryMaxSlots = data.inventoryMaxSlots;
+        this.inventory = [];
+
         if (Array.isArray(data.inventory) && data.inventory.length > 0) {
-          this.inventory = data.inventory;
+          data.inventory.forEach((s, idx) => {
+            if (s && this.inventory.length < this.inventoryMaxSlots) {
+              const itemId = s.itemId || (s.item ? s.item.id : s.id);
+              if (itemId) {
+                const inst = createItemInstance(itemId, s.quantity || s.count || 1, s.customData);
+                this.inventory.push(wrapSlotInstance(inst, this.inventory.length));
+              }
+            }
+          });
         } else if (Array.isArray(data.backpack) && data.backpack.length > 0) {
-          // Migrasi aman dari backpack lama
-          this.inventory = [];
           data.backpack.forEach(itm => this.addItemToInventory(itm, itm.count || itm.quantity || 1, false));
         }
+
+        // Inisialisasi & Pemulihan Equipment Slots
+        if (data.equipment && typeof data.equipment === 'object') {
+          ['primary', 'secondary', 'melee', 'throwable', 'armor'].forEach(slot => {
+            if (data.equipment[slot]) {
+              const eq = data.equipment[slot];
+              const inst = createItemInstance(eq.itemId || eq.id, eq.quantity || eq.count || 1, eq.customData);
+              this.equipment[slot] = wrapSlotInstance(inst, -1);
+            } else {
+              this.equipment[slot] = null;
+            }
+          });
+        } else {
+          // Default loadout jika data baru / migrasi V1-V5
+          this.equipment.secondary = wrapSlotInstance(createItemInstance('pulse_pistol', 1, { ammoInMag: 12 }), -1);
+          this.equipment.melee = wrapSlotInstance(createItemInstance('machete', 1), -1);
+          if (this.ownedWeapons.includes('plasma_rifle')) {
+            this.equipment.primary = wrapSlotInstance(createItemInstance('plasma_rifle', 1, { ammoInMag: 30 }), -1);
+          } else if (this.ownedWeapons.includes('scatter_blaster')) {
+            this.equipment.primary = wrapSlotInstance(createItemInstance('scatter_blaster', 1, { ammoInMag: 6 }), -1);
+          }
+        }
+        if (data.activeEquipSlot) this.activeEquipSlot = data.activeEquipSlot;
 
         if (Array.isArray(data.marketplaceListings)) this.marketplaceListings = data.marketplaceListings;
         if (Array.isArray(data.transactionHistory)) this.transactionHistory = data.transactionHistory;
