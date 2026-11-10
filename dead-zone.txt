@@ -493,6 +493,11 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
 * 10 November 2026:
+  - Penggantian Batuan Pembatas Dunia 3D Hub Menjadi Pagar Mewah (Estate Perimeter Fence):
+    96 segmen panel kayu jati berpondasi andesit, jeruji besi berujung tombak lancip,
+    dan 16 lentera penerang berdesain antik di sekeliling radius 60 meter.
+  - Implementasi Sistem Tabrakan Pagar Anti-Tembus & Anti-Bug: Clamping radial matematis
+    pada radius aman 59.25m menjamin pemain tidak dapat menembus atau glitch ke luar batas dunia.
   - Implementasi True GPU-Gated Loading Screen: Layar loading kini menahan hingga
     House 39MB GLB, Pan Shop 10.5MB GLB, dan seluruh FBX Zombi selesai diunduh,
     dikompilasi dengan `renderer.compile`, dan dirender 3 frame sebelum dibuka.
