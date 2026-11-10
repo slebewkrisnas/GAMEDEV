@@ -3,7 +3,7 @@
 // Handles all kiosk interactions: Safehouse/Stash, Armory, Med-Bay, Scrap Exchange
 // ============================================================================
 
-import { GameState, ITEMS, BACKPACK_TIERS, HOUSE_TIERS } from './gameState.js';
+import { GameState, ITEMS, BACKPACK_TIERS, HOUSE_TIERS, CRAFTING_RECIPES } from './gameState.js';
 import { sound } from './audio.js';
 
 export class ShopManager {
@@ -18,6 +18,8 @@ export class ShopManager {
 
     this.modalSafehouse = document.getElementById('modal-safehouse');
     this.modalGeneralStore = document.getElementById('modal-general-store');
+    this.modalBounty = document.getElementById('modal-bounty');
+    this.modalWorkbench = document.getElementById('modal-workbench');
     this.modalArmory = document.getElementById('modal-armory');
     this.modalMedbay = document.getElementById('modal-medbay');
     this.modalScrap = document.getElementById('modal-scrap');
@@ -45,17 +47,33 @@ export class ShopManager {
           return;
         }
 
-        // 2. Beli Amunisi
-        if (target.dataset.action === 'buy-ammo') {
+        // 2. Beli Amunisi Berdasarkan Kaliber (Pistol, Shotgun, Rifle)
+        if (target.dataset.action === 'buy-ammo-cal') {
+          const calKey = target.dataset.cal.toUpperCase();
+          const itemMeta = ITEMS[calKey] || ITEMS.AMMO_PISTOL;
+          const cost = itemMeta.value;
+          if (GameState.canAfford(cost)) {
+            GameState.deductRp(cost);
+            sound.playCoinSound();
+            if (this.ui.player && this.ui.player.weapons) {
+              this.ui.player.weapons.addWeaponAmmo(itemMeta.weaponId, itemMeta.count);
+            }
+            alert(`Berhasil membeli amunisi! +${itemMeta.count} Peluru (${itemMeta.name}).`);
+            this.renderGeneralStoreModal();
+            this.ui.updateHUD();
+          } else {
+            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+          }
+        }
+        else if (target.dataset.action === 'buy-ammo') {
           const cost = ITEMS.PLASMA_AMMO.value;
           if (GameState.canAfford(cost)) {
             GameState.deductRp(cost);
             sound.playCoinSound();
             if (this.ui.player && this.ui.player.weapons) {
-              const curWep = this.ui.player.weapons.getCurrentWeapon();
-              curWep.reserveAmmo += ITEMS.PLASMA_AMMO.count;
+              this.ui.player.weapons.addWeaponAmmo('plasma_rifle', ITEMS.PLASMA_AMMO.count);
             }
-            alert(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Senapan.`);
+            alert(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Rifle.`);
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
@@ -198,6 +216,60 @@ export class ShopManager {
           if (res.success) {
             sound.playCoinSound();
             this.renderSafehouseModal();
+            this.ui.updateHUD();
+          }
+        } else if (target.dataset.action === 'to-pouch') {
+          const idx = parseInt(target.dataset.index, 10);
+          const res = GameState.transferToSecurePouch(idx);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderSafehouseModal();
+            this.ui.updateHUD();
+          }
+        } else if (target.dataset.action === 'from-pouch') {
+          const idx = parseInt(target.dataset.index, 10);
+          const res = GameState.transferFromSecurePouch(idx);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderSafehouseModal();
+            this.ui.updateHUD();
+          }
+        }
+      });
+    }
+
+    // Delegasi klik Papan Kontrak Buruan (Bounty Board)
+    if (this.modalBounty) {
+      this.modalBounty.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+        if (target.dataset.action === 'claim-bounty') {
+          const id = target.dataset.bountyId;
+          const res = GameState.claimBounty(id);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderBountyModal();
+            this.ui.updateHUD();
+          }
+        }
+      });
+    }
+
+    // Delegasi klik Meja Perakit (Workbench Crafting)
+    if (this.modalWorkbench) {
+      this.modalWorkbench.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (!target) return;
+        if (target.dataset.action === 'craft-recipe') {
+          const recipeId = target.dataset.recipe;
+          const res = GameState.craftRecipe(recipeId);
+          alert(res.message);
+          if (res.success) {
+            sound.playCoinSound();
+            this.renderWorkbenchModal();
             this.ui.updateHUD();
           }
         }
@@ -378,6 +450,16 @@ export class ShopManager {
       case 'house':
         this.openSafehouseModal();
         break;
+      case 'bounty':
+        this.openBountyModal();
+        break;
+      case 'workbench':
+        if (GameState.houseLevel < 3) {
+          alert('🔒 Meja Perakit Amunisi & Jamu Terkunci!\nHanya pemilik Rumah Juragan Desa (Level 3) yang dapat menggunakan fasilitas ini.\nSilakan upgrade rumah Anda di Papan Depan Rumah terlebih dahulu.');
+        } else {
+          this.openWorkbenchModal();
+        }
+        break;
       case 'general_store':
       case 'armory':
       case 'medbay':
@@ -440,10 +522,14 @@ export class ShopManager {
       upgradeHtml = `<div class="upgrade-card"><p>🏆 Rumah pedesaan Anda telah mencapai tingkat termegah (${curTier.name})!</p></div>`;
     }
 
+    const isLv3 = (GameState.houseLevel >= 3);
     const backpackItems = GameState.backpack.map((itm, idx) => `
       <div class="inventory-row">
         <span>${itm.icon} ${itm.name}</span>
-        <button data-action="to-stash" data-index="${idx}" class="btn-xfer" title="Simpan ke Peti Desa">➡️ Simpan</button>
+        <div style="display: flex; gap: 4px;">
+          <button data-action="to-stash" data-index="${idx}" class="btn-xfer" title="Simpan ke Peti Desa">➡️ Peti</button>
+          ${isLv3 && GameState.securePouch.length < 2 ? `<button data-action="to-pouch" data-index="${idx}" class="btn-pouch" title="Amankan ke Kantong">🛡️ Kantong</button>` : ''}
+        </div>
       </div>
     `).join('') || '<p class="empty-hint">Ransel kosong.</p>';
 
@@ -454,16 +540,35 @@ export class ShopManager {
       </div>
     `).join('') || '<p class="empty-hint">Peti Kayu Stash kosong.</p>';
 
+    let securePouchHtml = '';
+    if (isLv3) {
+      const pouchItems = GameState.securePouch.map((itm, idx) => `
+        <div class="inventory-row">
+          <span>🛡️ ${itm.icon} <strong>${itm.name}</strong></span>
+          <button data-action="from-pouch" data-index="${idx}" class="btn-xfer" title="Kembalikan ke Ransel">⬅️ Ke Ransel</button>
+        </div>
+      `).join('') || '<p class="empty-hint" style="color:#6ee7b7;">Kantong Aman kosong (Maksimal 2 slot aman).</p>';
+
+      securePouchHtml = `
+        <div class="secure-pouch-box">
+          <div class="secure-pouch-title">🛡️ KANTONG AMAN PEMBURU (${GameState.securePouch.length} / 2 Slot)</div>
+          <div class="secure-pouch-desc">Keistimewaan Rumah Juragan (Lv 3): Barang di dalam kantong ini 100% KEBAL HANGUS saat gugur di Sector-7!</div>
+          <div class="items-list">${pouchItems}</div>
+        </div>
+      `;
+    }
+
     this.modalSafehouse.querySelector('.modal-body').innerHTML = `
       <div class="safehouse-header">
         <h3>🏠 ${curTier.name} (Tingkat ${GameState.houseLevel})</h3>
-        <p>Barang di dalam Peti Kayu Stash 100% aman dan tidak akan hilang meskipun Anda gugur saat berburu di Hutan Terbengkalai.</p>
+        <p>Barang di dalam Peti Kayu Stash dan Kantong Aman 100% tidak akan hilang meskipun Anda gugur saat berburu di Hutan Sector-7.</p>
       </div>
 
       <div class="storage-columns">
         <div class="storage-col">
           <h4>🎒 TAS RANSEL PEMAIN (${GameState.backpack.length} / ${GameState.backpackMaxSlots})</h4>
           <div class="items-list">${backpackItems}</div>
+          ${securePouchHtml}
         </div>
         <div class="storage-col">
           <h4>📦 PETI KAYU STASH DESA (${GameState.stash.length} / ${GameState.stashMaxSlots})</h4>
@@ -501,7 +606,7 @@ export class ShopManager {
       <div class="store-stats-bar">
         <div class="store-stat-pill balance">
           <span>💰 Saldo Uang:</span>
-          <strong>${GameState.formatRp(GameState.rp)}</strong>
+          <strong>${GameState.formatRp(GameState.wallet)}</strong>
         </div>
         <div class="store-stat-pill">
           <span>🎒 Kapasitas Ransel:</span>
@@ -546,14 +651,32 @@ export class ShopManager {
     ` : `<div class="shop-item-card"><p>🎒 Ransel Anda sudah kapasitas maksimal (${GameState.backpackMaxSlots} Slot).</p></div>`;
 
     const weaponsSectionHtml = `
-      <div class="shop-section-heading">💥 Amunisi & Perlengkapan</div>
+      <div class="shop-section-heading">💥 Pasokan Amunisi per Kaliber</div>
       <div class="shop-item-card">
         <div class="item-info">
-          <h4>📦 Kotak Peluru Senapan Pemburu (24 Butir)</h4>
-          <p>Amunisi standar untuk pistol pemburu dan senapan berburu hutan.</p>
-          <span class="price-tag">${GameState.formatRp(ITEMS.PLASMA_AMMO.value)}</span>
+          <h4>🔫 Amunisi 9mm Pistol (24 Butir)</h4>
+          <p>Peluru standar 9mm berkecepatan tinggi untuk Tactical Pistol.</p>
+          <span class="price-tag">${GameState.formatRp(ITEMS.AMMO_PISTOL.value)}</span>
         </div>
-        <button data-action="buy-ammo" class="btn btn-primary btn-sm">BELI AMUNISI</button>
+        <button data-action="buy-ammo-cal" data-cal="ammo_pistol" class="btn btn-primary btn-sm">BELI 9MM</button>
+      </div>
+
+      <div class="shop-item-card">
+        <div class="item-info">
+          <h4>💥 Amunisi 12-Gauge Shotgun (12 Butir)</h4>
+          <p>Peluru buckshot berdaya ledak rapat untuk Scatter Shotgun.</p>
+          <span class="price-tag">${GameState.formatRp(ITEMS.AMMO_SHOTGUN.value)}</span>
+        </div>
+        <button data-action="buy-ammo-cal" data-cal="ammo_shotgun" class="btn btn-primary btn-sm">BELI 12-GAUGE</button>
+      </div>
+
+      <div class="shop-item-card">
+        <div class="item-info">
+          <h4>⚡ Amunisi 7.62mm Rifle (30 Butir)</h4>
+          <p>Peluru taktis kaliber 7.62mm bertenaga penuh untuk Senapan Taktis.</p>
+          <span class="price-tag">${GameState.formatRp(ITEMS.AMMO_RIFLE.value)}</span>
+        </div>
+        <button data-action="buy-ammo-cal" data-cal="ammo_rifle" class="btn btn-primary btn-sm">BELI 7.62MM</button>
       </div>
 
       ${bagUpgradeCard}
@@ -804,9 +927,127 @@ export class ShopManager {
     `;
   }
 
+  // --------------------------------------------------------------------------
+  // PAPAN KONTRAK BURUAN ALUN-ALUN DESA (BOUNTY HUNTING BOARD)
+  // --------------------------------------------------------------------------
+  openBountyModal() {
+    this.closeAllModals();
+    this.modalActive = true;
+    if (document.exitPointerLock) document.exitPointerLock();
+    this.renderBountyModal();
+    if (this.modalBounty) this.modalBounty.classList.remove('hidden');
+  }
+
+  renderBountyModal() {
+    if (!this.modalBounty) return;
+    const body = this.modalBounty.querySelector('.modal-body');
+    if (!body) return;
+
+    const cardsHtml = GameState.bounties.map(b => {
+      const pct = Math.min(100, Math.round((b.currentCount / b.targetCount) * 100));
+      let actionBtn = '';
+      if (b.claimed) {
+        actionBtn = `<button class="btn btn-sm" disabled style="background:#334155; color:#94a3b8; border:none;">SELESAI & DICAIRKAN</button>`;
+      } else if (b.completed) {
+        actionBtn = `<button data-action="claim-bounty" data-bounty-id="${b.id}" class="btn btn-primary btn-sm" style="background:#10b981; border-color:#059669; animation: pulse 1.5s infinite;">KLAIM HADIAH</button>`;
+      } else {
+        actionBtn = `<button class="btn btn-sm" disabled style="background:#1e293b; color:#64748b; border:1px solid rgba(255,255,255,0.1);">BURUAN BERJALAN</button>`;
+      }
+
+      return `
+        <div class="bounty-card">
+          <div class="bounty-info">
+            <h4>${b.title}</h4>
+            <p>${b.desc}</p>
+            <div style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 10px;">
+              <span>Progress: <strong>${b.currentCount} / ${b.targetCount}</strong> (${pct}%)</span>
+              <div class="bounty-progress-wrap">
+                <div class="bounty-progress-bar" style="width: ${pct}%;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="bounty-reward">+${GameState.formatRp(b.rewardRp)}</div>
+            ${actionBtn}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <p style="color: #cbd5e1; font-size: 13px; margin: 0 0 10px 0;">
+          Daftar target buruan resmi Kepala Desa Asri untuk para pemburu Sector-7. Selesaikan target eliminasi zombie dan penjarahan peti pondok untuk mendapatkan imbalan Rupiah ekstra.
+        </p>
+      </div>
+      <div>
+        ${cardsHtml}
+      </div>
+    `;
+  }
+
+  // --------------------------------------------------------------------------
+  // MEJA PERAKIT AMUNISI & JAMU (WORKBENCH CRAFTING) — HOUSE LV 3
+  // --------------------------------------------------------------------------
+  openWorkbenchModal() {
+    this.closeAllModals();
+    this.modalActive = true;
+    if (document.exitPointerLock) document.exitPointerLock();
+    this.renderWorkbenchModal();
+    if (this.modalWorkbench) this.modalWorkbench.classList.remove('hidden');
+  }
+
+  renderWorkbenchModal() {
+    if (!this.modalWorkbench) return;
+    const body = this.modalWorkbench.querySelector('.modal-body');
+    if (!body) return;
+
+    const recipesHtml = CRAFTING_RECIPES.map(recipe => {
+      let canCraft = true;
+      const reqTags = recipe.req.map(req => {
+        const available = GameState.countItem(req.id, true) + GameState.countItem(req.id, false);
+        const hasEnough = available >= req.count;
+        if (!hasEnough) canCraft = false;
+        return `
+          <span class="craft-req-tag ${hasEnough ? 'ready' : 'missing'}">
+            ${req.name}: ${available}/${req.count}
+          </span>
+        `;
+      }).join(' ');
+
+      return `
+        <div class="craft-card">
+          <div class="craft-info">
+            <h4>🔨 ${recipe.name}</h4>
+            <p>${recipe.desc}</p>
+            <div class="craft-reqs">
+              ${reqTags}
+            </div>
+          </div>
+          <button data-action="craft-recipe" data-recipe="${recipe.id}" class="btn btn-primary btn-sm" ${!canCraft ? 'disabled style="opacity:0.5;"' : ''}>
+            RAKIT BARANG
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <p style="color: #cbd5e1; font-size: 13px; margin: 0 0 10px 0;">
+          Meja perakit perkakas di teras Rumah Juragan Desa (Level 3). Gunakan material Kayu, Besi Tempa, dan Daging Mutan yang dikumpulkan dari Sector-7 untuk merakit amunisi dan meramu Jamu Herbal mandiri tanpa biaya Rupiah.
+        </p>
+      </div>
+      <div>
+        ${recipesHtml}
+      </div>
+    `;
+  }
+
   closeAllModals() {
     if (this.modalSafehouse) this.modalSafehouse.classList.add('hidden');
     if (this.modalGeneralStore) this.modalGeneralStore.classList.add('hidden');
+    if (this.modalBounty) this.modalBounty.classList.add('hidden');
+    if (this.modalWorkbench) this.modalWorkbench.classList.add('hidden');
     if (this.modalArmory) this.modalArmory.classList.add('hidden');
     if (this.modalMedbay) this.modalMedbay.classList.add('hidden');
     if (this.modalScrap) this.modalScrap.classList.add('hidden');

@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { sound } from './audio.js';
-import { GameState } from './gameState.js';
+import { GameState, ITEMS } from './gameState.js';
 
 export class WaveManager {
   constructor(zombiesManager, environment, player, uiManager, onVictoryCallback) {
@@ -17,6 +17,17 @@ export class WaveManager {
     this.onVictoryCallback = onVictoryCallback;
     this.lootManager = null;
     this.weaponManager = null;
+
+    // Pasang listener jika Boss meraung memanggil 2 runner
+    if (this.zombiesManager) {
+      this.zombiesManager.onBossRoar = (bossInst) => {
+        this.uiManager.showAnnouncement(
+          "⚠️ RAUNGAN TITAN MUTAN!",
+          "Boss meraung keras dan memanggil 2 Runner mutan ke medan laga!",
+          3.5
+        );
+      };
+    }
 
     // Survival progression
     this.totalKills = 0;
@@ -192,32 +203,50 @@ export class WaveManager {
   onZombieKilled(pos, isBoss = false, zombieInstance = null) {
     this.totalKills++;
 
-    if (isBoss || (zombieInstance && zombieInstance.type === 'boss')) {
+    const zType = zombieInstance ? zombieInstance.type : (isBoss ? 'boss' : 'walker');
+
+    // Catat progress kontrak buruan di alun-alun desa
+    if (zType === 'runner') {
+      GameState.recordBountyProgress('runner', 1);
+    } else if (zType === 'tank' || zType === 'brute') {
+      GameState.recordBountyProgress('tank', 1);
+    }
+
+    if (isBoss || zType === 'boss') {
       // Boss Defeated!
       this.bossActive = false;
       this.currentBoss = null;
 
       sound.playBossDeath();
 
-      // Massive Cash Reward: +Rp 200.000
-      const bossRewardRp = 200000;
-      GameState.wallet += bossRewardRp;
+      // Hadiah Boss Diubah Menjadi Barang Fisik di Ransel: Inti Titan (Rp 200.000)
+      // Pemain wajib berhasil evakuasi hidup-hidup ke Desa Asri untuk menjualnya!
+      const titanCore = { ...ITEMS.TITAN_CORE };
+      let addedToBag = false;
+      if (GameState.backpack.length < GameState.backpackMaxSlots) {
+        GameState.addItemToBackpack(titanCore);
+        addedToBag = true;
+      } else if (this.lootManager && pos) {
+        this.lootManager.spawnSpecificDrop(pos, titanCore);
+      }
 
       // 4x Rare Loot Drops
       if (this.lootManager && pos) {
         this.lootManager.spawnDrop(pos, true);
       }
 
-      // Bonus Ammo Supply
+      // Bonus Ammo Terbatas (Hanya 1 Kotak 24 peluru, tidak lagi +36 ke semua senjata)
       if (this.weaponManager) {
-        this.weaponManager.resupplyAmmo(36);
+        this.weaponManager.resupplyAmmo(24);
         setTimeout(() => sound.playAmmoResupply(), 600);
       }
 
       this.uiManager.showAnnouncement(
-        "🏆 BOSS TITAN BERHASIL DITUMBANGKAN!",
-        `+${GameState.formatRp(bossRewardRp)} Hadiah Masuk ke Dompet & 4x Loot Langka Terjatuh!`,
-        5.0
+        "🏆 BOSS TITAN TELAH TUMBANG!",
+        addedToBag
+          ? "Inti Titan (Rp 200.000) masuk ke ransel! Segera evakuasi ke Desa Asri untuk mencairkannya!"
+          : "Ransel penuh! Inti Titan (Rp 200.000) terjatuh di tanah dekat bangkai Boss!",
+        5.5
       );
       this.uiManager.updateHUD();
     } else {

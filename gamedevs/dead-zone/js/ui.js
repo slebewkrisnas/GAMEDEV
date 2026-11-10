@@ -19,6 +19,8 @@ export class UIManager {
     // HUD Elements
     this.healthBarFill = document.getElementById('health-bar-fill');
     this.healthText = document.getElementById('health-text');
+    this.staminaBarFill = document.getElementById('stamina-bar-fill');
+    this.staminaText = document.getElementById('stamina-text');
     this.damageFlash = document.getElementById('damage-flash');
     this.lowHpVignette = document.getElementById('low-hp-vignette');
     this.playerStatusText = document.getElementById('player-status-text');
@@ -198,14 +200,34 @@ export class UIManager {
       if (GameState.activeZone === 'safe_zone') {
         this.hudZoneBadge.textContent = 'SAFE ZONE (AMAN)';
         this.hudZoneBadge.style.color = '#00e5ff';
-        this.hudWaveTitle.textContent = 'NEO-HAVEN COLONY';
+        this.hudWaveTitle.textContent = 'DESA ASRI (PERMUKIMAN AMAN)';
       } else {
         this.hudZoneBadge.textContent = 'HUTAN SECTOR-7 (BAHAYA)';
         this.hudZoneBadge.style.color = '#10b981';
-        this.hudWaveTitle.textContent = 'BLACKWOOD FOREST';
+        this.hudWaveTitle.textContent = 'HUTAN RIMBA SECTOR-7';
       }
     }
     this.updateQuickSelectBar();
+  }
+
+  updateStamina(stamina, maxStamina = 5.0, isExhausted = false) {
+    if (!this.staminaBarFill) {
+      this.staminaBarFill = document.getElementById('stamina-bar-fill');
+      this.staminaText = document.getElementById('stamina-text');
+    }
+    if (!this.staminaBarFill) return;
+
+    const pct = Math.max(0, Math.min(100, (stamina / maxStamina) * 100));
+    this.staminaBarFill.style.width = `${pct}%`;
+    this.staminaBarFill.classList.toggle('exhausted', isExhausted);
+
+    if (this.staminaText) {
+      if (isExhausted) {
+        this.staminaText.textContent = 'TERENGAH-ENGAH (LELAH)';
+      } else {
+        this.staminaText.textContent = `${stamina.toFixed(1)}s (${Math.round(pct)}%)`;
+      }
+    }
   }
 
   updateQuickSelectBar(activeWeaponId = null, weaponData = null) {
@@ -333,17 +355,17 @@ export class UIManager {
     // Color gradient based on health
     if (pct > 60) {
       this.healthBarFill.style.background = 'linear-gradient(90deg, #15803d, #22c55e)';
-      this.playerStatusText.textContent = 'OPERATIONAL';
+      this.playerStatusText.textContent = 'SEHAT & SIAGA';
       this.playerStatusText.style.color = '#22c55e';
       this.lowHpVignette.classList.remove('pulse-active');
     } else if (pct > 30) {
       this.healthBarFill.style.background = 'linear-gradient(90deg, #b45309, #f59e0b)';
-      this.playerStatusText.textContent = 'INJURED';
+      this.playerStatusText.textContent = 'TERLUKA';
       this.playerStatusText.style.color = '#f59e0b';
       this.lowHpVignette.classList.remove('pulse-active');
     } else {
       this.healthBarFill.style.background = 'linear-gradient(90deg, #991b1b, #ef4444)';
-      this.playerStatusText.textContent = 'CRITICAL';
+      this.playerStatusText.textContent = 'KRITIS';
       this.playerStatusText.style.color = '#ef4444';
       this.lowHpVignette.classList.add('pulse-active');
     }

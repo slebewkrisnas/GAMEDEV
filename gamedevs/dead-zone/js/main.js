@@ -473,6 +473,16 @@ class DeadZoneGame {
       } else {
         this.weaponManager.setHolstered(false);
         this.waveManager.startWave(1);
+
+        if (this.environment.currentBeaconSite) {
+          setTimeout(() => {
+            this.ui.showAnnouncement(
+              "📡 SUAR EVAKUASI TERDETEKSI",
+              `Lokasi Suar: Di dekat ${this.environment.currentBeaconSite.name}. Cari laser pilar cyan di atas pepohonan!`,
+              5.0
+            );
+          }, 1800);
+        }
       }
 
       this.ui.updateHUD();
@@ -604,8 +614,11 @@ class DeadZoneGame {
         const pPos = this.player.yawObject.position;
         if (GameState.activeZone === 'safe_zone' && pPos.z >= 34.5 && Math.abs(pPos.x) < 3.5) {
           this.switchZone('sector_7');
-        } else if (GameState.activeZone === 'sector_7' && pPos.z <= -90.5 && Math.abs(pPos.x) < 3.2) {
-          this.switchZone('safe_zone');
+        } else if (GameState.activeZone === 'sector_7' && this.environment.currentBeaconSite) {
+          const bSite = this.environment.currentBeaconSite;
+          if (Math.hypot(pPos.x - bSite.x, pPos.z - bSite.z) <= 3.2) {
+            this.switchZone('safe_zone');
+          }
         }
       }
 

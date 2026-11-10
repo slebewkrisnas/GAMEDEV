@@ -34,6 +34,14 @@ export const ITEMS = {
     icon: '💎',
     description: 'Batu permata berkilau langka dari monster elit hutan rimba, bernilai Rp 80.000.'
   },
+  TITAN_CORE: {
+    id: 'titan_core',
+    name: 'Inti Titan Raksasa',
+    type: 'loot',
+    value: 200000,
+    icon: '👑',
+    description: 'Inti energi titan langka dari Boss Titan Sector-7, bernilai jual Rp 200.000 di Toko Desa.'
+  },
   NANO_STIM: {
     id: 'nano_stim',
     name: 'Ramuan Jamu Herbal',
@@ -42,16 +50,84 @@ export const ITEMS = {
     icon: '🌿',
     description: 'Racikan tanaman herbal penambah +40 HP instan (tekan [Q] saat bertempur).'
   },
+  AMMO_PISTOL: {
+    id: 'ammo_pistol',
+    name: 'Amunisi 9mm Pistol (24 btr)',
+    type: 'ammo',
+    value: 15000,
+    count: 24,
+    weaponId: 'pulse_pistol',
+    icon: '🔫',
+    description: 'Satu kotak 24 butir peluru 9mm untuk Tactical Pistol.'
+  },
+  AMMO_SHOTGUN: {
+    id: 'ammo_shotgun',
+    name: 'Amunisi 12-Gauge (12 btr)',
+    type: 'ammo',
+    value: 25000,
+    count: 12,
+    weaponId: 'scatter_blaster',
+    icon: '💥',
+    description: 'Satu kotak 12 butir peluru buckshot untuk Scatter Shotgun.'
+  },
+  AMMO_RIFLE: {
+    id: 'ammo_rifle',
+    name: 'Amunisi 7.62mm Rifle (30 btr)',
+    type: 'ammo',
+    value: 35000,
+    count: 30,
+    weaponId: 'plasma_rifle',
+    icon: '⚡',
+    description: 'Satu kotak 30 butir amunisi rifle kaliber 7.62mm.'
+  },
   PLASMA_AMMO: {
     id: 'plasma_ammo',
-    name: 'Peluru Senapan Pemburu',
+    name: 'Amunisi 7.62mm Rifle (30 btr)',
     type: 'ammo',
-    value: 20000,
-    count: 24,
+    value: 35000,
+    count: 30,
+    weaponId: 'plasma_rifle',
     icon: '📦',
-    description: 'Satu pack 24 butir amunisi kaliber pemburu.'
+    description: 'Satu kotak 30 butir amunisi rifle kaliber 7.62mm.'
   }
 };
+
+export const CRAFTING_RECIPES = [
+  {
+    id: 'craft_ammo_pistol',
+    name: 'Rakit Amunisi 9mm Pistol',
+    result: { id: 'ammo_pistol', count: 24 },
+    req: [{ id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 1 }],
+    desc: 'Ubah 1 Kayu & Besi Tempa menjadi 24 butir peluru 9mm.'
+  },
+  {
+    id: 'craft_ammo_shotgun',
+    name: 'Rakit Amunisi 12-Gauge Shotgun',
+    result: { id: 'ammo_shotgun', count: 12 },
+    req: [{ id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 2 }],
+    desc: 'Ubah 2 Kayu & Besi Tempa menjadi 12 butir buckshot shotgun.'
+  },
+  {
+    id: 'craft_ammo_rifle',
+    name: 'Rakit Amunisi 7.62mm Rifle',
+    result: { id: 'ammo_rifle', count: 30 },
+    req: [
+      { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 2 },
+      { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 1 }
+    ],
+    desc: 'Kombinasikan 2 Besi Tempa & 1 Daging Mutan menjadi 30 butir peluru rifle.'
+  },
+  {
+    id: 'craft_jamu_herbal',
+    name: 'Racik Ramuan Jamu Herbal (+40 HP)',
+    result: { id: 'nano_stim', count: 1 },
+    req: [
+      { id: 'scrap_metal', name: 'Kayu & Besi Tempa', count: 1 },
+      { id: 'bio_tissue', name: 'Daging Mutan Hutan', count: 1 }
+    ],
+    desc: 'Tumbuk 1 Daging Mutan & 1 Kayu/Akar Herbal menjadi 1 botol Jamu Herbal.'
+  }
+];
 
 export const BACKPACK_TIERS = [
   { level: 1, name: 'Tas Anyaman Bambu', slots: 6, cost: 0 },
@@ -75,6 +151,8 @@ class StateManager {
     this.wallet = 50000; // Mulai dengan modal awal Rp 50.000
     this.backpack = [];
     this.stash = [];
+    this.securePouch = []; // 2 Slot Kantong Aman (House Lv 3 Perk)
+    this.securePouchMaxSlots = 2; // Maksimal 2 slot saat Lv 3 aktif
     this.backpackTier = 1;
     this.backpackMaxSlots = 6;
     this.houseLevel = 1;
@@ -82,6 +160,43 @@ class StateManager {
     this.activeZone = 'safe_zone'; // 'safe_zone' | 'sector_7'
     this.ownedWeapons = ['pulse_pistol'];
     this.currentWeaponIndex = 0;
+
+    // Kontrak Buruan Harian / Berkala di Alun-Alun Desa
+    this.bounties = [
+      {
+        id: 'bounty_brutes',
+        title: 'Basmi 5 Zombi Brute',
+        desc: 'Musnahkan 5 mutan Brute berbadan kekar di Sector-7.',
+        targetType: 'tank',
+        targetCount: 5,
+        currentCount: 0,
+        rewardRp: 75000,
+        completed: false,
+        claimed: false
+      },
+      {
+        id: 'bounty_runners',
+        title: 'Buruan Kilat: 10 Runner',
+        desc: 'Tumbangkan 10 zombie pelari gesit yang mengancam perbatasan.',
+        targetType: 'runner',
+        targetCount: 10,
+        currentCount: 0,
+        rewardRp: 50000,
+        completed: false,
+        claimed: false
+      },
+      {
+        id: 'bounty_crates',
+        title: 'Penjarahan 3 Peti Kargo',
+        desc: 'Buka dan ambil perbekalan dari 3 peti kargo pondok hutan.',
+        targetType: 'crate',
+        targetCount: 3,
+        currentCount: 0,
+        rewardRp: 60000,
+        completed: false,
+        claimed: false
+      }
+    ];
   }
 
   // Format Rupiah standar Indonesia
@@ -241,8 +356,133 @@ class StateManager {
     };
   }
 
+  // =========================================================================
+  // KANTONG AMAN (SECURE POUCH) — HOUSE LEVEL 3 PERK
+  // Maksimal 2 slot. Barang di sini KEBAL HANGUS saat mati di Sector-7!
+  // =========================================================================
+  addToSecurePouch(item) {
+    if (this.houseLevel < 3) return { success: false, message: 'Kantong Aman terbuka di Rumah Juragan Desa (Level 3).' };
+    if (this.securePouch.length >= 2) return { success: false, message: 'Kantong Aman penuh (Maksimal 2 slot).' };
+    this.securePouch.push({ ...item, uid: Date.now() + Math.random().toString(36).substr(2, 5) });
+    this.saveToStorage();
+    return { success: true, message: 'Barang berhasil disimpan di Kantong Aman!' };
+  }
+
+  removeItemFromSecurePouch(index) {
+    if (index >= 0 && index < this.securePouch.length) {
+      const removed = this.securePouch.splice(index, 1)[0];
+      this.saveToStorage();
+      return removed;
+    }
+    return null;
+  }
+
+  transferToSecurePouch(backpackIndex) {
+    if (this.houseLevel < 3) return { success: false, message: 'Kantong Aman memerlukan Rumah Level 3.' };
+    if (this.securePouch.length >= 2) return { success: false, message: 'Kantong Aman penuh (maks 2 slot).' };
+    const item = this.removeItemFromBackpack(backpackIndex);
+    if (!item) return { success: false, message: 'Barang tidak ditemukan.' };
+    this.securePouch.push(item);
+    this.saveToStorage();
+    return { success: true, message: 'Barang dipindahkan ke Kantong Aman (Kebal Gugur).' };
+  }
+
+  transferFromSecurePouch(pouchIndex) {
+    if (this.backpack.length >= this.backpackMaxSlots) return { success: false, message: 'Ransel sudah penuh!' };
+    const item = this.removeItemFromSecurePouch(pouchIndex);
+    if (!item) return { success: false, message: 'Barang tidak ditemukan.' };
+    this.backpack.push(item);
+    this.saveToStorage();
+    return { success: true, message: 'Barang dipindahkan kembali ke Ransel.' };
+  }
+
+  // =========================================================================
+  // MEJA PERAKIT AMUNISI & JAMU (WORKBENCH CRAFTING) — HOUSE LEVEL 3 PERK
+  // =========================================================================
+  craftRecipe(recipeId) {
+    if (this.houseLevel < 3) {
+      return { success: false, message: 'Meja Perakit hanya tersedia di Rumah Juragan Desa (Level 3).' };
+    }
+    const recipe = CRAFTING_RECIPES.find(r => r.id === recipeId);
+    if (!recipe) return { success: false, message: 'Resep perakitan tidak valid.' };
+
+    // Periksa bahan
+    for (const req of recipe.req) {
+      const available = this.countItem(req.id, true) + this.countItem(req.id, false);
+      if (available < req.count) {
+        return { success: false, message: `Bahan tidak cukup! Membutuhkan ${req.count}x ${req.name} (Tersedia: ${available}).` };
+      }
+    }
+
+    // Konsumsi bahan
+    for (const req of recipe.req) {
+      let remaining = req.count;
+      const takenFromBackpack = this.removeItemsById(req.id, remaining, true);
+      remaining -= takenFromBackpack;
+      if (remaining > 0) {
+        this.removeItemsById(req.id, remaining, false);
+      }
+    }
+
+    // Buat hasil
+    const targetItemMeta = Object.values(ITEMS).find(it => it.id === recipe.result.id);
+    if (!targetItemMeta) return { success: false, message: 'Item hasil tidak dikenal.' };
+
+    // Masukkan ke ransel jika muat, atau ke stash
+    let placed = false;
+    if (this.backpack.length < this.backpackMaxSlots) {
+      this.addItemToBackpack(targetItemMeta);
+      placed = true;
+    } else if (this.stash.length < this.stashMaxSlots) {
+      this.addItemToStash(targetItemMeta);
+      placed = true;
+    }
+
+    this.saveToStorage();
+    return {
+      success: true,
+      message: `Berhasil merakit: ${recipe.name}! (${placed ? 'Disimpan ke inventaris' : 'Inventaris penuh, barang tertahan'}).`
+    };
+  }
+
+  // =========================================================================
+  // PAPAN KONTRAK BURUAN DESA (BOUNTY HUNTING CONTRACTS)
+  // =========================================================================
+  recordBountyProgress(type, count = 1) {
+    let anyCompleted = false;
+    for (const b of this.bounties) {
+      if (!b.completed && b.targetType === type) {
+        b.currentCount = Math.min(b.targetCount, b.currentCount + count);
+        if (b.currentCount >= b.targetCount) {
+          b.completed = true;
+          anyCompleted = true;
+        }
+      }
+    }
+    if (anyCompleted || count > 0) {
+      this.saveToStorage();
+    }
+    return anyCompleted;
+  }
+
+  claimBounty(bountyId) {
+    const bounty = this.bounties.find(b => b.id === bountyId);
+    if (!bounty) return { success: false, message: 'Kontrak tidak ditemukan.' };
+    if (!bounty.completed) return { success: false, message: 'Target buruan belum selesai!' };
+    if (bounty.claimed) return { success: false, message: 'Hadiah kontrak ini sudah dicairkan.' };
+
+    bounty.claimed = true;
+    this.addRp(bounty.rewardRp);
+    this.saveToStorage();
+    return {
+      success: true,
+      rewardRp: bounty.rewardRp,
+      message: `Hadiah Kontrak Dicairkan! +${this.formatRp(bounty.rewardRp)} masuk ke dompet.`
+    };
+  }
+
   // High-Stakes Death Penalty:
-  // Semua item di tas ekspedisi HANGUS, item di Stash & Saldo Rupiah AMAN
+  // Semua item di tas ekspedisi HANGUS, item di Stash & KANTONG AMAN & Saldo Rupiah AMAN
   clearBackpackOnDeath() {
     const lostItems = [...this.backpack];
     this.backpack = [];
@@ -258,6 +498,8 @@ class StateManager {
         wallet: this.wallet,
         backpack: this.backpack,
         stash: this.stash,
+        securePouch: this.securePouch,
+        bounties: this.bounties,
         backpackTier: this.backpackTier,
         backpackMaxSlots: this.backpackMaxSlots,
         houseLevel: this.houseLevel,
@@ -279,6 +521,18 @@ class StateManager {
         if (typeof data.wallet === 'number') this.wallet = data.wallet;
         if (Array.isArray(data.backpack)) this.backpack = data.backpack;
         if (Array.isArray(data.stash)) this.stash = data.stash;
+        if (Array.isArray(data.securePouch)) this.securePouch = data.securePouch;
+        if (Array.isArray(data.bounties)) {
+          // Merge progress with defaults
+          data.bounties.forEach(savedB => {
+            const match = this.bounties.find(b => b.id === savedB.id);
+            if (match) {
+              match.currentCount = savedB.currentCount || 0;
+              match.completed = !!savedB.completed;
+              match.claimed = !!savedB.claimed;
+            }
+          });
+        }
         if (data.backpackTier) this.backpackTier = data.backpackTier;
         if (data.backpackMaxSlots) this.backpackMaxSlots = data.backpackMaxSlots;
         if (data.houseLevel) this.houseLevel = data.houseLevel;

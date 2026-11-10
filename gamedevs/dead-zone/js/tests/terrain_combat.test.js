@@ -23,7 +23,17 @@ global.document = {
         getContext: () => ctxProxy
       };
     }
+    if (tag === 'img') {
+      return {
+        addEventListener: noop,
+        removeEventListener: noop,
+        src: ''
+      };
+    }
     return {};
+  },
+  createElementNS: (ns, tag) => {
+    return global.document.createElement(tag);
   },
   pointerLockElement: null,
   addEventListener: noop,
@@ -192,8 +202,13 @@ assert.strictEqual(waves.currentBoss.type, 'boss');
 // Defeat the Boss!
 waves.onZombieKilled({ x: 0, z: 0 }, true, waves.currentBoss);
 assert.strictEqual(waves.bossActive, false, 'Boss must be deactivated after defeat');
-assert.strictEqual(GameState.wallet, initialWallet + 200000, 'Player must receive +Rp 200.000 boss reward');
-assert.strictEqual(bossRewardGiven, true, '4x Rare loot drop must be triggered on boss defeat');
+// User Requirement: Boss reward is now physical Inti Titan (Rp 200.000) in backpack, not instant cash!
+assert.strictEqual(GameState.wallet, initialWallet, 'Wallet must NOT receive instant cash on boss kill');
+const titanCore = GameState.backpack.find(item => item.id === 'titan_core');
+assert.ok(titanCore, 'Player backpack must contain physical Inti Titan (TITAN_CORE) item');
+assert.strictEqual(titanCore.value, 200000, 'Inti Titan item must be worth Rp 200.000');
+assert.strictEqual(bossRewardGiven, true, 'Rare loot drop must be triggered on boss defeat');
 
 console.log('✔ Unlimited wave & 10-kill Boss progression passed!');
 console.log('--- ALL TERRAIN, WEAPONS, VARIANT & BOSS TESTS PASSED! ---');
+process.exit(0);

@@ -37,9 +37,17 @@ export class Player {
     this.flashlightEnabled = true;
 
     // Movement speeds (meters per second)
-    this.walkSpeed = 6.0;
-    this.sprintSpeed = 10.0;
+    // Kecepatan jalan disesuaikan ke 4.2 m/s agar zombie Runner (3.9 m/s) tetap mengancam
+    this.walkSpeed = 4.2;
+    this.sprintSpeed = 7.8;
     this.radius = 0.5; // Collision radius
+
+    // Stamina System (Maksimal 5 Detik Sprint)
+    this.maxStamina = 5.0;
+    this.stamina = 5.0;
+    this.staminaDrain = 1.0; // Habis dalam 5 detik sprint penuh
+    this.staminaRegen = 1.25; // Pulih penuh dalam ~4 detik saat istirahat/jalan santai
+    this.isExhausted = false; // Terkunci sprint jika stamina terkuras habis hingga 0
 
     // Vertical physics & Jump mechanics
     this.eyeHeight = 1.7; // Standard camera eye height on ground
@@ -155,7 +163,9 @@ export class Player {
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
-        this.isSprinting = true;
+        if (!this.isExhausted && this.stamina > 0.4) {
+          this.isSprinting = true;
+        }
         break;
       case 'KeyF':
         this.toggleFlashlight();
@@ -329,8 +339,32 @@ export class Player {
       this.camera.position.y = 0;
     }
 
-    // Determine current speed
-    const currentSpeed = this.isSprinting ? this.sprintSpeed : this.walkSpeed;
+    // Determine current speed and update Stamina system
+    let currentSpeed = this.walkSpeed;
+    const isMovingInput = (this.moveForward || this.moveBackward || this.moveLeft || this.moveRight || !!this.joyX || !!this.joyZ);
+
+    if (this.isSprinting && isMovingInput && !this.isExhausted) {
+      // Konsumsi Stamina saat sprint aktif (5 detik total)
+      this.stamina = Math.max(0, this.stamina - delta * this.staminaDrain);
+      currentSpeed = this.sprintSpeed;
+      if (this.stamina <= 0.01) {
+        this.stamina = 0;
+        this.isSprinting = false;
+        this.isExhausted = true; // Kehabisan nafas
+      }
+    } else {
+      // Pulihkan Stamina saat jalan santai atau diam
+      this.isSprinting = false;
+      this.stamina = Math.min(this.maxStamina, this.stamina + delta * this.staminaRegen);
+      if (this.stamina >= 1.2) {
+        this.isExhausted = false; // Pulih dari lelah
+      }
+    }
+
+    // Beritahukan UI perubahan stamina
+    if (this.ui && typeof this.ui.updateStamina === 'function') {
+      this.ui.updateStamina(this.stamina, this.maxStamina, this.isExhausted);
+    }
 
     // Calculate local input movement vector
     let inputX = (this.moveRight ? 1 : 0) - (this.moveLeft ? 1 : 0);
@@ -461,6 +495,11 @@ export class Player {
     this.moveLeft = false;
     this.moveRight = false;
     this.isSprinting = false;
+    this.stamina = this.maxStamina;
+    this.isExhausted = false;
+    if (this.ui && typeof this.ui.updateStamina === 'function') {
+      this.ui.updateStamina(this.stamina, this.maxStamina, false);
+    }
     this.bobTimer = 0;
     this.cameraShakeIntensity = 0;
   }

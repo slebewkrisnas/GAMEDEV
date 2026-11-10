@@ -69,11 +69,11 @@ export class Zombie {
     if (config.scale) {
       this.scale = config.scale;
     } else if (this.type === 'boss') {
-      this.scale = 1.85; // Massive colossal Necromancer boss
+      this.scale = 2.6; // Massive colossal Necromancer boss
     } else if (this.type === 'tank' || this.type === 'brute') {
-      this.scale = 1.25; // Kekar dan kokoh
+      this.scale = 1.35; // Kekar dan kokoh
     } else if (this.type === 'runner') {
-      this.scale = 0.9; // Gesit dan ramping
+      this.scale = 0.88; // Gesit dan ramping
     } else if (this.type === 'stalker') {
       this.scale = 1.05;
     } else {
@@ -85,9 +85,15 @@ export class Zombie {
     this.isAlive = true;
 
     // Combat parameters
-    this.attackRange = this.type === 'boss' ? 3.0 : (1.85 * this.scale);
+    // Sesuaikan jangkauan serangan Boss Titan ke 3.8 meter agar tebasan pedang raksasanya realistis
+    this.attackRange = this.type === 'boss' ? 3.8 : (1.85 * this.scale);
     this.attackCooldown = this.type === 'runner' ? 0.8 : (this.type === 'boss' ? 1.4 : 1.1);
     this.attackTimer = 0.5;
+
+    // Special Boss state: Raungan & Pemanggilan Runner saat HP <= 50%
+    this.hasSummonedRunners = false;
+    this.onBossRoarCallback = null;
+    this.onToxicDeathCallback = null;
 
     // Death / Despawn timing
     this.deathTimer = 0;
@@ -281,6 +287,18 @@ export class Zombie {
     // Recoil flinch
     this.mesh.position.y += 0.05;
 
+    // Jurus Unik Boss Titan: Raungan Necromancer & Panggil 2 Runner saat HP <= 50%
+    if (this.type === 'boss' && !this.hasSummonedRunners && this.health <= this.maxHealth * 0.5 && this.health > 0) {
+      this.hasSummonedRunners = true;
+      if (this.realAsset && this.realAsset.actions && this.realAsset.actions.roar) {
+        playZombieAction(this.realAsset, 'roar', 0.2);
+      }
+      sound.playBossRoar();
+      if (this.onBossRoarCallback) {
+        this.onBossRoarCallback(this);
+      }
+    }
+
     if (this.health <= 0) {
       this.health = 0;
       this.die();
@@ -296,6 +314,11 @@ export class Zombie {
       hb.userData = {};
     }
     this.hitboxes.length = 0;
+
+    // Jurus Unik Toxic Stalker: Tinggalkan kabut racun hijau mematikan saat mati
+    if (this.type === 'stalker' && this.onToxicDeathCallback) {
+      this.onToxicDeathCallback(this.mesh.position.clone());
+    }
 
     // Play skeletal death animation
     if (this.realAsset) {
@@ -461,13 +484,88 @@ export class Zombie {
   }
 }
 
+// ============================================================================
+// KABUT RACUN TOXIC STALKER (POISON MIST CLOUD)
+// Menimbulkan DoT (Damage over Time) jika pemain berada di dalam lingkaran kabut
+// ============================================================================
+export class PoisonCloud {
+  constructor(scene, player, position) {
+    this.scene = scene;
+    this.player = player;
+    this.position = (position && position.clone)
+      ? position.clone()
+      : new THREE.Vector3(position?.x || 0, position?.y || 0, position?.z || 0);
+    this.radius = 2.6;
+    this.duration = 6.5; // Durasi bertahan 6.5 detik
+    this.timer = 0;
+    this.damageTimer = 0;
+
+    this.group = new THREE.Group();
+    this.group.position.copy(this.position);
+
+    // Lingkaran tanah beracun berkilau hijau
+    const ringGeo = new THREE.RingGeometry(0.3, this.radius, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.08;
+    this.group.add(ring);
+
+    // Silinder kabut gas beracun
+    const cylGeo = new THREE.CylinderGeometry(this.radius * 0.9, this.radius, 1.8, 16, 1, true);
+    const cylMat = new THREE.MeshBasicMaterial({
+      color: 0x059669,
+      transparent: true,
+      opacity: 0.28,
+      side: THREE.DoubleSide
+    });
+    const cyl = new THREE.Mesh(cylGeo, cylMat);
+    cyl.position.y = 0.9;
+    this.group.add(cyl);
+
+    this.scene.add(this.group);
+  }
+
+  update(delta) {
+    this.timer += delta;
+    this.group.rotation.y += delta * 0.4;
+    const remaining = this.duration - this.timer;
+    if (remaining < 1.5) {
+      this.group.scale.multiplyScalar(Math.max(0.01, 1 - delta * 0.7));
+    }
+
+    // Periksa apakah pemain berada di dalam radius kabut
+    const pPos = this.player.yawObject.position;
+    const dist = Math.hypot(pPos.x - this.position.x, pPos.z - this.position.z);
+    if (dist <= this.radius && Math.abs(pPos.y - this.position.y) < 2.5) {
+      this.damageTimer += delta;
+      if (this.damageTimer >= 0.5) {
+        this.damageTimer = 0;
+        this.player.takeDamage(4); // 8 Damage per detik
+      }
+    }
+    return this.timer >= this.duration;
+  }
+
+  destroy() {
+    this.scene.remove(this.group);
+  }
+}
+
 export class ZombiesManager {
-  constructor(scene, environment, player, onZombieKilled) {
+  constructor(scene, environment, player, onZombieKilled, onBossRoar = null) {
     this.scene = scene;
     this.environment = environment;
     this.player = player;
     this.onZombieKilled = onZombieKilled;
+    this.onBossRoar = onBossRoar;
     this.zombies = [];
+    this.poisonClouds = [];
 
     // Preload zombie FBX assets & textures early
     initZombieAssets().catch(err => {
@@ -481,6 +579,26 @@ export class ZombiesManager {
         this.onZombieKilled(pos || zombie.mesh.position, isBoss, zInstance || zombie);
       }
     });
+
+    // Pasang callback Boss Roar
+    zombie.onBossRoarCallback = (bossInst) => {
+      // Panggil 2 Runner di samping kanan & kiri Boss
+      const bx = bossInst.mesh.position.x;
+      const bz = bossInst.mesh.position.z;
+      this.spawnZombie({ type: 'runner', x: bx + 3.0, z: bz + 1.5 });
+      this.spawnZombie({ type: 'runner', x: bx - 3.0, z: bz - 1.5 });
+
+      if (this.onBossRoar) {
+        this.onBossRoar(bossInst);
+      }
+    };
+
+    // Pasang callback Toxic Stalker Death
+    zombie.onToxicDeathCallback = (pos) => {
+      const cloud = new PoisonCloud(this.scene, this.player, pos);
+      this.poisonClouds.push(cloud);
+    };
+
     this.zombies.push(zombie);
     return zombie;
   }
@@ -517,6 +635,16 @@ export class ZombiesManager {
   }
 
   update(delta) {
+    // Update active poison clouds
+    for (let i = this.poisonClouds.length - 1; i >= 0; i--) {
+      const cloud = this.poisonClouds[i];
+      const isExpired = cloud.update(delta);
+      if (isExpired) {
+        cloud.destroy();
+        this.poisonClouds.splice(i, 1);
+      }
+    }
+
     // Soft zombie-to-zombie repulsion to prevent unnatural stacking
     for (let i = 0; i < this.zombies.length; i++) {
       const z1 = this.zombies[i];
@@ -557,5 +685,10 @@ export class ZombiesManager {
       this.zombies[i].destroy();
     }
     this.zombies = [];
+
+    for (let i = 0; i < this.poisonClouds.length; i++) {
+      this.poisonClouds[i].destroy();
+    }
+    this.poisonClouds = [];
   }
 }

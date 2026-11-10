@@ -111,10 +111,19 @@ export class LootManager {
     this.lootedCrates.add(crateId);
     sound.playLootSound();
 
+    // Catat progress misi kontrak buruan jarahan peti kargo
+    GameState.recordBountyProgress('crate', 1);
+
     if (uiManager) {
       uiManager.showAnnouncement('JARAHAN DIDAPAT!', `${item.icon} ${item.name} (${GameState.formatRp(item.value)})`, 2.5);
       uiManager.updateHUD();
     }
+  }
+
+  // Spawn a specific item drop in the world
+  spawnSpecificDrop(position, itemData) {
+    if (!position || !itemData) return;
+    this._createDropMesh(position.x, position.z, itemData);
   }
 
   // Update loop for rotating drops and proximity auto-pickup

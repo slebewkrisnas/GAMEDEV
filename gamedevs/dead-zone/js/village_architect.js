@@ -750,6 +750,16 @@ export class VillageArchitect {
       label: 'Papan Desa (Upgrade Rumah Pedesaan) [E]'
     });
 
+    // 2b. Meja Perakit Amunisi & Jamu di Teras Rumah (Workbench Crafting Station)
+    this.createPorchWorkbench(x - 4.4, z + 4.2);
+    this.interactables.push({
+      id: 'workbench_terminal',
+      type: 'workbench',
+      position: new THREE.Vector3(x - 4.4, 1.0, z + 4.2),
+      radius: 3.2,
+      label: 'Meja Perakit Amunisi & Jamu (Rumah Lv 3) [E]'
+    });
+
     // 3. Lentera Beranda Menyala Hangat
     const porchLight = new THREE.PointLight(0xffb74d, 1.3, 14);
     porchLight.position.set(x, 2.8, z + 4.8);
@@ -786,6 +796,49 @@ export class VillageArchitect {
     });
     this.loadPromises.push(housePromise);
     return housePromise;
+  }
+
+  // Meja Perakit Pedesaan (Rustic Workbench) di Teras Rumah
+  createPorchWorkbench(x, z) {
+    const wb = new THREE.Group();
+    wb.position.set(x, 0, z);
+
+    // Meja Kayu Tebal
+    const topGeo = new THREE.BoxGeometry(1.6, 0.14, 0.85);
+    const top = new THREE.Mesh(topGeo, this.materials.timberBeam);
+    top.position.y = 0.88;
+    top.castShadow = true;
+    wb.add(top);
+
+    // 4 Kaki Kayu Kokoh
+    const legGeo = new THREE.BoxGeometry(0.12, 0.88, 0.12);
+    [[-0.7, -0.32], [0.7, -0.32], [-0.7, 0.32], [0.7, 0.32]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(legGeo, this.materials.timberPost);
+      leg.position.set(lx, 0.44, lz);
+      wb.add(leg);
+    });
+
+    // Catok Besi / Anvil Mini di Ujung Kiri Meja
+    const vise = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.25), this.materials.ironMetal);
+    vise.position.set(-0.55, 1.05, 0);
+    wb.add(vise);
+
+    // Botol Ramuan Herbal Kaca di Atas Meja
+    const botMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.85 });
+    const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.22, 8), botMat);
+    bot.position.set(0.45, 1.05, 0.15);
+    wb.add(bot);
+
+    // Kotak Peluru & Perkakas di Atas Meja
+    const ammoBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.16, 0.2), this.materials.ironMetal);
+    ammoBox.position.set(0.1, 1.02, -0.15);
+    wb.add(ammoBox);
+
+    this.group.add(wb);
+    this.colliders.push(new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 0.6, z),
+      new THREE.Vector3(1.8, 1.2, 1.0)
+    ));
   }
 
   // --------------------------------------------------------------------------
@@ -1966,6 +2019,15 @@ export class VillageArchitect {
       new THREE.Vector3(9, 1.8, 3),
       new THREE.Vector3(4.2, 3.6, 1.8)
     ));
+
+    // Daftarkan Papan Kontrak Buruan sebagai titik interaksi
+    this.interactables.push({
+      id: 'bounty_board',
+      type: 'bounty',
+      position: new THREE.Vector3(9, 1.5, 3),
+      radius: 4.0,
+      label: '📜 Papan Kontrak Buruan Desa (Ambil & Klaim Misi) [E]'
+    });
 
     // 4. TIANG PENUNJUK ARAH KAYU BERUKIR AT (4, 0, -3)
     const signpost = new THREE.Group();

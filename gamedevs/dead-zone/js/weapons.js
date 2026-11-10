@@ -55,8 +55,8 @@ export const WEAPON_CONFIGS = {
   plasma_rifle: {
     id: 'plasma_rifle',
     slot: 3,
-    name: 'RIFLE OTOMATIS',
-    shortName: 'RIFLE',
+    name: 'SENAPAN TAKTIS 7.62MM',
+    shortName: 'RIFLE 7.62MM',
     icon: '⚡',
     magCapacity: 30,
     defaultReserve: 90,
@@ -670,18 +670,25 @@ export class WeaponManager {
     return Math.round((this.totalHits / this.totalShots) * 100);
   }
 
-  // Resupply ammunition across all weapons
-  resupplyAmmo(amount = 24) {
-    this.weaponData.pulse_pistol.reserveAmmo = Math.min(120, this.weaponData.pulse_pistol.reserveAmmo + amount);
-    this.weaponData.scatter_blaster.reserveAmmo = Math.min(72, this.weaponData.scatter_blaster.reserveAmmo + Math.round(amount * 0.5));
-    this.weaponData.plasma_rifle.reserveAmmo = Math.min(180, this.weaponData.plasma_rifle.reserveAmmo + Math.round(amount * 1.5));
-
-    this.reserveAmmo = this.weaponData[this.currentWeaponId].reserveAmmo;
-    this.uiManager.updateAmmo(this.ammoInMag, this.reserveAmmo);
-    this.uiManager.updateQuickSelectBar(this.currentWeaponId, this.weaponData);
-    if (this.ammoInMag > 0) {
-      this.uiManager.showReloadAlert(false);
+  // Tambah amunisi spesifik per kaliber senjata
+  addWeaponAmmo(weaponId, count) {
+    if (!this.weaponData[weaponId]) return;
+    const maxRes = WEAPON_CONFIGS[weaponId]?.maxReserve || 120;
+    this.weaponData[weaponId].reserveAmmo = Math.min(maxRes, this.weaponData[weaponId].reserveAmmo + count);
+    if (this.currentWeaponId === weaponId) {
+      this.reserveAmmo = this.weaponData[weaponId].reserveAmmo;
+      this.uiManager.updateAmmo(this.ammoInMag, this.reserveAmmo);
+      if (this.ammoInMag > 0) this.uiManager.showReloadAlert(false);
     }
+    this.uiManager.updateQuickSelectBar(this.currentWeaponId, this.weaponData);
+  }
+
+  // Resupply ammunition terbatas (misal 1 kotak drop darurat)
+  resupplyAmmo(amount = 24) {
+    // Hanya mengisi amunisi senjata yang sedang dipegang (1 kotak saja)
+    const targetWep = this.currentWeaponId;
+    const count = (targetWep === 'scatter_blaster') ? Math.round(amount * 0.5) : ((targetWep === 'plasma_rifle') ? amount : amount);
+    this.addWeaponAmmo(targetWep, count);
   }
 
   reset() {

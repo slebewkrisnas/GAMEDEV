@@ -514,8 +514,15 @@ export class EnvironmentDual {
     // 6. Vegetasi Hutan Seram & Bebatuan Raksasa
     this.createForestVegetation(this.sector7Group, this.sector7Colliders);
 
-    // 7. Extraction Helipad & Suar Evakuasi Darurat
-    this.createExtractionBeacon(0, -92);
+    // 7. Extraction Helipad & Suar Evakuasi Darurat (Posisi dinamis acak di dekat salah satu dari 4 pondok)
+    this.cabinBeaconSites = [
+      { x: -33, z: -19, name: 'Pondok Penjaga Hutan' },
+      { x: 43, z: -7, name: 'Lab Riset Biologis' },
+      { x: -25, z: 40, name: 'Gudang Pemburu Terbengkalai' },
+      { x: 35, z: 57, name: 'Pos Pantau Reruntuhan' }
+    ];
+    this.currentBeaconSite = this.cabinBeaconSites[0];
+    this.createExtractionBeacon(this.currentBeaconSite.x, this.currentBeaconSite.z);
 
     // 8. Pencahayaan Malam Hari Dramatis Sector-7
     const amb = new THREE.AmbientLight(0x0f1c16, 1.2);
@@ -1083,29 +1090,29 @@ export class EnvironmentDual {
 
   // 🛸 Extraction Beacon (Menara Suar Evakuasi Darurat)
   createExtractionBeacon(x, z) {
-    const group = new THREE.Group();
-    group.position.set(x, 0, z);
+    this.extractionGroup = new THREE.Group();
+    this.extractionGroup.position.set(x, 0, z);
 
     // Concrete Pad
     const padGeo = new THREE.CylinderGeometry(5.0, 5.5, 0.6, 16);
     const padMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8, roughness: 0.3 });
     const pad = new THREE.Mesh(padGeo, padMat);
     pad.position.y = 0.3;
-    group.add(pad);
+    this.extractionGroup.add(pad);
 
     // Tower Base
     const baseGeo = new THREE.CylinderGeometry(1.6, 2.4, 3, 8);
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9, roughness: 0.2 });
     const base = new THREE.Mesh(baseGeo, baseMat);
     base.position.y = 1.8;
-    group.add(base);
+    this.extractionGroup.add(base);
 
     // Antenna Mast
     const poleGeo = new THREE.CylinderGeometry(0.25, 0.35, 14, 8);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.y = 9;
-    group.add(pole);
+    this.extractionGroup.add(pole);
 
     // Sky Beam (Laser vertikal menembus langit malam hutan)
     const beamGeo = new THREE.CylinderGeometry(0.8, 1.8, 100, 16);
@@ -1117,7 +1124,7 @@ export class EnvironmentDual {
     });
     const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.position.y = 50;
-    group.add(beam);
+    this.extractionGroup.add(beam);
     this.animatedObjects.push({ mesh: beam, type: 'beam_pulse', speed: 3.0 });
 
     // Glowing Cyan Extraction Pad Ring
@@ -1129,21 +1136,45 @@ export class EnvironmentDual {
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.62;
-    group.add(ring);
+    this.extractionGroup.add(ring);
 
-    this.sector7Group.add(group);
-    this.sector7Colliders.push(new THREE.Box3().setFromCenterAndSize(
+    this.sector7Group.add(this.extractionGroup);
+
+    this.extractionCollider = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(x, 1.5, z),
       new THREE.Vector3(4, 3, 4)
-    ));
+    );
+    this.sector7Colliders.push(this.extractionCollider);
 
-    this.sector7Interactables.push({
+    this.extractionInteractable = {
       id: 'extraction_beacon',
       type: 'extraction',
       position: new THREE.Vector3(x, 1, z),
       radius: 4.8,
-      label: 'Suar Evakuasi (Kembali ke Safe Zone) [E]'
-    });
+      label: `Suar Evakuasi [E] (${this.currentBeaconSite?.name || 'Pondok Hutan'})`
+    };
+    this.sector7Interactables.push(this.extractionInteractable);
+  }
+
+  // Pindahkan posisi beacon evakuasi secara acak ke salah satu dari 4 pondok hutan
+  randomizeExtractionBeacon() {
+    if (!this.cabinBeaconSites || !this.extractionGroup) return null;
+    const site = this.cabinBeaconSites[Math.floor(Math.random() * this.cabinBeaconSites.length)];
+    this.currentBeaconSite = site;
+
+    this.extractionGroup.position.set(site.x, 0, site.z);
+    if (this.extractionCollider) {
+      this.extractionCollider.setFromCenterAndSize(
+        new THREE.Vector3(site.x, 1.5, site.z),
+        new THREE.Vector3(4, 3, 4)
+      );
+    }
+    if (this.extractionInteractable) {
+      this.extractionInteractable.position.set(site.x, 1, site.z);
+      this.extractionInteractable.label = `Suar Evakuasi [E] (${site.name})`;
+    }
+    console.log(`📡 [SECTOR-7] Suar Evakuasi dipindahkan ke: ${site.name} (${site.x}, ${site.z})`);
+    return site;
   }
 
   // --------------------------------------------------------------------------
@@ -1174,12 +1205,15 @@ export class EnvironmentDual {
       this.sector7Group.visible = true;
       this.sector7Lights.visible = true;
 
+      // Pindahkan Suar Evakuasi secara acak agar pemain menjelajahi pondok hutan
+      const chosenSite = this.randomizeExtractionBeacon();
+
       // Eerie Dark Overgrown Forest atmosphere (Wasteland Malam)
       this.scene.background = new THREE.Color(0x040907);
       this.scene.fog = new THREE.FogExp2(0x050e0a, 0.014);
 
       if (player) {
-        player.teleport(0, 1.7, -80); // Spawn safely in forest glade near Extraction Beacon (0, -92)
+        player.teleport(0, 1.7, -80); // Masuk dari selatan hutan
       }
     }
   }

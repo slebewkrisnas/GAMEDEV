@@ -381,25 +381,86 @@ class SoundManager {
     osc.stop(now + 1.9);
   }
 
-  // Sci-Fi Stim Injector sound (Ascending regenerative sweep)
+  // Suara Tegukan Botol Kaca Ramuan Jamu Herbal Tradisional Pedesaan
   playStimSound() {
+    this.playHerbalGulp();
+  }
+
+  playHerbalGulp() {
     if (!this.ctx) return;
     this.resume();
     const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
 
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+    // 1. Bunyi Pembuka Tutup Botol Kaca (Cork / Glass Pop)
+    const popOsc = this.ctx.createOscillator();
+    const popGain = this.ctx.createGain();
+    popOsc.type = "sine";
+    popOsc.frequency.setValueAtTime(820, now);
+    popOsc.frequency.exponentialRampToValueAtTime(240, now + 0.05);
+    popGain.gain.setValueAtTime(0.35, now);
+    popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    popOsc.connect(popGain);
+    popGain.connect(this.masterGain);
+    popOsc.start(now);
+    popOsc.stop(now + 0.07);
 
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    // 2. Tegukan Cairan Pertama (Gulp 1)
+    const gulp1 = this.ctx.createOscillator();
+    const gulp1Gain = this.ctx.createGain();
+    const filter1 = this.ctx.createBiquadFilter();
+    filter1.type = "bandpass";
+    filter1.frequency.setValueAtTime(380, now + 0.08);
+    filter1.Q.setValueAtTime(4.0, now + 0.08);
 
-    osc.connect(gain);
-    gain.connect(this.masterGain);
-    osc.start(now);
-    osc.stop(now + 0.42);
+    gulp1.type = "triangle";
+    gulp1.frequency.setValueAtTime(440, now + 0.08);
+    gulp1.frequency.exponentialRampToValueAtTime(280, now + 0.18);
+    gulp1Gain.gain.setValueAtTime(0.001, now + 0.08);
+    gulp1Gain.gain.linearRampToValueAtTime(0.45, now + 0.11);
+    gulp1Gain.gain.exponentialRampToValueAtTime(0.01, now + 0.19);
+
+    gulp1.connect(filter1);
+    filter1.connect(gulp1Gain);
+    gulp1Gain.connect(this.masterGain);
+    gulp1.start(now + 0.08);
+    gulp1.stop(now + 0.20);
+
+    // 3. Tegukan Cairan Kedua (Gulp 2)
+    const gulp2 = this.ctx.createOscillator();
+    const gulp2Gain = this.ctx.createGain();
+    const filter2 = this.ctx.createBiquadFilter();
+    filter2.type = "bandpass";
+    filter2.frequency.setValueAtTime(480, now + 0.22);
+    filter2.Q.setValueAtTime(4.0, now + 0.22);
+
+    gulp2.type = "triangle";
+    gulp2.frequency.setValueAtTime(510, now + 0.22);
+    gulp2.frequency.exponentialRampToValueAtTime(320, now + 0.33);
+    gulp2Gain.gain.setValueAtTime(0.001, now + 0.22);
+    gulp2Gain.gain.linearRampToValueAtTime(0.5, now + 0.25);
+    gulp2Gain.gain.exponentialRampToValueAtTime(0.01, now + 0.34);
+
+    gulp2.connect(filter2);
+    filter2.connect(gulp2Gain);
+    gulp2Gain.connect(this.masterGain);
+    gulp2.start(now + 0.22);
+    gulp2.stop(now + 0.35);
+
+    // 4. Resonansi Hangat Pemulihan Herbal (+40 HP Satiation)
+    [174.61, 220.00, 261.63].forEach((f, idx) => {
+      const hOsc = this.ctx.createOscillator();
+      const hGain = this.ctx.createGain();
+      hOsc.type = "sine";
+      hOsc.frequency.setValueAtTime(f, now + 0.34);
+      hGain.gain.setValueAtTime(0.001, now + 0.34);
+      hGain.gain.linearRampToValueAtTime(0.18, now + 0.45);
+      hGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+
+      hOsc.connect(hGain);
+      hGain.connect(this.masterGain);
+      hOsc.start(now + 0.34);
+      hOsc.stop(now + 0.88);
+    });
   }
 
   // Rupiah Electronic Coin Chime
