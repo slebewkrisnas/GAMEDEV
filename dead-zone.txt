@@ -1,0 +1,538 @@
+================================================================================
+DEAD ZONE — DOKUMENTASI TEKNIS & PANDUAN PENGEMBANGAN LENGKAP
+(Game Design Document, Technical Architecture & Continuous Changelog)
+================================================================================
+Lokasi File : c:\Users\krisn\Desktop\websss\dead-zone.txt
+Proyek      : Dead Zone (3D FPS Zombie Survival & Rural Economic Ecosystem)
+Engine      : Native Three.js WebGL (Web-Based Game Engine)
+Bahasa      : JavaScript (ES6+ Modules), HTML5 Canvas, CSS3
+Audio       : Procedural Web Audio API Synthesizer (Zero External Audio Files)
+Status      : Aktif Dikembangkan (Playable Stable Release)
+Terakhir Diperbarui : 10 November 2026
+
+================================================================================
+DAFTAR ISI
+================================================================================
+1. IKHTISAR & IDENTITAS GAME (GAME OVERVIEW & IDENTITY)
+2. DUNIA PERMAINAN & ARSITEKTUR 2 PETA (WORLD BUILDING & ATMOSPHERE)
+3. ALUR PERMAINAN & CORE GAMEPLAY LOOP (GAME LOOP & PROGRESSION)
+4. MEKANIK KONTROL & PENGALAMAN PEMAIN (PLAYER CONTROLS & MECHANICS)
+5. SISTEM COMBAT & ARSENAL SENJATA (WEAPONS & BALLISTICS SYSTEM)
+6. SISTEM MUSUH & AI ZOMBIE (ZOMBIE ENEMY & AI STATE MACHINE)
+7. SISTEM GELOMBANG & SURVIVAL (WAVE & BOSS ENCOUNTER ENGINE)
+8. SISTEM EKONOMI, INVENTARIS & LOOTING (ECONOMY & METAGAME SYSTEM)
+9. SISTEM AUDIO PROSEDURAL (SYNTHETIC WEB AUDIO ENGINE)
+10. ARSITEKTUR KODE & STRUKTUR FILE (CODEBASE ARCHITECTURE)
+11. SISTEM LOADING & GPU PRE-RENDER PIPELINE (PERFORMANCE & RENDERING)
+12. STATUS FITUR SAAT INI (CURRENT IMPLEMENTATION STATUS)
+13. ARAH PENGEMBANGAN MASA DEPAN (FUTURE DEVELOPMENT ROADMAP)
+14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
+15. ATURAN PEMELIHARAAN UNTUK DEVELOPER & AI (MAINTENANCE PROTOCOL)
+
+================================================================================
+1. IKHTISAR & IDENTITAS GAME (GAME OVERVIEW & IDENTITY)
+================================================================================
+Dead Zone adalah permainan 3D First-Person Shooter (FPS) Survival berbasis web
+yang menggabungkan aksi tembak-menembak intens melawan gerombolan zombi mutan
+dengan ekosistem ekonomi berbasis mata uang Rupiah (Rp), kepemilikan dan
+renovasi rumah pribadi (Safehouse), manajemen kapasitas tas ransel, serta sistem
+ekspedisi berisiko tinggi (High-Stakes Extraction).
+
+1.1 Identitas & Genre
+- Genre Utama      : 3D First-Person Shooter (FPS) / Zombie Survival / Extraction
+- Sub-Genre        : Action RPG Light, Village Economy & Base Building
+- Sudut Pandang    : First-Person (Kamera Orang Pertama FPS)
+- Platform Target  : Web Browser Modern (Desktop/Laptop & Mobile HP Touch)
+- Mode Tampilan    : Fullscreen Canvas WebGL dengan Responsivitas Layar Penuh
+
+1.2 Konsep & Tema Visual
+Dead Zone menyajikan kontras unik antara dua atmosfer dunia:
+1. "Desa Asri" (Safe Zone): Pedesaan bernuansa malam yang tenang di bawah
+   sinar rembulan sejuk dan taburan bintang, diterangi lentera-lentera hangat,
+   dengan 2 bangunan 3D utama (Rumah Pribadi Pemain & Toko Serba Ada Desa).
+   Di area ini senjata pemain otomatis disarungkan (holstered), memberikan rasa
+   aman dan santai untuk beristirahat, mengelola jarahan, dan berbelanja.
+2. "Sector-7" / The Blackwood Forest (Danger Zone): Hutan rimba terbengkalai
+   yang gelap, berkabut tebal, dan berbahaya seluas 230 meter x 230 meter.
+   Dipenuhi zombi mutan, situs pondok terbengkalai, bebatuan berlumut, dan
+   kemunculan Titan Boss berkala.
+
+1.3 Filosofi Desain & Pengalaman Pemain
+- "High Risk, High Reward": Setiap melangkahkan kaki keluar gerbang safe zone,
+  pemain mempertaruhkan seluruh isi ransel mereka. Kematian di medan bahaya
+  menghanguskan isi ransel, sedangkan keberhasilan bertahan hidup dan kembali
+  ke safe zone membawa kekayaan Rupiah untuk memperkuat perlengkapan.
+- "No External Audio Bloat": Seluruh efek suara senjata, erangan zombi, langkah
+  kaki, dan transaksi disintesis langsung via kode Web Audio API secara real-time.
+- "Strict GPU Pre-rendering": Layar loading tidak boleh menutup jika aset 3D
+  belum selesai dimuat dan dikompilasi pada pipeline GPU, menjamin 60 FPS tanpa
+  stutter saat memasuki permainan.
+
+================================================================================
+2. DUNIA PERMAINAN & ARSITEKTUR 2 PETA (WORLD BUILDING & ATMOSPHERE)
+================================================================================
+Game ini diatur ke dalam sistem 2 Zona (Dual-Zone Environment Engine) yang
+dikelola oleh class EnvironmentDual dan VillageArchitect:
+
+2.1 PETA 1: DESA ASRI (SAFE ZONE)
+Area permukiman aman berukuran radius 45 meter (-45 s/d +45 koordinat X/Z).
+- Atmosfer & Pencahayaan:
+  * Nuansa Malam Pedesaan: AmbientLight biru tua dingin (0x1a263d, 0.9) dan
+    DirectionalLight Cahaya Bulan (0x8ba6e8, 1.25) yang menghasilkan bayangan PCF.
+  * Starfield Langit Malam: 450 partikel bintang bercahaya di atas cakrawala.
+  * Pencahayaan Lentera Amber: Lentera teras rumah (0xf59e0b), lentera toko
+    (0xfbbf24), lentera sumur desa, dan 4 tiang lampu jalan batu.
+- Struktur Bangunan Utama (Hanya 2 Bangunan Resmi):
+  1. Rumah Pribadi Pemain (Player Safehouse):
+     - Model 3D: House+Model+004.glb (39 MB, posisi X=0, Z=-18).
+     - Beranda Depan: Dilengkapi Peti Kayu Stash (Penyimpanan Aman) dan
+       Papan Pengumuman Upgrade Rumah [E].
+     - Box Collider fisik memblokir dinding, menyisakan area teras yang luas.
+  2. Toko Serba Ada Desa (Village General Store):
+     - Model 3D: pan_shop.glb (10.5 MB, posisi X=-18, Z=0).
+     - Menggabungkan 3 fungsi pedagang sekaligus ke dalam satu meja kios interaktif:
+       * Pande Besi (Armory): Beli amunisi, upgrade tas, beli senjata.
+       * Tabib Desa (Medbay): Beli jamu herbal, pemulihan darah penuh.
+       * Pengepul Jarahan (Scrap Merchant): Jual seluruh hasil jarahan ekspedisi.
+- Fasilitas Alun-Alun Tengah Desa (Village Square):
+  * Pohon Rindang Kuno raksasa di tengah alun-alun dengan dedaunan prosedural.
+  * Sumur Batu Tradisional (Stone Well) dengan katrol kayu.
+  * Bangku-bangku santai kayu desa dan tiang penunjuk arah berukir.
+- Gapura Pembatas Hutan (Forest Palisade Gate):
+  * Gapura kayu kokoh di perbatasan selatan (Z=36) dengan pusaran portal hijau.
+  * Berfungsi sebagai airlock/teleporter untuk memasuki Sector-7.
+
+2.2 PETA 2: SECTOR-7 / THE BLACKWOOD FOREST (DANGER ZONE)
+Hutan belantara seluas 230 meter x 230 meter (-115 s/d +115 koordinat X/Z).
+- Kontur Tanah Alami (Terrain Heightfield):
+  * Ketinggian tanah dihitung matematis via rumus gelombang `getTerrainHeight(x, z)`
+    yang menghasilkan perbukitan landai dan lembah hutan tanpa patahan.
+- Vegetasi & Rintangan Alami:
+  * Ratusan pohon pinus dan pohon kering mati dengan collider batang silinder.
+  * Bongkahan batu granit berlumut acak untuk tempat berlindung dari kejaran zombi.
+- 4 Situs Pondok Terbengkalai (Abandoned Cabin Sites):
+  * Koordinat: (-45, -25), (55, -15), (-35, 50), dan (45, 65).
+  * Di setiap pondok terdapat Kontainer Kargo Terbengkalai (Loot Crate) yang
+    dapat dibuka dengan menekan [E] untuk mendapatkan material berharga.
+- Portal Evakuasi (Extraction Teleporter Beacon):
+  * Terletak di dekat titik awal masuk hutan, memungkinkan pemain pulang selamat
+    ke Desa Asri membawa seluruh isi tas mereka.
+
+================================================================================
+3. ALUR PERMAINAN & CORE GAMEPLAY LOOP (GAME LOOP & PROGRESSION)
+================================================================================
+Core Loop Dead Zone dirancang dengan formula ketegangan siklis:
+
+                +------------------------------------+
+                |       1. SAFE ZONE (DESA ASRI)     |
+                | - Beli amunisi di Toko Serba Ada   |
+                | - Simpan barang berharga di Stash  |
+                | - Bawa Jamu Herbal secukupnya      |
+                +-----------------+------------------+
+                                  |
+                           (Masuk Portal [E])
+                                  v
+                +-----------------+------------------+
+                |    2. SECTOR-7 (DANGER EXPEDITION) |
+                | - Bertahan hidup dari zombi mutan  |
+                | - Kumpulkan drop daging & permata  |
+                | - Jarah kontainer di 4 pondok hutan|
+                | - Kalahkan Boss Titan (setiap 10 kill)|
+                +-----------------+------------------+
+                                  |
+                   +--------------+--------------+
+                   |                             |
+             (Pemain Mati)               (Evakuasi Sukses)
+                   |                             |
+                   v                             v
++----------------------------------+ +----------------------------------+
+|      KONSEKUENSI KEMATIAN        | |         HASIL EKSPEDISI          |
+| - Seluruh isi tas ransel HANGUS  | | - Seluruh isi ransel SELAMAT     |
+| - Respawn di Rumah Aman          | | - Jual jarahan di Toko (Rupiah)  |
+| - Saldo Dompet & Stash TETAP AMAN| | - Renovasi Rumah & Perbesar Tas  |
++----------------------------------+ +----------------------------------+
+
+3.1 Rincian Alur Permainan dari Awal:
+1. Mulai Game (Menu Start): Pemain memulai dengan saldo modal awal Rp 50.000,
+   senjata Tactical 9mm Pistol, dan Tas Anyaman Bambu (6 slot).
+2. Persiapan: Pemain dapat mengunjungi Toko Serba Ada untuk membeli amunisi
+   cadangan atau jamu herbal, lalu menuju Gapura Hutan.
+3. Ekspedisi: Memasuki Sector-7, senjata otomatis disiapkan. Zombi mulai muncul
+   secara acak. Pemain menembak zombi, memungut drop kristal/daging berputar,
+   dan mencari 4 pondok untuk menjarah peti kargo.
+4. Boss Fight: Setiap 10 zombi yang dieliminasi, Boss Titan raksasa muncul.
+   Mengalahkan boss memberikan Rp 200.000 tunai langsung dan 4 drop langka.
+5. Pilihan Evakuasi: Kapan pun ransel penuh atau amunisi menipis, pemain dapat
+   berlari ke titik portal evakuasi untuk kembali ke Desa Asri dengan selamat.
+6. Metagame Progress: Di desa, pemain menjual jarahan menjadi Rupiah, menaikkan
+   level rumah untuk memperluas peti stash, dan membeli senjata berat.
+
+================================================================================
+4. MEKANIK KONTROL & PENGALAMAN PEMAIN (PLAYER CONTROLS & MECHANICS)
+================================================================================
+Sistem kontrol ditangani oleh class Player dan TouchControls, mendukung dua
+perangkat secara mulus: Mode Laptop (Keyboard & Mouse) dan Mode HP (Touchscreen).
+
+4.1 Skema Kontrol Laptop (Keyboard & Mouse)
+- Gerak Dasar       : [W] Maju, [S] Mundur, [A] Kiri, [D] Kanan
+- Lari Cepat        : Tahan [Shift] (Kecepatan meningkat dari 6 m/s ke 10 m/s)
+- Lompat            : [Spasi] (Daya angkat 7.8 m/s, melewati pagar/rintangan 1.4m)
+- Kamera / Bidik    : Pergerakan Mouse (Pointer Lock FPS standar)
+- Tembak Senjata    : Klik Kiri Mouse [L-Click]
+- Isi Peluru        : [R] (Reload)
+- Interaksi         : [E] (Buka Toko, Peti Stash, Papan Rumah, Crate, Portal)
+- Jamu Herbal/Stim  : [Q] (Konsumsi instan pemulih +40 HP)
+- Senter Taktis     : [F] (Nyalakan / Matikan lampu sorot senter pemain)
+- Quick Hotbar      :
+  * Tombol [1] : Pilih Tactical 9mm Pistol
+  * Tombol [2] : Pilih Scatter Shotgun
+  * Tombol [3] : Pilih Automatic Rifle
+  * Tombol [4] : Pakai Jamu Herbal (Medkit)
+  * Tombol [5] : Nyalakan/Matikan Senter
+- Jeda Permainan    : [Esc] (Pause & buka kursor mouse)
+
+4.2 Skema Kontrol HP (Layar Sentuh / Touch Mode)
+Mode HP diaktifkan melalui pemilih di kanan atas atau otomatis terdeteksi:
+- Analog Virtual    : Joystick sentuh di kiri bawah untuk kontrol arah gerak WASD.
+- Touch Look Zone   : Area tengah-kanan layar untuk menggeser arah pandang kamera.
+- Tombol Aksi Kanan :
+  * [TEMBAK]     : Tombol merah untuk menembak (tahan untuk tembakan otomatis).
+  * [LOMPAT]     : Tombol aksi melompati rintangan.
+  * [LARI]       : Tombol toggle sprint.
+  * [RELOAD]     : Tombol pengisian ulang amunisi.
+  * [SENTER]     : Tombol utility senter.
+  * [STIM Q]     : Tombol pemulih darah instan.
+  * [INTERAKSI]  : Tombol interaksi [E] konteksual.
+
+4.3 Mekanika Senter Taktis Utility
+Pemain dibekali SpotLight taktis (0xffffff, intensitas 2.8, jarak 50m, sudut Pi/5)
+yang menempel pada kamera (`pitchObject`). Senter dapat dinyalakan/dimatikan
+kapan saja dengan tombol [F] atau Slot 5 hotbar, sangat krusial saat menyisir
+hutan Sector-7 yang gelap gulita.
+
+================================================================================
+5. SISTEM COMBAT & ARSENAL SENJATA (WEAPONS & BALLISTICS SYSTEM)
+================================================================================
+Dikelola oleh class WeaponManager, sistem persenjataan mencakup ballistics
+raycast, model 3D prosedural senjata di tangan pemain, recoil visual, penyebaran
+peluru (spread), dan hit-marker.
+
+5.1 Daftar Senjata & Spesifikasi Detail
+Tersedia 3 jenis senjata bertingkat:
+
+1. TACTICAL 9MM PISTOL (`pulse_pistol`) — Slot 1
+   - Status         : Senjata bawaan awal pemain (Default).
+   - Mode Tembak    : Semi-Otomatis (Single Fire).
+   - Kapasitas Mag  : 12 butir peluru.
+   - Amunisi Simpan : Default 60 butir (Maksimal 120 butir).
+   - Kecepatan Tembak: 0.22 detik jeda antar tembakan.
+   - Durasi Reload  : 1.3 detik.
+   - Kerusakan      : 35 HP (Badan), 100 HP (Headshot — Instant kill zombi biasa).
+   - Karakteristik  : Akurasi sempurna (spread = 0), recoil ringan, hemat peluru.
+
+2. SCATTER SHOTGUN (`scatter_blaster`) — Slot 2
+   - Status         : Dibeli di Toko Serba Ada (Harga Rp 250.000).
+   - Mode Tembak    : Semi-Otomatis (Pump Action).
+   - Kapasitas Mag  : 6 butir peluru.
+   - Amunisi Simpan : Default 36 butir (Maksimal 72 butir).
+   - Pellets per Tembakan: 6 pellet menyebar (Spread 0.045).
+   - Kecepatan Tembak: 0.70 detik.
+   - Durasi Reload  : 2.0 detik.
+   - Kerusakan      : 24 HP per pellet (Maksimal 144 HP jika semua kena badan,
+                      hingga 312 HP critical jika headshot jarak dekat).
+   - Karakteristik  : Sangat mematikan untuk membendung zombi runner/brute jarak dekat.
+
+3. RIFLE OTOMATIS (`plasma_rifle`) — Slot 3
+   - Status         : Dibeli di Toko Serba Ada (Harga Rp 500.000).
+   - Mode Tembak    : Full-Otomatis (Tahan klik kiri / tombol tembak).
+   - Kapasitas Mag  : 30 butir peluru.
+   - Amunisi Simpan : Default 90 butir (Maksimal 180 butir).
+   - Kecepatan Tembak: 0.11 detik per tembakan (~545 peluru per menit).
+   - Durasi Reload  : 1.8 detik.
+   - Kerusakan      : 28 HP (Badan), 85 HP (Headshot).
+   - Karakteristik  : Daya hancur masif, sangat efektif merontokkan Boss Titan.
+
+5.2 Mekanika Rekoil, Muzzle Flash & Hitmarker
+- Rekoil Dinamis : Setiap peluru yang keluar menghentak laras senjata mundur
+  secara translasi Z dan mendongak rotasi X (`recoilRotX`), lalu kembali mulus
+  ke posisi semula menggunakan interpolasi lerp.
+- Muzzle Flash   : Kilatan cahaya point light dan sprite mesh menyala selama 0.04s.
+- Hitmarker      : Crosshair di tengah layar menampilkan indikator silang merah/putih
+  disertai suara audio sintetis "ding" renyah ketika peluru berhasil mengenai musuh,
+  dengan nada lebih tinggi saat mengenai kepala (headshot).
+
+================================================================================
+6. SISTEM MUSUH & AI ZOMBIE (ZOMBIE ENEMY & AI STATE MACHINE)
+================================================================================
+Dikelola oleh class ZombiesManager, Zombie, dan modul zombieAssets.js.
+Menggunakan aset 3D Skeletal FBX asli beresolusi tinggi dengan sistem PBR Texturing.
+
+6.1 Pipeline Aset 3D Zombi (zombieAssets.js)
+1. Zombie Biasa:
+   - Base Mesh  : `zombie/zombie biasa/Base+mesh/Base mesh fbx.fbx`
+   - Textures   : Albedo, Normal, Gloss/Roughness, Metallic, Emission.
+2. Boss Titan Necromancer:
+   - Base Mesh  : `zombie/bos zombie/FBX+MB+BASE+MESH/base mesh.fbx`
+   - Textures   : Necromancer Body & Necromancer Weapon Texture set.
+3. Kumpulan Animasi FBX:
+   - Idle       : zombie@idle1.fbx, Necromancer@idle1.fbx
+   - Walk       : zombie@walk.fbx, Necromancer@walk.fbx
+   - Run        : zombie@run.fbx
+   - Attack     : zombie@atack1.fbx, Necromancer@atack1.fbx
+   - Death      : zombie@death1.fbx, Necromancer@death.fbx
+   - Roar       : Necromancer@roar.fbx
+Sistem instancing memanfaatkan `SkeletonUtils.clone()` sehingga puluhan zombi
+dapat berada di layar sekaligus tanpa menduplikasi data geometri di memori.
+
+6.2 Varian Zombi & Karakteristik
+- Walker (35% Peluang Spawn):
+  * HP: 80 | Kecepatan: 2.2 m/s | Kerusakan: 13 HP | Skala: 1.0x
+  * Zombi standar dengan gerakan berjalan seimbang.
+- Runner (30% Peluang Spawn):
+  * HP: 55 | Kecepatan: 3.9 m/s | Kerusakan: 8 HP | Skala: 0.88x
+  * Zombi berpostur ramping yang berlari kencang mengejar pemain.
+- Tank / Brute (25% Peluang Spawn):
+  * HP: 175 | Kecepatan: 1.6 m/s | Kerusakan: 25 HP | Skala: 1.35x
+  * Zombi raksasa berotot kekar, berjalan lambat namun serangannya sangat sakit.
+- Toxic Stalker (10% Peluang Spawn):
+  * HP: 95 | Kecepatan: 2.8 m/s | Kerusakan: 16 HP | Skala: 1.05x
+  * Zombi beracun dengan pendaran hijau yang menyergap dari balik pepohonan.
+- Colossal Boss Titan (Spawn Tiap 10 Kills):
+  * HP: 650 | Kecepatan: 2.4 m/s | Kerusakan: 38 HP | Skala: 2.6x Raksasa
+  * Boss Necromancer berpedang besar, memiliki health bar khusus di HUD atas.
+
+6.3 AI State Machine & Navigasi
+Zombi beroperasi dengan 3 state utama:
+- CHASE  : Bergerak menuju posisi pemain, menyesuaikan orientasi rotasi Y secara
+           halus dan mengikuti ketinggian permukaan tanah (`getTerrainHeight`).
+- ATTACK : Jika jarak $\le$ 1.9m, memicu animasi tebasan kuku/senjata. Menyerang
+           setiap 1.0 detik jeda cooldown dan memicu damage flash pada layar pemain.
+- DEAD   : Memainkan animasi tumbang ke tanah, menonaktifkan hitbox segera, dan
+           tubuhnya perlahan tenggelam ke bawah tanah sebelum didispose dari scene.
+Navigasi dilengkapi "Whisker Collision" lateral untuk meluncur di sekitar batang
+pohon dan bebatuan, serta soft repulsion untuk mencegah zombi saling bertumpuk.
+
+================================================================================
+7. SISTEM GELOMBANG & SURVIVAL (WAVE & BOSS ENCOUNTER ENGINE)
+================================================================================
+Dikelola oleh class WaveManager:
+- Continuous Survival Mode: Di Sector-7, zombi muncul secara kontinu tanpa henti.
+  Sistem menjaga kuota populasi aktif konstan sebesar 8 zombi bersamaan di hutan.
+- Safe Perimeter Spawning: Titik spawn dipilih secara acak dari 19 koordinat
+  kandidat yang berjarak aman minimal 18 s/d 25 meter dari posisi pemain.
+- Siklus Kemunculan Boss Titan:
+  * Setiap kelipatan 10 zombi yang berhasil dibunuh (10, 20, 30, dst.), sistem
+    otomatis membunyikan raungan `sound.playBossRoar()` dan memunculkan Boss Titan.
+  * Kemenangan atas Boss Titan menghadiahkan:
+    1. Saldo Tunai Rp 200.000 langsung masuk ke dompet pemain.
+    2. 4 buah loot langka (Batu Permata & Komponen Mesin) jatuh dalam formasi cincin.
+    3. Suplai amunisi gratis (+36 peluru) untuk seluruh senjata.
+
+================================================================================
+8. SISTEM EKONOMI, INVENTARIS & LOOTING (ECONOMY & METAGAME SYSTEM)
+================================================================================
+Dikelola oleh GameState (gameState.js), ShopManager (shops.js), dan LootManager (loot.js).
+
+8.1 Mata Uang & Komoditas Ekonomi
+Mata uang resmi permainan adalah Rupiah (Rp) yang diformat dengan tanda titik ribuan:
+- Saldo Awal Pemain: Rp 50.000
+
+Daftar Komoditas & Nilai Jual:
+| Komoditas               | Tipe     | Ikon | Nilai Jual | Sumber / Fungsi                           |
+|-------------------------|----------|------|------------|-------------------------------------------|
+| Kayu & Besi Tempa       | Material | 🪵   | Rp 15.000  | Kotak Pondok / Bahan Renovasi Rumah Lv 2  |
+| Komponen Mesin Desa     | Material | ⚙️   | Rp 40.000  | Kotak Pondok / Bahan Renovasi Rumah Lv 3  |
+| Daging Mutan Hutan      | Loot     | 🥩   | Rp 25.000  | Drop Zombi Biasa / Jual ke Pengepul Toko  |
+| Batu Permata Hutan      | Loot     | 💎   | Rp 80.000  | Drop Zombi Langka & Boss Titan            |
+| Peluru Senapan Pemburu  | Ammo     | 📦   | Rp 20.000  | Toko Serba Ada (+24 butir peluru)         |
+| Ramuan Jamu Herbal      | Potion   | 🌿   | Rp 30.000  | Toko Serba Ada (+40 HP saat tekan [Q])    |
+
+8.2 Sistem Tingkatan Tas Ransel (Backpack Tiers)
+Tas menentukan batas maksimal item yang dapat dibawa saat ekspedisi di hutan:
+- Tier 1: Tas Anyaman Bambu        — 6 Slot  (Bawaan Awal Gratis)
+- Tier 2: Ransel Kulit Pemburu     — 10 Slot (Biaya Upgrade Rp 150.000)
+- Tier 3: Tas Ekspedisi Rimba      — 16 Slot (Biaya Upgrade Rp 400.000)
+
+8.3 Sistem Tingkatan Rumah & Peti Kayu Stash (House Tiers)
+Peti Stash di beranda rumah pemain bersifat 100% PERMANEN dan AMAN dari kematian:
+- Level 1: Gubuk Panggung Bambu    — Stash 16 Slot (Gratis Bawaan)
+- Level 2: Rumah Kayu Asri         — Stash 32 Slot (Rp 300.000 + 5 Kayu & Besi Tempa)
+  * Bonus Tambahan: Diskon 10% untuk seluruh pembelian obat/jamu di Toko.
+- Level 3: Rumah Juragan Desa      — Stash 64 Slot (Rp 750.000 + 3 Komponen Mesin Desa)
+  * Bonus Tambahan: Peningkatan prestise tertinggi desa.
+
+8.4 Toko Serba Ada Desa (Integrated General Store)
+Interaksi di meja kios toko membuka modal terpadu dengan 4 tab:
+1. Tab SEMUA : Menampilkan seluruh penawaran toko dalam satu layar praktis.
+2. Tab SENJATA & AMUNISI : Beli peluru senapan (+24), upgrade tas ransel, dan
+   beli senjata baru (Scatter Shotgun Rp 250.000, Rifle Otomatis Rp 500.000).
+3. Tab JAMU HERBAL : Beli Ramuan Jamu Herbal (+40 HP) atau layanan Pemulihan
+   Vitalitas Penuh Instan seharga Rp 15.000 oleh Tabib Desa.
+4. Tab JUAL JARAHAN : Tombol "JUAL SEMUA HASIL BURUAN" yang secara otomatis
+   menghitung dan mencairkan seluruh daging mutan, permata, kayu, dan mesin
+   dari dalam ransel menjadi uang tunai Rupiah seketika.
+
+8.5 Mekanisme Kematian Bertaruh Tinggi (High-Stakes Death Penalty)
+Jika HP pemain habis menjadi 0 saat berada di Sector-7:
+- Seluruh barang jarahan di dalam tas ransel pemain HANGUS HILANG seketika.
+- Pemain terbangun kembali di Safehouse Desa Asri dengan darah dipulihkan penuh.
+- Saldo Rupiah di dompet dan seluruh barang di dalam Peti Stash Rumah TETAP UTUH.
+
+8.6 Persistensi Data Lokal (localStorage)
+Seluruh progres disimpan secara otomatis ke browser key `'SCIFI_SURVIVAL_STATE'`:
+Dompet, isi tas, isi stash, level tas, level rumah, dan senjata yang dimiliki.
+
+================================================================================
+9. SISTEM AUDIO PROSEDURAL (SYNTHETIC WEB AUDIO ENGINE)
+================================================================================
+Dikelola oleh class SoundManager (audio.js). Game ini sama sekali TIDAK
+mengunduh file .mp3 atau .wav dari server, melainkan mensintesis gelombang audio
+secara algoritmik menggunakan Web Audio API:
+- Tembakan Pistol : Letupan noise burst terfilter bandpass 1400 Hz dikombinasikan
+  dengan pitch slide sawtooth oscillator (260 Hz $\rightarrow$ 45 Hz).
+- Tembakan Shotgun: Ledakan noise tebal ganda berpadu square sub-bass punch 90 Hz.
+- Tembakan Rifle  : Hentakan punchy cepat 0.1s berulang berfrekuensi 180 Hz.
+- Erangan Zombi   : Modulasi frekuensi pitch rendah (90-130 Hz) dengan distorsi gain.
+- Raungan Boss    : Sub-bass 50 Hz berguncang dengan vibrato LFO intensitas tinggi.
+- Denting Koin    : Nada sinusoidal ganda frekuensi tinggi (987 Hz & 1318 Hz).
+- Suara Jamu Stim : Desisan semprotan aerosol lembut terfilter lowpass.
+- Teleport Warp   : Sapuan frekuensi sci-fi naik-turun dengan stereo panning.
+
+================================================================================
+10. ARSITEKTUR KODE & STRUKTUR FILE (CODEBASE ARCHITECTURE)
+================================================================================
+Seluruh kode Dead Zone bertempat di folder `gamedevs/dead-zone/`:
+
+gamedevs/dead-zone/
+├── index.html              -> Entri HTML, struktur canvas, HUD, modal, & overlay
+├── css/
+│   └── style.css           -> Styling antarmuka Sci-Fi, HUD, hotbar, fonts Orbitron
+├── js/
+│   ├── main.js             -> Main Orchestrator, Game Loop, Event Handler, Zone Switcher
+│   ├── gameState.js        -> State Central, Dompet Rupiah, Stash, Ransel, Upgrades
+│   ├── environment_dual.js -> Dual-Zone Manager (Safe Zone Desa vs Sector-7 Hutan)
+│   ├── village_architect.js-> Arsitektur 3D Desa Asri, Rumah 3D, Toko 3D, Alun-Alun
+│   ├── player.js           -> FPS Controller, Kamera Yaw/Pitch, Senter, Lompat, HP
+│   ├── weapons.js          -> Arsenal Senjata (Pistol, Shotgun, Rifle), Ballistics
+│   ├── zombies.js          -> AI State Machine Zombi, Navigasi, Hitbox Kepala/Badan
+│   ├── zombieAssets.js     -> Loader FBX Zombi, Material PBR, Skeletal Animations
+│   ├── waves.js            -> Generator Gelombang Zombi Tanpa Batas & Titan Boss
+│   ├── loot.js             -> Drop 3D Berputar, Proximity Pickup, Peti Pondok
+│   ├── shops.js            -> Interaksi Kios Toko Serba Ada Terpadu & Peti Stash
+│   ├── audio.js            -> Synthesizer Prosedural Web Audio API
+│   ├── ui.js               -> Render HUD, Health Bar, Hitmarker, Notifikasi Banner
+│   ├── touchControls.js    -> Virtual Joystick & Tombol Aksi Sentuh Mode HP
+│   └── libs/               -> Three.js library modules (GLTFLoader, FBXLoader, dll.)
+└── asset dead-zone/
+    ├── house/
+    │   └── House+Model+004.glb (39 MB — Model 3D Rumah Pribadi Pemain)
+    └── shop/
+        └── pan_shop.glb        (10.5 MB — Model 3D Toko Serba Ada Desa)
+
+================================================================================
+11. SISTEM LOADING & GPU PRE-RENDER PIPELINE (PERFORMANCE & RENDERING)
+================================================================================
+Untuk mencegah lag, patah-patah, atau dunia belum ter-render saat pemain masuk:
+1. Promise-Gated Asset Pipeline:
+   - `VillageArchitect.whenLoaded()` melacak pengunduhan `House+Model+004.glb`
+     dan `pan_shop.glb`.
+   - `initZombieAssets()` melacak pengunduhan base mesh FBX dan 10 file animasi FBX.
+2. GPU Shader Pre-Compilation:
+   - Sebelum layar loading ditutup, engine memanggil `renderer.compile(scene, camera)`.
+     Ini memaksa WebGL driver untuk mengompilasi seluruh program GLSL shader
+     ke memori grafis VRAM sebelum permainan dimulai.
+3. Multi-Frame Warmup Rendering:
+   - Engine merender 3 frame offscreen secara beruntun menggunakan
+     `requestAnimationFrame()` saat overlay loading masih 100% menutupi layar.
+4. Smooth Fade Dismissal:
+   - Hanya setelah buffer frame terisi dan berputar stabil pada 60 FPS, progress bar
+     mencapai 100% dan layar loading `#zone-loading-screen` memudar keluar.
+   - Mekanisme ini juga aktif saat berpindah portal antar zona (Safe Zone $\leftrightarrow$ Sector-7).
+
+================================================================================
+12. STATUS FITUR SAAT INI (CURRENT IMPLEMENTATION STATUS)
+================================================================================
+Per 10 November 2026, status implementasi aktual dalam kode adalah:
+[v] Selesai & Berjalan Sempurna (100% Production Ready):
+- Dual-Zone Environment: Desa Asri (Safe Zone malam) & Sector-7 (Hutan 230mx230m).
+- 2 Bangunan Utama 3D Desa: Rumah 39MB GLB & Toko 10.5MB GLB berhasil dimuat.
+- Toko Serba Ada Terpadu: 1 kios menggabungkan Armory, Medbay, dan Jual Jarahan.
+- Peti Kayu Stash & Renovasi Rumah Desa Level 1-3.
+- Upgrade Tas Ransel Tier 1-3.
+- Arsenal Senjata: Tactical 9mm, Scatter Shotgun, dan Automatic Rifle.
+- Hotbar 5 Slot Bawah Tengah Terpadu (Pistol, Shotgun, Rifle, Medkit, Senter).
+- Senter Taktis Utility [F] menempel di kamera pemain.
+- Jamu Herbal Instan [Q] pemulih +40 HP.
+- Model 3D Skeletal FBX Zombi (Biasa & Boss Titan) dengan 10 animasi gerak.
+- AI Zombi dengan varian Walker, Runner, Brute, Stalker, dan Colossal Boss.
+- Boss Titan Encounter otomatis setiap kelipatan 10 kills (+Rp 200.000).
+- Drop 3D bercahaya & auto proximity pickup di hutan.
+- 4 Pondok terbengkalai dengan peti kargo yang bisa dijarah [E].
+- High-Stakes Death Penalty: Isi tas hangus saat mati di hutan, stash/dompet aman.
+- Kontrol Dual-Device: Mode Laptop (WASD + Mouse) & Mode HP (Virtual Joystick).
+- Audio Sintetis Prosedural Web Audio API murni.
+- Portal Loading Screen yang di-gate oleh kompilasi GPU shader & 3-frame render.
+- Tombol mengambang & navigasi pulang ke 3D Walking Game Hub (`../main.html?from=camp`).
+
+================================================================================
+13. ARAH PENGEMBANGAN MASA DEPAN (FUTURE DEVELOPMENT ROADMAP)
+================================================================================
+Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
+1. Sistem Cuaca & Siklus Waktu Dinamis (Dynamic Weather & Day/Night):
+   - Efek hujan gerimis malam dengan riak air di tanah dan petir di Sector-7.
+2. Karakter NPC Penduduk Desa Interaktif:
+   - NPC Pande Besi dan Tabib yang berdiri dan bisa diajak berbincang langsung.
+3. Sistem Quest & Kontrak Pemburu (Bounty Hunting Board):
+   - Papan kontrak di alun-alun desa berisi misi harian berburu jenis zombi tertentu.
+4. Meja Perakit / Crafting Bench di Dalam Rumah:
+   - Kemampuan meracik peluru dan ramuan herbal sendiri menggunakan bahan jarahan.
+5. Mode Koperasi Multi-Pemain (Co-op Multiplayer via WebRTC):
+   - Bermain ekspedisi bersama 2-4 pemain lain dalam satu sesi penjelajahan hutan.
+
+================================================================================
+14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
+================================================================================
+* 10 November 2026:
+  - Implementasi True GPU-Gated Loading Screen: Layar loading kini menahan hingga
+    House 39MB GLB, Pan Shop 10.5MB GLB, dan seluruh FBX Zombi selesai diunduh,
+    dikompilasi dengan `renderer.compile`, dan dirender 3 frame sebelum dibuka.
+  - Perbaikan Bug Arena Renderer di bakalae/js/game.js.
+  - Penambahan Hotbar 5 Slot Terpadu di bagian tengah bawah layar.
+  - Integrasi 2 Bangunan Desa Asri Sesuai Aset GLB Asli (Rumah & Toko Serba Ada).
+  - Transformasi Atmosfer Safe Zone Menjadi Nuansa Malam Sejuk dengan Starfield.
+  - Pembersihan Peta Sector-7: Perbaikan terrain heightfield agar zombi dan pemain
+    tidak tenggelam atau melayang.
+  - Penataan Boulevard Jalan Lurus dan Pembersihan Game Fruit Block Blast dari Hub.
+
+* 08-09 November 2026:
+  - Penyatuan 3 Kios Desa (Armory, Medbay, Scrap) ke dalam Toko Serba Ada Terpadu.
+  - Perbaikan rotasi dan orientasi hadap model 3D rumah menghadap alun-alun.
+  - Peningkatan sistem suara tembakan senjata dan denting koin Web Audio API.
+
+* 03 November 2026:
+  - Migrasi seluruh model zombi balok prosedural ke FBX Skeletal Mesh asli
+    (Zombie Biasa & Boss Titan Necromancer) lengkap dengan 10 animasi tempur.
+
+* 29 Oktober 2026:
+  - Rancang bangun spesifikasi desain ekosistem ekonomi 2 peta (Dual-Zone).
+  - Integrasi mata uang Rupiah (Rp), Safehouse Stash, dan ekspedisi Sector-7.
+
+================================================================================
+15. ATURAN PEMELIHARAAN UNTUK DEVELOPER & AI (MAINTENANCE PROTOCOL)
+================================================================================
+Dokumen `dead-zone.txt` ini adalah SINGLE SOURCE OF TRUTH (Dokumentasi Utama)
+untuk game Dead Zone. Setiap pengembang atau asisten AI yang memodifikasi project
+wajib mematuhi protokol berikut:
+
+1. Referensi Awal Wajib: Sebelum melakukan perubahan, baca `dead-zone.txt` untuk
+   memahami batasan arsitektur, nama variabel, dan relasi sistem.
+2. Dilarang Mengarang: Dokumentasikan fitur sesuai implementasi kode yang nyata.
+   Jangan mencatat rencana masa depan seolah-olah sudah selesai dibuat.
+3. Wajib Perbarui Otomatis: Setiap kali kode Dead Zone ditambah, diperbaiki, atau
+   diubah, perbarui bagian yang terdampak di `dead-zone.txt` dan catat riwayatnya
+   di bagian CHANGELOG pada sesi pengerjaan yang sama.
+4. Pertahankan Integritas: Jangan pernah merusak fitur yang sudah berjalan stabil,
+   dan pertahankan standar performa 60 FPS pada platform browser web.
+================================================================================
+AKHIR DOKUMENTASI RESMI DEAD ZONE
+================================================================================
