@@ -1752,10 +1752,10 @@ export class ShopManager {
         const canSplit = !isEquippedSlot && count > 1;
 
         detailEl.innerHTML = `
-          <div class="inv-detail-icon-wrap">
+          <div class="inv-detail-icon-wrap" style="border-color: ${rarityBadgeColor}66;">
             <span>${itm.icon || '📦'}</span>
           </div>
-          <div class="inv-detail-title">${itm.name}</div>
+          <div class="inv-detail-title" style="color: ${rarity === 'common' ? '#f8fafc' : rarityBadgeColor};">${itm.name}</div>
           <div class="inv-detail-badges">
             <span class="inv-badge-pill" style="background: rgba(255,255,255,0.08); color: #cbd5e1;">${(itm.category || 'misc').toUpperCase()}</span>
             <span class="inv-badge-pill" style="background: ${rarityBadgeColor}22; color: ${rarityBadgeColor}; border: 1px solid ${rarityBadgeColor};">${rarity.toUpperCase()}</span>
@@ -1764,24 +1764,24 @@ export class ShopManager {
           <div class="inv-detail-desc">${itm.description || 'Peralatan tempur survival Sector-7.'}</div>
           <div class="inv-detail-stats">
             <div class="inv-detail-stat-row">
-              <span>Jumlah Dimiliki:</span>
+              <span>📦 Jumlah Dimiliki:</span>
               <strong>${count} / ${itm.maxStack || 99}</strong>
             </div>
             <div class="inv-detail-stat-row">
-              <span>Harga Acuan Pasar:</span>
+              <span>🏷️ Harga Acuan Pasar:</span>
               <strong style="color: #34d399;">${GameState.formatRp(unitVal)}</strong>
             </div>
             <div class="inv-detail-stat-row">
-              <span>Total Estimasi Nilai:</span>
+              <span>💰 Total Estimasi Nilai:</span>
               <strong style="color: #38bdf8;">${GameState.formatRp(totalVal)}</strong>
             </div>
-            ${itm.stats?.damage ? `<div class="inv-detail-stat-row"><span>Kerusakan (Damage):</span><strong style="color: #f87171;">${itm.stats.damage} HP</strong></div>` : ''}
-            ${itm.stats?.headshotDamage ? `<div class="inv-detail-stat-row"><span>Critical Headshot:</span><strong style="color: #ef4444;">${itm.stats.headshotDamage} HP</strong></div>` : ''}
-            ${itm.stats?.magCapacity ? `<div class="inv-detail-stat-row"><span>Kapasitas Magasin:</span><strong style="color: #fbbf24;">${itm.stats.magCapacity} Butir</strong></div>` : ''}
-            ${itm.stats?.ammoType ? `<div class="inv-detail-stat-row"><span>Kaliber Amunisi:</span><strong style="color: #38bdf8;">${itm.stats.ammoType.toUpperCase()}</strong></div>` : ''}
-            ${itm.stats?.noiseRadius ? `<div class="inv-detail-stat-row"><span>Jangkauan Suara:</span><strong style="color: #cbd5e1;">${itm.stats.noiseRadius} meter</strong></div>` : ''}
-            ${itm.heal ? `<div class="inv-detail-stat-row"><span>Efek Pemulihan:</span><strong style="color: #22c55e;">+${itm.heal} HP Vitalitas</strong></div>` : ''}
-            ${itm.buffType ? `<div class="inv-detail-stat-row"><span>Efek Khusus:</span><strong style="color: #fbbf24;">${itm.buffType === 'stamina_boost' ? 'Stamina Boost +30%' : 'Kebal Racun Stalker'}</strong></div>` : ''}
+            ${itm.stats?.damage ? `<div class="inv-detail-stat-row"><span>💥 Kerusakan (Damage):</span><strong style="color: #f87171;">${itm.stats.damage} HP</strong></div>` : ''}
+            ${itm.stats?.headshotDamage ? `<div class="inv-detail-stat-row"><span>🎯 Critical Headshot:</span><strong style="color: #ef4444;">${itm.stats.headshotDamage} HP</strong></div>` : ''}
+            ${itm.stats?.magCapacity ? `<div class="inv-detail-stat-row"><span>🔋 Kapasitas Magasin:</span><strong style="color: #fbbf24;">${itm.stats.magCapacity} Butir</strong></div>` : ''}
+            ${itm.stats?.ammoType ? `<div class="inv-detail-stat-row"><span>⚡ Kaliber Amunisi:</span><strong style="color: #38bdf8;">${itm.stats.ammoType.toUpperCase()}</strong></div>` : ''}
+            ${itm.stats?.noiseRadius ? `<div class="inv-detail-stat-row"><span>🔊 Jangkauan Suara:</span><strong style="color: #cbd5e1;">${itm.stats.noiseRadius} meter</strong></div>` : ''}
+            ${itm.heal ? `<div class="inv-detail-stat-row"><span>🌿 Efek Pemulihan:</span><strong style="color: #22c55e;">+${itm.heal} HP Vitalitas</strong></div>` : ''}
+            ${itm.buffType ? `<div class="inv-detail-stat-row"><span>✨ Efek Khusus:</span><strong style="color: #fbbf24;">${itm.buffType === 'stamina_boost' ? 'Stamina Boost +30%' : 'Kebal Racun Stalker'}</strong></div>` : ''}
           </div>
           <div class="inv-detail-actions">
             ${isEquippedSlot

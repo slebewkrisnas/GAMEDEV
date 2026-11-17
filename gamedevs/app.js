@@ -480,7 +480,13 @@ function animate() {
     const camHeight = 2.2;
     const cx = player.position.x + Math.sin(currentYaw) * camDist * Math.cos(currentPitch);
     const cz = player.position.z + Math.cos(currentYaw) * camDist * Math.cos(currentPitch);
-    const cy = player.position.y + camHeight + Math.sin(currentPitch) * camDist;
+    let cy = player.position.y + camHeight + Math.sin(currentPitch) * camDist;
+
+    // Batasi ketinggian kamera agar tidak tembus ke bawah tanah saat kamera diarahkan ke atas
+    const minCamY = Math.max(0.45, (player ? player.position.y : 0) + 0.45);
+    if (cy < minCamY) {
+      cy = minCamY;
+    }
 
     camera.position.set(cx, cy, cz);
     camera.lookAt(player.position.x, player.position.y + 1.2, player.position.z);

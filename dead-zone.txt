@@ -790,6 +790,21 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 11 November 2026 (Rilis Pembaruan V7 — Visual UI Polish for Inventory & Shops, 3D Camera Anti-Underground Ground Clearance Clamp):
+  - Pembatasan Pitch & Anti-Underground Ground Clearance Clamp pada Kamera 3D Game:
+    * Batas pitch sudut pandang (mouse dan touch control) diatur menjadi batas bawah -0.25 rad (~ -14.3°) dan batas atas PI/2.6 (~69.2°).
+    * Pemasangan safety ground clearance clamp pada Chase Camera Rig di `app.js`: `cy = Math.max(minCamY, cy)` dengan `minCamY = player.position.y + 0.45m`.
+    * Mengatasi bug kamera tembus ke bawah tanah saat kamera diarahkan mendongak ke atas melihat langit.
+  - Perombakan Visual & Polish UI Bag / Inventaris Taktis (`#modal-inventory`):
+    * Tata letak 3-Panel dengan glassmorphism modern, border glow taktis, dan backdrop-filter blur.
+    * Panel Equipment Loadout (Kiri): Badge survivor dengan avatar berbingkai neon, rank title, kartu 5 slot equipment dengan highlight senjata aktif beranimasi `@keyframes weaponActivePulse` dan tombol lepas cepat.
+    * Panel Grid 60-Slot (Tengah): Capacity track dengan multi-gradien warna dinamis, kotak pencarian bercahaya, pill filter kategori interaktif, slot grid berlatar radial metalik dengan nomor koordinat (`1..60`), badge jumlah tumpukan kontras tinggi, border aura kelangkaan (Common, Uncommon hijau biohazard, Rare biru plasma, Epic ungu void, Legendary emas solar `@keyframes goldSheen`), serta seleksi slot beranimasi pulse.
+    * Panel Inspeksi & Aksi (Kanan): Holographic icon floating preview (`@keyframes holoGlow`), judul warna sesuai kelangkaan, badge status, box deskripsi dengan aksen border kiri, baris statistik spesifikasi tempur dengan badge tematik (Damage, Headshot Crit, Mag Capacity, Kaliber, Noise Radius, Heal, Buff), dan tombol aksi taktis.
+  - Perombakan Visual & Polish UI Tempat Jualan (Lapak Dagang, Pasar Desa & Toko Serba Ada):
+    * Lapak Dagang Pribadi Pemain (`#modal-player-shop`): Tab navigasi amber/gold, status bar saldo dompet dan kasir toko, banner alert jual seluruh jarahan seketika, 4 slot etalase berstatus "TERPAJANG (+25% Margin Laba)" dan "KOSONG", serta brankas kasir berlampu neon hijau dengan tombol ambil uang.
+    * Pasar Desa / Marketplace (`#modal-marketplace`): Tab navigasi 4 menu modern dengan neon underline, panel jual barang 2-kolom dengan quantity spinner (+/- / MAX) dan kalkulasi pendapatan real-time, kartu listing dagangan dengan timer progress bar, kartu metrik KPI kas dompet, serta tabel transaksi zebra striping.
+    * Toko Serba Ada Terpadu (`#modal-general-store`): Bar status terstruktur dengan pill saldo, kapasitas ransel, dan vitalitas, tab navigasi toko, kartu produk perlengkapan tempur ber-border glow halus, serta tag harga Rajdhani monospace.
+
 * 11 November 2026 (Rilis Pembaruan V6 — Complete Player Inventory System Rebuild, Equipment Slots, Weapon State Machine & Schema V6 Persistence):
   - Arsitektur Master Item Tunggal (Single Source of Truth):
     * `ITEM_DEFINITIONS` mencakup 26 item terlengkap (Senjata, Amunisi, Medis, Material, Buruan Zombi, Ranjau, Miscellaneous).

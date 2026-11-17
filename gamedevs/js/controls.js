@@ -98,7 +98,8 @@ export function initControls(canvas, onJump = null) {
         yaw -= e.movementX * 0.005;
         pitch -= e.movementY * 0.005;
       } else return;
-      pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
+      // Batasi pitch kamera: batas bawah -0.25 rad (~ -14.3°) mencegah kamera terjun menembus bawah tanah saat mendongak ke atas
+      pitch = Math.max(-0.25, Math.min(Math.PI / 2.6, pitch));
     });
   }
 
@@ -226,7 +227,8 @@ export function initControls(canvas, onJump = null) {
           const dy = touch.clientY - lastLookY;
           yaw -= dx * 0.0055;
           pitch -= dy * 0.0055;
-          pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch));
+          // Batasi pitch kamera touch: batas bawah -0.25 rad mencegah kamera terjun ke bawah tanah
+          pitch = Math.max(-0.25, Math.min(Math.PI / 2.6, pitch));
           lastLookX = touch.clientX;
           lastLookY = touch.clientY;
           break;
