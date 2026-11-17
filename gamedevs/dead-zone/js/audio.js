@@ -240,6 +240,104 @@ class SoundManager {
     osc.stop(now + 0.16);
   }
 
+  // Desert Eagle .50 AE: Heavy, authoritative punch with deep bass drop and snappy transient
+  playDeagleShot() {
+    if (!this.ctx) return;
+    this.resume();
+
+    const now = this.ctx.currentTime;
+
+    // 1. Heavy noise explosive crack
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.16);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.038));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.setValueAtTime(1150, now);
+    noiseFilter.Q.setValueAtTime(1.2, now);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(1.15, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain || this.masterGain);
+    noise.start(now);
+
+    // 2. Powerful .50 caliber punch (sawtooth sub-bass drop 320 Hz -> 38 Hz)
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(38, now + 0.18);
+
+    oscGain.gain.setValueAtTime(1.1, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.sfxGain || this.masterGain);
+    osc.start(now);
+    osc.stop(now + 0.19);
+  }
+
+  // AWP Sniper Rifle: Thunderous reverberating long-range supersonic concussion + bolt action cycling
+  playAwpShot() {
+    if (!this.ctx) return;
+    this.resume();
+
+    const now = this.ctx.currentTime;
+
+    // 1. Supersonic crack transient
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.32);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.07));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = "lowpass";
+    noiseFilter.frequency.setValueAtTime(2400, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(350, now + 0.3);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(1.4, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.005, now + 0.32);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain || this.masterGain);
+    noise.start(now);
+
+    // 2. Sub-bass shockwave thump (sine kick 115 Hz -> 26 Hz)
+    const kick = this.ctx.createOscillator();
+    const kickGain = this.ctx.createGain();
+    kick.type = "sine";
+    kick.frequency.setValueAtTime(115, now);
+    kick.frequency.exponentialRampToValueAtTime(26, now + 0.35);
+
+    kickGain.gain.setValueAtTime(1.3, now);
+    kickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+    kick.connect(kickGain);
+    kickGain.connect(this.sfxGain || this.masterGain);
+    kick.start(now);
+    kick.stop(now + 0.36);
+
+    // 3. Mechanical bolt cycle sound after firing
+    this._playClick(now + 0.42, 1600, 0.04, 0.35);
+    this._playClick(now + 0.65, 1200, 0.05, 0.45);
+  }
+
   // Empty magazine click
   playDryFire() {
     if (!this.ctx) return;

@@ -1,20 +1,22 @@
 // ============================================================================
 // DEAD ZONE — MULTI-WEAPON & COMBAT ARSENAL SYSTEM
-// Supports Tactical 9mm Pistol, Scatter Shotgun, and Automatic Rifle.
-// Handles procedural 3D weapon meshes, spread physics, recoil, reloading,
+// Supports Desert Eagle .50, AK-47 Rifle, AWP Sniper, Knife/Machete, and Shotgun.
+// Handles realistic 3D weapon meshes (FBX & GLB), spread physics, recoil, reloading,
 // automatic firing cycles, sound dispatch, and bottom-center hotbar sync.
 // ============================================================================
 
 import * as THREE from 'three';
 import { sound } from './audio.js';
 import { GameState } from './gameState.js';
+import { FBXLoader } from './libs/FBXLoader.js';
+import { GLTFLoader } from './libs/GLTFLoader.js';
 
 export const WEAPON_CONFIGS = {
   pulse_pistol: {
     id: 'pulse_pistol',
     slot: 1,
-    name: 'TACTICAL 9MM',
-    shortName: 'PISTOL',
+    name: 'DESERT EAGLE .50',
+    shortName: 'DEAGLE',
     icon: '🔫',
     isMelee: false,
     magCapacity: 12,
@@ -30,37 +32,14 @@ export const WEAPON_CONFIGS = {
     noiseRadius: 22, // Caliber noise radius in meters
     recoilZ: 0.08,
     recoilRotX: 0.16,
-    sound: 'pistol',
-    muzzlePos: new THREE.Vector3(0, 0.045, -0.18)
-  },
-  scatter_blaster: {
-    id: 'scatter_blaster',
-    slot: 2,
-    name: 'SCATTER SHOTGUN',
-    shortName: 'SHOTGUN',
-    icon: '💥',
-    isMelee: false,
-    magCapacity: 6,
-    defaultReserve: 36,
-    maxReserve: 72,
-    fireRate: 0.70,
-    reloadDuration: 2.0,
-    bodyDamage: 24, // 6 pellets * 24 = 144 max close range
-    headshotDamage: 52, // 6 pellets * 52 = 312 critical headshot
-    pellets: 6,
-    spread: 0.045,
-    isAutomatic: false,
-    noiseRadius: 55, // Loudest blast alerts zombies across clearing
-    recoilZ: 0.16,
-    recoilRotX: 0.30,
-    sound: 'shotgun',
-    muzzlePos: new THREE.Vector3(0, 0.05, -0.32)
+    sound: 'deagle',
+    muzzlePos: new THREE.Vector3(0, 0.045, -0.22)
   },
   plasma_rifle: {
     id: 'plasma_rifle',
-    slot: 3,
-    name: 'SENAPAN TAKTIS 7.62MM',
-    shortName: 'RIFLE 7.62MM',
+    slot: 2,
+    name: 'AK-47 ASSAULT RIFLE',
+    shortName: 'AK-47',
     icon: '⚡',
     isMelee: false,
     magCapacity: 30,
@@ -77,13 +56,36 @@ export const WEAPON_CONFIGS = {
     recoilZ: 0.05,
     recoilRotX: 0.09,
     sound: 'rifle',
-    muzzlePos: new THREE.Vector3(0, 0.055, -0.36)
+    muzzlePos: new THREE.Vector3(0, 0.055, -0.42)
+  },
+  awp: {
+    id: 'awp',
+    slot: 3,
+    name: 'AWP SNIPER RIFLE',
+    shortName: 'AWP',
+    icon: '🎯',
+    isMelee: false,
+    magCapacity: 5,
+    defaultReserve: 20,
+    maxReserve: 40,
+    fireRate: 1.20,
+    reloadDuration: 2.4,
+    bodyDamage: 180,
+    headshotDamage: 450,
+    pellets: 1,
+    spread: 0.001,
+    isAutomatic: false,
+    noiseRadius: 65,
+    recoilZ: 0.22,
+    recoilRotX: 0.35,
+    sound: 'awp',
+    muzzlePos: new THREE.Vector3(0, 0.06, -0.52)
   },
   machete: {
     id: 'machete',
     slot: 4,
-    name: 'GOLOK PEDESAAN',
-    shortName: 'GOLOK',
+    name: 'PISAU KOMANDO / GOLOK',
+    shortName: 'PISAU/GOLOK',
     icon: '🗡️',
     isMelee: true,
     magCapacity: 1,
@@ -103,8 +105,37 @@ export const WEAPON_CONFIGS = {
     recoilRotX: 0.35,
     sound: 'machete',
     muzzlePos: null
+  },
+  scatter_blaster: {
+    id: 'scatter_blaster',
+    slot: 5,
+    name: 'SCATTER SHOTGUN',
+    shortName: 'SHOTGUN',
+    icon: '💥',
+    isMelee: false,
+    magCapacity: 6,
+    defaultReserve: 36,
+    maxReserve: 72,
+    fireRate: 0.70,
+    reloadDuration: 2.0,
+    bodyDamage: 24, // 6 pellets * 24 = 144 max close range
+    headshotDamage: 52, // 6 pellets * 52 = 312 critical headshot
+    pellets: 6,
+    spread: 0.045,
+    isAutomatic: false,
+    noiseRadius: 55, // Loudest blast alerts zombies across clearing
+    recoilZ: 0.16,
+    recoilRotX: 0.30,
+    sound: 'shotgun',
+    muzzlePos: new THREE.Vector3(0, 0.05, -0.32)
   }
 };
+
+// Aliases for backward compatibility
+WEAPON_CONFIGS.desert_eagle = WEAPON_CONFIGS.pulse_pistol;
+WEAPON_CONFIGS.ak47 = WEAPON_CONFIGS.plasma_rifle;
+WEAPON_CONFIGS.awm = WEAPON_CONFIGS.awp;
+WEAPON_CONFIGS.combat_knife = WEAPON_CONFIGS.machete;
 
 export class WeaponManager {
   constructor(camera, parentGroup, zombiesManager, uiManager, environment, player = null) {
@@ -118,9 +149,10 @@ export class WeaponManager {
     // Per-weapon ammo storage
     this.weaponData = {
       pulse_pistol: { ammoInMag: 12, reserveAmmo: 60 },
-      scatter_blaster: { ammoInMag: 6, reserveAmmo: 36 },
       plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 },
-      machete: { ammoInMag: 1, reserveAmmo: 0 }
+      awp: { ammoInMag: 5, reserveAmmo: 20 },
+      machete: { ammoInMag: 1, reserveAmmo: 0 },
+      scatter_blaster: { ammoInMag: 6, reserveAmmo: 36 }
     };
 
     this.currentWeaponId = 'pulse_pistol';
@@ -162,10 +194,11 @@ export class WeaponManager {
     this.recoilOffset = new THREE.Vector3(0, 0, 0);
     this.recoilRotation = new THREE.Euler(0, 0, 0);
 
-    // Build the 3D procedural models for all weapons (Pistol, Shotgun, Rifle, and Machete)
+    // Build the 3D models for all 5 weapons (Deagle, Shotgun, AK-47, AWP, and Knife/Machete)
     this.buildPistolModel();
     this.buildShotgunModel();
     this.buildRifleModel();
+    this.buildAWPModel();
     this.buildMacheteModel();
 
     // Muzzle flash particle & point light
@@ -209,12 +242,13 @@ export class WeaponManager {
   }
 
   // --------------------------------------------------------------------------
-  // 3D WEAPON PROCEDURAL MODELS
+  // 3D WEAPON PROCEDURAL MODELS & REALISTIC ASSET LOADERS (DEAGLE, AK-47, AWP, KNIFE, SHOTGUN)
   // --------------------------------------------------------------------------
   buildPistolModel() {
     this.pistolGroup = new THREE.Group();
 
-    // 1. Slide (Gunmetal top)
+    // 1. Procedural Fallback Mesh
+    const procGroup = new THREE.Group();
     const slideGeo = new THREE.BoxGeometry(0.045, 0.05, 0.22);
     const slideMat = new THREE.MeshStandardMaterial({
       color: 0x2a2d32,
@@ -223,17 +257,15 @@ export class WeaponManager {
     });
     const slide = new THREE.Mesh(slideGeo, slideMat);
     slide.position.set(0, 0.04, -0.04);
-    this.pistolGroup.add(slide);
+    procGroup.add(slide);
 
-    // 2. Barrel interior
     const barrelGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.23, 8);
     const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.2 });
     barrelGeo.rotateX(Math.PI / 2);
     const barrel = new THREE.Mesh(barrelGeo, barrelMat);
     barrel.position.set(0, 0.045, -0.04);
-    this.pistolGroup.add(barrel);
+    procGroup.add(barrel);
 
-    // 3. Lower Frame & Trigger Guard
     const frameGeo = new THREE.BoxGeometry(0.042, 0.038, 0.2);
     const frameMat = new THREE.MeshStandardMaterial({
       color: 0x1b1c1e,
@@ -242,9 +274,8 @@ export class WeaponManager {
     });
     const frame = new THREE.Mesh(frameGeo, frameMat);
     frame.position.set(0, 0.005, -0.04);
-    this.pistolGroup.add(frame);
+    procGroup.add(frame);
 
-    // 4. Pistol Grip
     const gripGeo = new THREE.BoxGeometry(0.04, 0.12, 0.065);
     const gripMat = new THREE.MeshStandardMaterial({
       color: 0x151617,
@@ -254,14 +285,59 @@ export class WeaponManager {
     const grip = new THREE.Mesh(gripGeo, gripMat);
     grip.position.set(0, -0.06, 0.02);
     grip.rotation.x = 0.22;
-    this.pistolGroup.add(grip);
+    procGroup.add(grip);
 
-    // 5. Tritium Sights
     const sightMat = new THREE.MeshBasicMaterial({ color: 0x22ff55 });
-    const frontSightGeo = new THREE.BoxGeometry(0.006, 0.01, 0.006);
-    const frontSight = new THREE.Mesh(frontSightGeo, sightMat);
+    const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.01, 0.006), sightMat);
     frontSight.position.set(0, 0.07, -0.14);
-    this.pistolGroup.add(frontSight);
+    procGroup.add(frontSight);
+
+    this.pistolGroup.add(procGroup);
+
+    // 2. Asynchronous 3D FBX Loader (Desert Eagle .50 AE)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const texLoader = new THREE.TextureLoader();
+        const basePath = './asset dead-zone/senjata/desert eagle/Textures (1)/Textures/';
+        const diffMap = texLoader.load(basePath + 'Pistol_Gun_Metal01_BaseColor.png');
+        const normMap = texLoader.load(basePath + 'Pistol_Gun_Metal01_Normal.png');
+        const roughMap = texLoader.load(basePath + 'Pistol_Gun_Metal01_Roughness.png');
+        const metalMap = texLoader.load(basePath + 'Pistol_Gun_Metal01_Metallic.png');
+
+        const deagleMat = new THREE.MeshStandardMaterial({
+          map: diffMap,
+          normalMap: normMap,
+          roughnessMap: roughMap,
+          metalnessMap: metalMap,
+          metalness: 0.85,
+          roughness: 0.35
+        });
+
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(
+          encodeURI('./asset dead-zone/senjata/desert eagle/cgtrader_optimized_Pistol_Gun.fbx'),
+          (fbx) => {
+            const scale = 0.18;
+            fbx.scale.set(scale, scale, scale);
+            fbx.rotation.set(0, Math.PI / 2, 0);
+            fbx.position.set(0.04, -0.05, -0.02);
+            fbx.traverse((child) => {
+              if (child.isMesh) {
+                child.material = deagleMat;
+                child.castShadow = true;
+              }
+            });
+            procGroup.visible = false;
+            this.pistolGroup.add(fbx);
+            console.log('✅ [WEAPON] Desert Eagle FBX viewmodel loaded.');
+          },
+          undefined,
+          (err) => console.warn('Desert Eagle FBX fallback:', err)
+        );
+      } catch (e) {
+        console.warn('Desert Eagle loader init:', e);
+      }
+    }
 
     this.pistolGroup.visible = true;
     this.weaponGroup.add(this.pistolGroup);
@@ -270,61 +346,67 @@ export class WeaponManager {
   buildShotgunModel() {
     this.shotgunGroup = new THREE.Group();
 
-    // 1. Heavy Receiver (dark steel block)
-    const recGeo = new THREE.BoxGeometry(0.052, 0.068, 0.22);
+    // 1. Procedural Fallback Mesh
+    const procGroup = new THREE.Group();
     const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.8 });
-    const receiver = new THREE.Mesh(recGeo, darkSteelMat);
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.068, 0.22), darkSteelMat);
     receiver.position.set(0, 0.035, -0.02);
-    this.shotgunGroup.add(receiver);
+    procGroup.add(receiver);
 
-    // 2. Twin Barrels
     const barrelGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.32, 8);
     barrelGeo.rotateX(Math.PI / 2);
     const barrelMat = new THREE.MeshStandardMaterial({ color: 0x181a1d, roughness: 0.3, metalness: 0.9 });
-
     const topBarrel = new THREE.Mesh(barrelGeo, barrelMat);
     topBarrel.position.set(0, 0.055, -0.18);
-    this.shotgunGroup.add(topBarrel);
+    procGroup.add(topBarrel);
 
     const botBarrel = new THREE.Mesh(barrelGeo, barrelMat);
     botBarrel.position.set(0, 0.03, -0.18);
-    this.shotgunGroup.add(botBarrel);
+    procGroup.add(botBarrel);
 
-    // 3. Magazine Tube under barrels
     const magTubeGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.26, 8);
     magTubeGeo.rotateX(Math.PI / 2);
     const magTube = new THREE.Mesh(magTubeGeo, barrelMat);
     magTube.position.set(0, 0.008, -0.15);
-    this.shotgunGroup.add(magTube);
+    procGroup.add(magTube);
 
-    // 4. Pump Grip (warm oak wood)
-    const pumpGeo = new THREE.BoxGeometry(0.056, 0.045, 0.12);
-    const pumpMat = new THREE.MeshStandardMaterial({ color: 0x5a3825, roughness: 0.7, metalness: 0.1 });
-    const pump = new THREE.Mesh(pumpGeo, pumpMat);
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.045, 0.12), new THREE.MeshStandardMaterial({ color: 0x5a3825, roughness: 0.7, metalness: 0.1 }));
     pump.position.set(0, 0.015, -0.15);
-    this.shotgunGroup.add(pump);
+    procGroup.add(pump);
 
-    // 5. Heavy Stock & Pistol Grip
-    const stockGeo = new THREE.BoxGeometry(0.046, 0.12, 0.14);
-    const stockMat = new THREE.MeshStandardMaterial({ color: 0x3d2518, roughness: 0.75, metalness: 0.1 });
-    const stock = new THREE.Mesh(stockGeo, stockMat);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.12, 0.14), new THREE.MeshStandardMaterial({ color: 0x3d2518, roughness: 0.75, metalness: 0.1 }));
     stock.position.set(0, -0.04, 0.1);
     stock.rotation.x = -0.15;
-    this.shotgunGroup.add(stock);
+    procGroup.add(stock);
 
-    // 6. Ejection Port & Brass Shell
-    const portGeo = new THREE.BoxGeometry(0.012, 0.018, 0.045);
-    const portMat = new THREE.MeshBasicMaterial({ color: 0xd97706 });
-    const port = new THREE.Mesh(portGeo, portMat);
-    port.position.set(0.026, 0.045, -0.02);
-    this.shotgunGroup.add(port);
+    this.shotgunGroup.add(procGroup);
 
-    // 7. Bead Sight
-    const beadGeo = new THREE.SphereGeometry(0.006, 6, 6);
-    const beadMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
-    const bead = new THREE.Mesh(beadGeo, beadMat);
-    bead.position.set(0, 0.07, -0.32);
-    this.shotgunGroup.add(bead);
+    // 2. Asynchronous 3D FBX Loader (Shotgun)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(
+          encodeURI('./asset dead-zone/senjata/shotgun/lowpoly_shotgun.fbx'),
+          (fbx) => {
+            const scale = 0.006;
+            fbx.scale.set(scale, scale, scale);
+            fbx.position.set(0.02, -0.06, 0.06);
+            fbx.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+              }
+            });
+            procGroup.visible = false;
+            this.shotgunGroup.add(fbx);
+            console.log('✅ [WEAPON] Shotgun FBX viewmodel loaded.');
+          },
+          undefined,
+          (err) => console.warn('Shotgun FBX fallback:', err)
+        );
+      } catch (e) {
+        console.warn('Shotgun loader init:', e);
+      }
+    }
 
     this.shotgunGroup.visible = false;
     this.weaponGroup.add(this.shotgunGroup);
@@ -333,134 +415,259 @@ export class WeaponManager {
   buildRifleModel() {
     this.rifleGroup = new THREE.Group();
 
+    // 1. Procedural Fallback Mesh
+    const procGroup = new THREE.Group();
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x1f2328, roughness: 0.35, metalness: 0.85 });
     const polymerMat = new THREE.MeshStandardMaterial({ color: 0x151618, roughness: 0.8, metalness: 0.15 });
 
-    // 1. Upper & Lower Receiver
-    const recGeo = new THREE.BoxGeometry(0.048, 0.07, 0.28);
-    const receiver = new THREE.Mesh(recGeo, metalMat);
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.07, 0.28), metalMat);
     receiver.position.set(0, 0.04, -0.04);
-    this.rifleGroup.add(receiver);
+    procGroup.add(receiver);
 
-    // 2. Long Rifled Barrel with Muzzle Brake
     const barrelGeo = new THREE.CylinderGeometry(0.011, 0.011, 0.36, 8);
     barrelGeo.rotateX(Math.PI / 2);
     const barrel = new THREE.Mesh(barrelGeo, metalMat);
     barrel.position.set(0, 0.048, -0.25);
-    this.rifleGroup.add(barrel);
+    procGroup.add(barrel);
 
     const brakeGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.04, 8);
     brakeGeo.rotateX(Math.PI / 2);
     const brake = new THREE.Mesh(brakeGeo, metalMat);
     brake.position.set(0, 0.048, -0.44);
-    this.rifleGroup.add(brake);
+    procGroup.add(brake);
 
-    // 3. Handguard Shroud
-    const shroudGeo = new THREE.BoxGeometry(0.05, 0.055, 0.18);
-    const shroud = new THREE.Mesh(shroudGeo, polymerMat);
+    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.055, 0.18), polymerMat);
     shroud.position.set(0, 0.045, -0.18);
-    this.rifleGroup.add(shroud);
+    procGroup.add(shroud);
 
-    // 4. Curved Banana Magazine (30 rounds)
-    const magGeo = new THREE.BoxGeometry(0.038, 0.16, 0.06);
-    const magMat = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.6, metalness: 0.5 });
-    const mag = new THREE.Mesh(magGeo, magMat);
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.16, 0.06), new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.6, metalness: 0.5 }));
     mag.position.set(0, -0.08, -0.08);
     mag.rotation.x = 0.28;
-    this.rifleGroup.add(mag);
+    procGroup.add(mag);
 
-    // 5. Tactical Pistol Grip
-    const gripGeo = new THREE.BoxGeometry(0.04, 0.13, 0.06);
-    const grip = new THREE.Mesh(gripGeo, polymerMat);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.13, 0.06), polymerMat);
     grip.position.set(0, -0.07, 0.04);
     grip.rotation.x = 0.25;
-    this.rifleGroup.add(grip);
+    procGroup.add(grip);
 
-    // 6. Tactical Stock
-    const stockGeo = new THREE.BoxGeometry(0.044, 0.08, 0.16);
-    const stock = new THREE.Mesh(stockGeo, polymerMat);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.08, 0.16), polymerMat);
     stock.position.set(0, 0.02, 0.18);
-    this.rifleGroup.add(stock);
+    procGroup.add(stock);
 
-    // 7. Holographic Sight Mount & Glowing Reticle
-    const scopeMountGeo = new THREE.BoxGeometry(0.036, 0.03, 0.08);
-    const scopeMount = new THREE.Mesh(scopeMountGeo, metalMat);
-    scopeMount.position.set(0, 0.09, -0.04);
-    this.rifleGroup.add(scopeMount);
+    this.rifleGroup.add(procGroup);
 
-    const reticleGeo = new THREE.RingGeometry(0.005, 0.008, 8);
-    const reticleMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, side: THREE.DoubleSide });
-    const reticle = new THREE.Mesh(reticleGeo, reticleMat);
-    reticle.position.set(0, 0.095, -0.07);
-    this.rifleGroup.add(reticle);
+    // 2. Asynchronous 3D FBX Loader (AK-47 Assault Rifle)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const texLoader = new THREE.TextureLoader();
+        const basePath = './asset dead-zone/senjata/ak47/textures/';
+        const diffMap = texLoader.load(basePath + 'AK_Base_color.png');
+        const normMap = texLoader.load(basePath + 'AK_Normal_OpenGL.png');
+        const roughMap = texLoader.load(basePath + 'AK_Roughness.png');
+        const metalMap = texLoader.load(basePath + 'AK_Metallic.png');
+
+        const akMat = new THREE.MeshStandardMaterial({
+          map: diffMap,
+          normalMap: normMap,
+          roughnessMap: roughMap,
+          metalnessMap: metalMap,
+          metalness: 0.8,
+          roughness: 0.4
+        });
+
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(
+          encodeURI('./asset dead-zone/senjata/ak47/cgtrader_optimized_AK47NoSubdiv.fbx'),
+          (fbx) => {
+            const scale = 0.52;
+            fbx.scale.set(scale, scale, scale);
+            fbx.rotation.set(0, Math.PI, 0);
+            fbx.position.set(0.02, -0.06, 0.08);
+            fbx.traverse((child) => {
+              if (child.isMesh) {
+                child.material = akMat;
+                child.castShadow = true;
+              }
+            });
+            procGroup.visible = false;
+            this.rifleGroup.add(fbx);
+            console.log('✅ [WEAPON] AK-47 FBX viewmodel loaded.');
+          },
+          undefined,
+          (err) => console.warn('AK-47 FBX fallback:', err)
+        );
+      } catch (e) {
+        console.warn('AK-47 loader init:', e);
+      }
+    }
 
     this.rifleGroup.visible = false;
     this.weaponGroup.add(this.rifleGroup);
   }
 
+  buildAWPModel() {
+    this.awpGroup = new THREE.Group();
+
+    // 1. Procedural Fallback Mesh (Precision sniper chassis, barrel, and high-zoom scope)
+    const procGroup = new THREE.Group();
+    const darkGreenMat = new THREE.MeshStandardMaterial({ color: 0x2d3a2e, roughness: 0.6, metalness: 0.3 });
+    const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x1f2328, roughness: 0.3, metalness: 0.85 });
+
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.075, 0.42), darkGreenMat);
+    chassis.position.set(0, 0.03, -0.02);
+    procGroup.add(chassis);
+
+    const barrelGeo = new THREE.CylinderGeometry(0.012, 0.014, 0.52, 8);
+    barrelGeo.rotateX(Math.PI / 2);
+    const barrel = new THREE.Mesh(barrelGeo, darkSteelMat);
+    barrel.position.set(0, 0.05, -0.36);
+    procGroup.add(barrel);
+
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.028, 0.06), darkSteelMat);
+    muzzle.position.set(0, 0.05, -0.62);
+    procGroup.add(muzzle);
+
+    const scopeGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.22, 12);
+    scopeGeo.rotateX(Math.PI / 2);
+    const scope = new THREE.Mesh(scopeGeo, darkSteelMat);
+    scope.position.set(0, 0.11, -0.06);
+    procGroup.add(scope);
+
+    const mnt1 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.02), darkSteelMat);
+    mnt1.position.set(0, 0.08, -0.12);
+    procGroup.add(mnt1);
+    const mnt2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.02), darkSteelMat);
+    mnt2.position.set(0, 0.08, 0.0);
+    procGroup.add(mnt2);
+
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.016, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    lens.position.set(0, 0.11, -0.171);
+    procGroup.add(lens);
+
+    this.awpGroup.add(procGroup);
+
+    // 2. Asynchronous 3D GLB Loader (AWP / AWM Sniper Rifle)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load(
+          encodeURI('./asset dead-zone/senjata/awp/awm.glb'),
+          (gltf) => {
+            const scale = 0.0078;
+            const model = gltf.scene;
+            model.scale.set(scale, scale, scale);
+            model.rotation.set(0, -Math.PI / 2, 0);
+            model.position.set(0.02, -0.05, 0.02);
+            model.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                if (child.material) {
+                  child.material.roughness = Math.max(child.material.roughness || 0.4, 0.4);
+                  child.material.metalness = Math.min(child.material.metalness || 0.7, 0.85);
+                }
+              }
+            });
+            procGroup.visible = false;
+            this.awpGroup.add(model);
+            console.log('✅ [WEAPON] AWP GLB viewmodel loaded.');
+          },
+          undefined,
+          (err) => console.warn('AWP GLB fallback:', err)
+        );
+      } catch (e) {
+        console.warn('AWP loader init:', e);
+      }
+    }
+
+    this.awpGroup.visible = false;
+    this.weaponGroup.add(this.awpGroup);
+  }
+
   buildMacheteModel() {
     this.macheteGroup = new THREE.Group();
 
-    // 1. Curved dark oak wooden handle
+    // 1. Procedural Fallback Mesh
+    const procGroup = new THREE.Group();
     const handleGeo = new THREE.CylinderGeometry(0.016, 0.019, 0.16, 8);
     const handleMat = new THREE.MeshStandardMaterial({
-      color: 0x4a2e18, // Rich dark teak wood
+      color: 0x4a2e18,
       roughness: 0.75,
       metalness: 0.1
     });
     const handle = new THREE.Mesh(handleGeo, handleMat);
     handle.position.set(0, -0.06, 0.04);
     handle.rotation.x = 0.35;
-    this.macheteGroup.add(handle);
+    procGroup.add(handle);
 
-    // Brass pins / rivets on handle
-    const rivetGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.034, 6);
-    rivetGeo.rotateZ(Math.PI / 2);
-    const rivetMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
-    const r1 = new THREE.Mesh(rivetGeo, rivetMat);
-    r1.position.set(0, -0.04, 0.04);
-    this.macheteGroup.add(r1);
-    const r2 = new THREE.Mesh(rivetGeo, rivetMat);
-    r2.position.set(0, -0.08, 0.04);
-    this.macheteGroup.add(r2);
-
-    // 2. Bolster / Iron Cross-Guard
-    const guardGeo = new THREE.BoxGeometry(0.038, 0.018, 0.038);
-    const guardMat = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.8 });
-    const guard = new THREE.Mesh(guardGeo, guardMat);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.018, 0.038), new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.8 }));
     guard.position.set(0, 0.015, 0.01);
-    this.macheteGroup.add(guard);
+    procGroup.add(guard);
 
-    // 3. Forged Steel Blade Spine (dark carbon forged steel)
-    const spineGeo = new THREE.BoxGeometry(0.014, 0.28, 0.045);
     const spineMat = new THREE.MeshStandardMaterial({
       color: 0x2b3038,
       roughness: 0.35,
       metalness: 0.85
     });
-    const spine = new THREE.Mesh(spineGeo, spineMat);
+    const spine = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.28, 0.045), spineMat);
     spine.position.set(0, 0.15, -0.03);
     spine.rotation.x = -0.12;
-    this.macheteGroup.add(spine);
+    procGroup.add(spine);
 
-    // 4. Razor Sharp Polished Cutting Edge (bright polished bevel)
-    const edgeGeo = new THREE.BoxGeometry(0.005, 0.29, 0.025);
     const edgeMat = new THREE.MeshStandardMaterial({
       color: 0xe2e8f0,
       roughness: 0.15,
       metalness: 0.98
     });
-    const edge = new THREE.Mesh(edgeGeo, edgeMat);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.29, 0.025), edgeMat);
     edge.position.set(0, 0.15, -0.055);
     edge.rotation.x = -0.12;
-    this.macheteGroup.add(edge);
+    procGroup.add(edge);
 
-    // 5. Curved Machete Tip (Bulu Ayam / Parang slope)
-    const tipGeo = new THREE.CylinderGeometry(0.004, 0.024, 0.08, 4);
-    tipGeo.rotateX(Math.PI / 4);
-    const tip = new THREE.Mesh(tipGeo, edgeMat);
-    tip.position.set(0, 0.29, -0.055);
-    this.macheteGroup.add(tip);
+    this.macheteGroup.add(procGroup);
+
+    // 2. Asynchronous 3D FBX Loader (Combat Knife / Machete)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const texLoader = new THREE.TextureLoader();
+        const basePath = './asset dead-zone/senjata/knife/Machete/Machete/textures/';
+        const diffMap = texLoader.load(basePath + 'Machete_Albedo.png');
+        const normMap = texLoader.load(basePath + 'Machete_Normal.png');
+        const roughMap = texLoader.load(basePath + 'Machete_Roughness.png');
+        const metalMap = texLoader.load(basePath + 'Machete_Metallic.png');
+
+        const knifeMat = new THREE.MeshStandardMaterial({
+          map: diffMap,
+          normalMap: normMap,
+          roughnessMap: roughMap,
+          metalnessMap: metalMap,
+          metalness: 0.8,
+          roughness: 0.3
+        });
+
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(
+          encodeURI('./asset dead-zone/senjata/knife/Machete/Machete/Machete.fbx'),
+          (fbx) => {
+            const scale = 0.0055;
+            fbx.scale.set(scale, scale, scale);
+            fbx.position.set(0.02, -0.08, 0.08);
+            fbx.traverse((child) => {
+              if (child.isMesh) {
+                child.material = knifeMat;
+                child.castShadow = true;
+              }
+            });
+            procGroup.visible = false;
+            this.macheteGroup.add(fbx);
+            console.log('✅ [WEAPON] Machete/Knife FBX viewmodel loaded.');
+          },
+          undefined,
+          (err) => console.warn('Machete FBX fallback:', err)
+        );
+      } catch (e) {
+        console.warn('Machete loader init:', e);
+      }
+    }
 
     this.macheteGroup.visible = false;
     this.weaponGroup.add(this.macheteGroup);
@@ -485,10 +692,19 @@ export class WeaponManager {
   // --------------------------------------------------------------------------
   getAmmoItemId(weaponId) {
     switch (weaponId) {
-      case 'pulse_pistol': return 'ammo_pistol';
-      case 'scatter_blaster': return 'ammo_shotgun';
-      case 'plasma_rifle': return 'ammo_rifle';
-      default: return null;
+      case 'pulse_pistol':
+      case 'desert_eagle':
+        return 'ammo_pistol';
+      case 'scatter_blaster':
+        return 'ammo_shotgun';
+      case 'plasma_rifle':
+      case 'ak47':
+        return 'ammo_rifle';
+      case 'awp':
+      case 'awm':
+        return 'ammo_rifle';
+      default:
+        return null;
     }
   }
 
@@ -618,10 +834,11 @@ export class WeaponManager {
     this.headshotDamage = cfg.headshotDamage;
 
     // Mesh visibility
-    if (this.pistolGroup) this.pistolGroup.visible = (weaponId === 'pulse_pistol');
+    if (this.pistolGroup) this.pistolGroup.visible = (weaponId === 'pulse_pistol' || weaponId === 'desert_eagle');
     if (this.shotgunGroup) this.shotgunGroup.visible = (weaponId === 'scatter_blaster');
-    if (this.rifleGroup) this.rifleGroup.visible = (weaponId === 'plasma_rifle');
-    if (this.macheteGroup) this.macheteGroup.visible = (weaponId === 'machete');
+    if (this.rifleGroup) this.rifleGroup.visible = (weaponId === 'plasma_rifle' || weaponId === 'ak47');
+    if (this.awpGroup) this.awpGroup.visible = (weaponId === 'awp' || weaponId === 'awm');
+    if (this.macheteGroup) this.macheteGroup.visible = (weaponId === 'machete' || weaponId === 'combat_knife');
 
     // Reposition muzzle flash
     if (this.muzzleFlashMesh && cfg.muzzlePos) {
@@ -779,6 +996,10 @@ export class WeaponManager {
       sound.playShotgunShot();
     } else if (cfg.sound === 'rifle') {
       sound.playRifleShot();
+    } else if (cfg.sound === 'awp') {
+      sound.playAwpShot();
+    } else if (cfg.sound === 'deagle') {
+      sound.playDeagleShot();
     } else {
       sound.playPistolShot();
     }

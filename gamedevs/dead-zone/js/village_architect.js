@@ -1922,19 +1922,68 @@ export class VillageArchitect {
     gate.add(this.createDecorativeBushes(3.6, 0, 0, 3));
     gate.add(this.createSteppingStones(0, -3.0, 3.0, 5));
 
-    // Portal Kabut Mistis Transisi Menuju Hutan
+    // Portal Kabut Mistis Transisi Menuju Hutan (Cyan Swirling Energy Field)
     const portal = new THREE.Mesh(
-      new THREE.PlaneGeometry(6.0, 5.8),
+      new THREE.PlaneGeometry(5.2, 5.4),
       new THREE.MeshBasicMaterial({
         color: 0x0ea5e9,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.55,
         side: THREE.DoubleSide
       })
     );
     portal.position.set(0, 2.9, 0);
     gate.add(portal);
     this.env.animatedObjects.push({ mesh: portal, type: 'vortex_pulse', speed: 2.2 });
+
+    // Muat 3D Asset Portal Kuno (medival_ruins.fbx)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const texLoader = new THREE.TextureLoader();
+        const basePath = './asset dead-zone/portal dan tower/portal/Textures/';
+        const diffMap = texLoader.load(basePath + 'Ruin_Diffuse.png');
+        const normMap = texLoader.load(basePath + 'Ruin_Normal.png');
+        const roughMap = texLoader.load(basePath + 'Ruin_Roughness.png');
+
+        const ruinMat = new THREE.MeshStandardMaterial({
+          map: diffMap,
+          normalMap: normMap,
+          roughnessMap: roughMap,
+          roughness: 0.85,
+          metalness: 0.15
+        });
+
+        const fbxLoader = new FBXLoader();
+        const portalPromise = new Promise((resolve) => {
+          fbxLoader.load(
+            encodeURI('./asset dead-zone/portal dan tower/portal/medival_ruins.fbx'),
+            (fbx) => {
+              const scale = 0.016;
+              fbx.scale.set(scale, scale, scale);
+              fbx.position.set(0, 0, 0);
+              fbx.traverse((child) => {
+                if (child.isMesh) {
+                  child.material = ruinMat;
+                  child.castShadow = true;
+                  child.receiveShadow = true;
+                }
+              });
+              gate.add(fbx);
+              console.log('✅ [PORTAL] Medieval Ruins 3D Portal FBX berhasil dimuat.');
+              resolve(fbx);
+            },
+            undefined,
+            (err) => {
+              console.warn('Portal FBX fallback:', err);
+              resolve(null);
+            }
+          );
+        });
+        this.loadPromises.push(portalPromise);
+      } catch (e) {
+        console.warn('Portal loader init:', e);
+      }
+    }
 
     this.group.add(gate);
 

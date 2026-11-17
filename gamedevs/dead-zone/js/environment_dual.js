@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { VillageArchitect } from './village_architect.js';
 import { VillageNPCManager } from './village_npc.js';
+import { FBXLoader } from './libs/FBXLoader.js';
 
 export class EnvironmentDual {
   constructor(scene) {
@@ -1092,31 +1093,65 @@ export class EnvironmentDual {
     }
   }
 
-  // 🛸 Extraction Beacon (Menara Suar Evakuasi Darurat)
+  // 🛸 Extraction Beacon & Return Tower (Menara Suar Evakuasi Darurat - Radio Tower 3D FBX)
   createExtractionBeacon(x, z) {
     this.extractionGroup = new THREE.Group();
     this.extractionGroup.position.set(x, 0, z);
 
-    // Concrete Pad
+    // 1. Procedural Concrete Pad & Base Fallback
     const padGeo = new THREE.CylinderGeometry(5.0, 5.5, 0.6, 16);
     const padMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8, roughness: 0.3 });
     const pad = new THREE.Mesh(padGeo, padMat);
     pad.position.y = 0.3;
     this.extractionGroup.add(pad);
 
-    // Tower Base
+    const procTower = new THREE.Group();
     const baseGeo = new THREE.CylinderGeometry(1.6, 2.4, 3, 8);
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9, roughness: 0.2 });
     const base = new THREE.Mesh(baseGeo, baseMat);
     base.position.y = 1.8;
-    this.extractionGroup.add(base);
+    procTower.add(base);
 
-    // Antenna Mast
     const poleGeo = new THREE.CylinderGeometry(0.25, 0.35, 14, 8);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.y = 9;
-    this.extractionGroup.add(pole);
+    procTower.add(pole);
+    this.extractionGroup.add(procTower);
+
+    // 2. Muat 3D Asset Radio Tower FBX (Menara Pemancar Evakuasi Tinggi 23m)
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(
+          encodeURI('./asset dead-zone/portal dan tower/tower/Radio Tower FBX/Radio Tower.fbx'),
+          (fbx) => {
+            const scale = 0.008;
+            fbx.scale.set(scale, scale, scale);
+            fbx.position.set(0, 0, 0);
+            const towerSteelMat = new THREE.MeshStandardMaterial({
+              color: 0x334155,
+              metalness: 0.85,
+              roughness: 0.35
+            });
+            fbx.traverse((child) => {
+              if (child.isMesh) {
+                child.material = towerSteelMat;
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+            procTower.visible = false;
+            this.extractionGroup.add(fbx);
+            console.log('✅ [TOWER] Radio Tower 3D FBX berhasil dimuat untuk Menara Evakuasi.');
+          },
+          undefined,
+          (err) => console.warn('Radio Tower FBX fallback:', err)
+        );
+      } catch (e) {
+        console.warn('Radio Tower loader init:', e);
+      }
+    }
 
     // Sky Beam (Laser vertikal menembus langit malam hutan)
     const beamGeo = new THREE.CylinderGeometry(0.8, 1.8, 100, 16);

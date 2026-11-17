@@ -598,6 +598,61 @@ export const ITEM_DEFINITIONS = {
       isMelee: true
     },
     description: 'Bilah baja tempa tajam untuk tebasan senyap tanpa suara.'
+  },
+  awp: {
+    itemId: 'awp',
+    id: 'awp',
+    name: 'AWP Sniper Rifle',
+    type: 'weapon',
+    category: 'weapons',
+    subCategory: 'sniper',
+    rarity: 'legendary',
+    maxStack: 1,
+    stackable: false,
+    weight: 6.0,
+    sellable: true,
+    sellPrice: 750000,
+    value: 750000,
+    usable: false,
+    equippable: true,
+    equipSlot: 'primary',
+    weaponId: 'awp',
+    ammoType: 'ammo_rifle',
+    droppable: true,
+    icon: '🎯',
+    stats: {
+      damage: 180,
+      headshotDamage: 450,
+      fireRate: 1.20,
+      magCapacity: 5,
+      reloadTime: 2.4,
+      noiseRadius: 65,
+      range: 120,
+      isAutomatic: false
+    },
+    description: 'Senapan runduk berat kaliber tinggi berdaya hancur dahsyat.'
+  },
+  ammo_sniper: {
+    itemId: 'ammo_sniper',
+    id: 'ammo_sniper',
+    name: 'Amunisi Runduk AWP (10 btr)',
+    type: 'ammo',
+    category: 'ammunition',
+    subCategory: 'ammo_762',
+    rarity: 'rare',
+    maxStack: 999,
+    stackable: true,
+    weight: 0.04,
+    sellable: true,
+    sellPrice: 45000,
+    value: 45000,
+    count: 10,
+    weaponId: 'awp',
+    usable: true,
+    equippable: false,
+    droppable: true,
+    icon: '🎯',
+    description: 'Kotak amunisi kaliber berat presisi tinggi untuk AWP Sniper Rifle.'
   }
 };
 
@@ -625,10 +680,12 @@ export const ITEMS = {
   AMMO_SHOTGUN: ITEM_DEFINITIONS.ammo_shotgun,
   AMMO_RIFLE: ITEM_DEFINITIONS.ammo_rifle,
   PLASMA_AMMO: ITEM_DEFINITIONS.plasma_ammo,
+  AMMO_SNIPER: ITEM_DEFINITIONS.ammo_sniper,
   WEAPON_PISTOL: ITEM_DEFINITIONS.pulse_pistol,
   WEAPON_SHOTGUN: ITEM_DEFINITIONS.scatter_blaster,
   WEAPON_RIFLE: ITEM_DEFINITIONS.plasma_rifle,
-  WEAPON_MACHETE: ITEM_DEFINITIONS.machete
+  WEAPON_MACHETE: ITEM_DEFINITIONS.machete,
+  WEAPON_AWP: ITEM_DEFINITIONS.awp
 };
 
 export function getItemDefinition(rawIdOrItem) {
@@ -793,7 +850,7 @@ class StateManager {
     this.houseLevel = 1;
     this.stashMaxSlots = 16;
     this.activeZone = 'safe_zone'; // 'safe_zone' | 'sector_7'
-    this.ownedWeapons = ['pulse_pistol', 'machete'];
+    this.ownedWeapons = ['pulse_pistol', 'plasma_rifle', 'awp', 'machete', 'scatter_blaster'];
     this.currentWeaponIndex = 0;
 
     // Lapak Dagang Pribadi Pemain (Player Market Stall & Showcase)
@@ -2483,7 +2540,11 @@ class StateManager {
         if (data.backpackMaxSlots) this.backpackMaxSlots = data.backpackMaxSlots;
         if (data.houseLevel) this.houseLevel = data.houseLevel;
         if (data.stashMaxSlots) this.stashMaxSlots = data.stashMaxSlots;
-        if (Array.isArray(data.ownedWeapons)) this.ownedWeapons = data.ownedWeapons;
+        if (Array.isArray(data.ownedWeapons)) {
+          this.ownedWeapons = [...new Set([...data.ownedWeapons, 'pulse_pistol', 'plasma_rifle', 'awp', 'machete', 'scatter_blaster'])];
+        } else {
+          this.ownedWeapons = ['pulse_pistol', 'plasma_rifle', 'awp', 'machete', 'scatter_blaster'];
+        }
         if (Array.isArray(data.playerShopStall)) this.playerShopStall = data.playerShopStall;
         if (typeof data.playerShopRegister === 'number') this.playerShopRegister = data.playerShopRegister;
 

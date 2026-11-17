@@ -364,91 +364,96 @@ export class UIManager {
     const wId = activeWeaponId || (this.player && this.player.weapons ? this.player.weapons.currentWeaponId : 'pulse_pistol');
     const wData = weaponData || (this.player && this.player.weapons ? this.player.weapons.weaponData : null);
 
-    // 1. Slot 1: Tactical 9mm Pistol
+    // 1. Slot 1: Desert Eagle .50 AE Pistol
     const meta1 = document.getElementById('hotbar-meta-1');
     const slot1 = document.getElementById('hotbar-slot-1');
     if (meta1 && wData && wData.pulse_pistol) {
       meta1.textContent = `${wData.pulse_pistol.ammoInMag}/${wData.pulse_pistol.reserveAmmo}`;
     }
-    if (slot1) slot1.classList.toggle('active', wId === 'pulse_pistol');
+    if (slot1) slot1.classList.toggle('active', wId === 'pulse_pistol' || wId === 'desert_eagle');
 
-    // 2. Slot 2: Scatter Shotgun
+    // 2. Slot 2: AK-47 Assault Rifle
     const meta2 = document.getElementById('hotbar-meta-2');
     const slot2 = document.getElementById('hotbar-slot-2');
-    const hasShotgun = GameState.ownedWeapons.includes('scatter_blaster');
+    const hasRifle = GameState.ownedWeapons.includes('plasma_rifle') || GameState.ownedWeapons.includes('ak47');
     if (slot2) {
-      slot2.classList.toggle('locked', !hasShotgun);
-      slot2.classList.toggle('active', hasShotgun && wId === 'scatter_blaster');
+      slot2.classList.toggle('locked', !hasRifle);
+      slot2.classList.toggle('active', hasRifle && (wId === 'plasma_rifle' || wId === 'ak47'));
     }
-    if (meta2) {
-      if (hasShotgun && wData && wData.scatter_blaster) {
-        meta2.textContent = `${wData.scatter_blaster.ammoInMag}/${wData.scatter_blaster.reserveAmmo}`;
-      } else {
-        meta2.textContent = 'LOCKED 🔒';
-      }
+    if (meta2 && wData && wData.plasma_rifle) {
+      meta2.textContent = `${wData.plasma_rifle.ammoInMag}/${wData.plasma_rifle.reserveAmmo}`;
     }
 
-    // 3. Slot 3: Plasma / Auto Rifle
+    // 3. Slot 3: AWP Sniper Rifle
     const meta3 = document.getElementById('hotbar-meta-3');
     const slot3 = document.getElementById('hotbar-slot-3');
-    const hasRifle = GameState.ownedWeapons.includes('plasma_rifle');
+    const hasAwp = GameState.ownedWeapons.includes('awp') || GameState.ownedWeapons.includes('awm');
     if (slot3) {
-      slot3.classList.toggle('locked', !hasRifle);
-      slot3.classList.toggle('active', hasRifle && wId === 'plasma_rifle');
+      slot3.classList.toggle('locked', !hasAwp);
+      slot3.classList.toggle('active', hasAwp && (wId === 'awp' || wId === 'awm'));
     }
-    if (meta3) {
-      if (hasRifle && wData && wData.plasma_rifle) {
-        meta3.textContent = `${wData.plasma_rifle.ammoInMag}/${wData.plasma_rifle.reserveAmmo}`;
-      } else {
-        meta3.textContent = 'LOCKED 🔒';
-      }
+    if (meta3 && wData && wData.awp) {
+      meta3.textContent = `${wData.awp.ammoInMag}/${wData.awp.reserveAmmo}`;
     }
 
-    // 4. Slot 4: Golok Pedesaan (Melee Bawaan Darurat)
+    // 4. Slot 4: Pisau Komando / Golok Pedesaan
     const meta4 = document.getElementById('hotbar-meta-4');
     const slot4 = document.getElementById('hotbar-slot-4');
-    const hasMachete = GameState.ownedWeapons.includes('machete');
+    const hasMachete = GameState.ownedWeapons.includes('machete') || GameState.ownedWeapons.includes('combat_knife');
     if (slot4) {
       slot4.classList.toggle('locked', !hasMachete);
-      slot4.classList.toggle('active', hasMachete && wId === 'machete');
+      slot4.classList.toggle('active', hasMachete && (wId === 'machete' || wId === 'combat_knife'));
     }
     if (meta4) {
       meta4.textContent = hasMachete ? 'MELEE' : 'LOCKED 🔒';
     }
 
-    // 5. Slot 5: Medkit / Ramuan Jamu Herbal (Nano-Stim)
+    // 5. Slot 5: Scatter Shotgun
     const meta5 = document.getElementById('hotbar-meta-5');
     const slot5 = document.getElementById('hotbar-slot-5');
-    const stimCount = GameState.countItem('nano_stim', true);
-    if (meta5) {
-      meta5.textContent = `x${stimCount}`;
-    }
+    const hasShotgun = GameState.ownedWeapons.includes('scatter_blaster');
     if (slot5) {
-      slot5.classList.toggle('empty-slot', stimCount === 0);
+      slot5.classList.toggle('locked', !hasShotgun);
+      slot5.classList.toggle('active', hasShotgun && wId === 'scatter_blaster');
+    }
+    if (meta5 && wData && wData.scatter_blaster) {
+      meta5.textContent = `${wData.scatter_blaster.ammoInMag}/${wData.scatter_blaster.reserveAmmo}`;
     }
 
-    // 6. Slot 6: Ranjau Paku Bambu
+    // 6. Slot 6: Medkit / Ramuan Jamu Herbal (Nano-Stim)
     const meta6 = document.getElementById('hotbar-meta-6');
     const slot6 = document.getElementById('hotbar-slot-6');
-    const trapCount = GameState.countItem('bamboo_trap', true);
+    const stimCount = GameState.countItem ? GameState.countItem('nano_stim', true) : 0;
     if (meta6) {
-      meta6.textContent = `x${trapCount}`;
+      meta6.textContent = `x${stimCount}`;
     }
     if (slot6) {
-      slot6.classList.toggle('empty-slot', trapCount === 0);
+      slot6.classList.toggle('empty-slot', stimCount === 0);
     }
 
-    // 7. Slot 7: Flashlight Utility
+    // 7. Slot 7: Ranjau Paku Bambu
     const meta7 = document.getElementById('hotbar-meta-7');
     const slot7 = document.getElementById('hotbar-slot-7');
-    const isFlashOn = !!(this.player && this.player.flashlightEnabled);
+    const trapCount = GameState.countItem ? GameState.countItem('bamboo_trap', true) : 0;
     if (meta7) {
-      meta7.textContent = isFlashOn ? 'ON 💡' : 'OFF';
-      meta7.style.color = isFlashOn ? '#fde047' : '#94a3b8';
+      meta7.textContent = `x${trapCount}`;
     }
     if (slot7) {
-      slot7.classList.toggle('active', isFlashOn);
+      slot7.classList.toggle('empty-slot', trapCount === 0);
     }
+
+    // 8. Slot 8: Flashlight Utility
+    const meta8 = document.getElementById('hotbar-meta-8');
+    const slot8 = document.getElementById('hotbar-slot-8');
+    const isFlashOn = !!(this.player && this.player.flashlightEnabled);
+    if (meta8) {
+      meta8.textContent = isFlashOn ? 'ON 💡' : 'OFF';
+      meta8.style.color = isFlashOn ? '#fde047' : '#94a3b8';
+    }
+    if (slot8) {
+      slot8.classList.toggle('active', isFlashOn);
+    }
+  }
   }
 
   // Menampilkan / menyembunyikan banner hitung mundur evakuasi

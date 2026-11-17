@@ -7,6 +7,10 @@
 import * as THREE from 'three';
 import { GameState } from './gameState.js';
 import { sound } from './audio.js';
+import { FBXLoader } from './libs/FBXLoader.js';
+
+let customHumanTemplate = null;
+let customHumanLoading = false;
 
 export const NPC_PROFILES = [
   {
@@ -102,6 +106,7 @@ export class VillageNPC {
 
     this.buildCharacterMesh();
     this.buildSpeechBubble();
+    this.loadHumanModel();
 
     // Posisi awal di titik asal (homePos)
     this.group.position.set(profile.homePos.x, 0, profile.homePos.z);
@@ -232,6 +237,73 @@ export class VillageNPC {
     this.group.add(this.speechSprite);
 
     this.bubbleVisibleTimer = 0;
+  }
+
+  loadHumanModel() {
+    if (typeof window === 'undefined' || typeof window.document === 'undefined') return;
+
+    if (customHumanTemplate) {
+      this.attachHumanModel(customHumanTemplate.clone());
+      return;
+    }
+
+    if (customHumanLoading) {
+      const checkInt = setInterval(() => {
+        if (customHumanTemplate) {
+          clearInterval(checkInt);
+          this.attachHumanModel(customHumanTemplate.clone());
+        }
+      }, 100);
+      return;
+    }
+
+    customHumanLoading = true;
+    try {
+      const texLoader = new THREE.TextureLoader();
+      const diffTex = texLoader.load('./asset dead-zone/npc/Textures/middleage_lightskinned_male_diffuse.png');
+      const humanMat = new THREE.MeshStandardMaterial({
+        map: diffTex,
+        roughness: 0.7,
+        metalness: 0.1
+      });
+
+      const loader = new FBXLoader();
+      loader.load(
+        encodeURI('./asset dead-zone/npc/CustomHuman.fbx'),
+        (fbx) => {
+          const scale = 0.0042;
+          fbx.scale.set(scale, scale, scale);
+          fbx.traverse((child) => {
+            if (child.isMesh) {
+              child.material = humanMat;
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          customHumanTemplate = fbx;
+          this.attachHumanModel(fbx.clone());
+          console.log('✅ [NPC] CustomHuman FBX model loaded for village NPCs.');
+        },
+        undefined,
+        (err) => console.warn('NPC FBX fallback:', err)
+      );
+    } catch (e) {
+      console.warn('NPC loader init:', e);
+    }
+  }
+
+  attachHumanModel(mesh) {
+    if (!mesh) return;
+    this.humanModel = mesh;
+    // Sembunyikan bagian tubuh prosedural balok jika 3D model aktif
+    if (this.torso) this.torso.visible = false;
+    if (this.headGroup) this.headGroup.visible = false;
+    if (this.leftArmPivot) this.leftArmPivot.visible = false;
+    if (this.rightArmPivot) this.rightArmPivot.visible = false;
+    if (this.leftLegPivot) this.leftLegPivot.visible = false;
+    if (this.rightLegPivot) this.rightLegPivot.visible = false;
+
+    this.group.add(mesh);
   }
 
   showDialogue(text, isPurchase = false) {

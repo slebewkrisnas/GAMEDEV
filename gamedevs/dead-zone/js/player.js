@@ -270,6 +270,10 @@ export class Player {
       case 'Numpad7':
         this.selectSlot(7);
         break;
+      case 'Digit8':
+      case 'Numpad8':
+        this.selectSlot(8);
+        break;
       case 'Space':
         e.preventDefault();
         this.jump();
@@ -282,39 +286,36 @@ export class Player {
     switch (slot) {
       case 1:
         if (this.weapons) {
-          if (!this.weapons.switchSlot('primary')) {
-            this.weapons.switchWeapon('plasma_rifle');
-          }
+          this.weapons.switchWeapon('pulse_pistol');
         }
         break;
       case 2:
         if (this.weapons) {
-          if (!this.weapons.switchSlot('secondary')) {
-            this.weapons.switchWeapon('pulse_pistol');
-          }
+          this.weapons.switchWeapon('plasma_rifle');
         }
         break;
       case 3:
         if (this.weapons) {
-          if (!this.weapons.switchSlot('melee')) {
-            this.weapons.switchWeapon('machete');
-          }
+          this.weapons.switchWeapon('awp');
         }
         break;
       case 4:
         if (this.weapons) {
-          if (!this.weapons.switchSlot('throwable')) {
-            this.deployBambooTrap();
-          }
+          this.weapons.switchWeapon('machete');
         }
         break;
       case 5:
-        this.useNanoStim(this.ui);
+        if (this.weapons) {
+          this.weapons.switchWeapon('scatter_blaster');
+        }
         break;
       case 6:
-        this.deployBambooTrap();
+        this.useNanoStim(this.ui);
         break;
       case 7:
+        this.deployBambooTrap();
+        break;
+      case 8:
         this.toggleFlashlight();
         break;
     }

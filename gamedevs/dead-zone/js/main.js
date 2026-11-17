@@ -116,7 +116,7 @@ class DeadZoneGame {
         if (warmFrames < 3) {
           requestAnimationFrame(warmUp);
         } else {
-          // 5. Dunia selesai dirender 100%!
+          // 5. Dunia selesai dirender 100%! Otomatis langsung masuk ke game
           if (fillEl) fillEl.style.width = '100%';
           if (statEl) statEl.textContent = 'DUNIA SELESAI DIRENDER! 100%';
           if (subEl) subEl.textContent = 'Dunia 3D & shader GPU telah siap!';
@@ -127,6 +127,9 @@ class DeadZoneGame {
           }
           setTimeout(() => {
             if (screen) screen.classList.add('hidden');
+            const menuScreen = document.getElementById('menu-screen');
+            if (menuScreen) menuScreen.classList.add('hidden');
+            this.startGame();
           }, 350);
         }
       };
@@ -143,7 +146,12 @@ class DeadZoneGame {
         btnPlay.style.opacity = '1';
       }
       if (fillEl) fillEl.style.width = '100%';
-      if (screen) screen.classList.add('hidden');
+      setTimeout(() => {
+        if (screen) screen.classList.add('hidden');
+        const menuScreen = document.getElementById('menu-screen');
+        if (menuScreen) menuScreen.classList.add('hidden');
+        this.startGame();
+      }, 350);
     }
   }
 
@@ -277,10 +285,10 @@ class DeadZoneGame {
       this.ui.showAnnouncement(`🏆 PENCAPAIAN TERBUKA: ${ach.title}!`, ach.desc, 4.0);
     };
 
-    // Start in Safe Zone with weapons holstered
+    // Start in Safe Zone with weapons ready
     this.environment.setZoneActive('safe_zone', this.player);
     GameState.activeZone = 'safe_zone';
-    this.weaponManager.setHolstered(true);
+    this.weaponManager.setHolstered(false);
 
     // Holdout Extraction State Tracking
     this.isHoldoutActive = false;
@@ -313,7 +321,9 @@ class DeadZoneGame {
       }
     });
 
-    this.ui.showScreen('menu');
+    // Do not show menu screen - loading screen is active and will transition directly into game after rendering
+    const menuScreen = document.getElementById('menu-screen');
+    if (menuScreen) menuScreen.classList.add('hidden');
   }
 
   attachGlobalEvents() {
@@ -392,7 +402,7 @@ class DeadZoneGame {
     // Spawn at Safehouse in Safe Zone
     this.environment.setZoneActive('safe_zone', this.player);
     GameState.activeZone = 'safe_zone';
-    this.weaponManager.setHolstered(true);
+    this.weaponManager.setHolstered(false);
 
     this.ui.updateHealth(this.player.health, this.player.maxHealth);
     this.ui.updateAmmo(this.weaponManager.ammoInMag, this.weaponManager.reserveAmmo);
@@ -523,7 +533,7 @@ class DeadZoneGame {
       this.player.isInputEnabled = true;
 
       if (zoneName === 'safe_zone') {
-        this.weaponManager.setHolstered(true);
+        this.weaponManager.setHolstered(false);
         this.zombiesManager.clearAll();
         this.lootManager.clearDrops();
       } else {
@@ -709,7 +719,7 @@ class DeadZoneGame {
       this.player.isDead = false;
       this.environment.setZoneActive('safe_zone', this.player);
       GameState.activeZone = 'safe_zone';
-      this.weaponManager.setHolstered(true);
+      this.weaponManager.setHolstered(false);
       this.zombiesManager.clearAll();
       this.lootManager.clearDrops();
 

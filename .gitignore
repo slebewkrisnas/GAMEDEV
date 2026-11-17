@@ -19,4 +19,5 @@ Thumbs.db
 # The optimized web textures in textures_web/ are used by the browser game
 *.tga
 *.mb
+*.unitypackage
 

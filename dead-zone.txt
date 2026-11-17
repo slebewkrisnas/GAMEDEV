@@ -997,6 +997,33 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
   - Suite Pengujian Otomatis V3:
     * Pembuatan suite `v3_tactical_mechanics.test.js` memverifikasi kesepuluh mekanik baru dengan kelulusan 100%.
 
+* 18 November 2026 (Rilis Pembaruan V7 — 3D Portal, Menara Evakuasi, NPC Karakter 3D, & 4 Senjata Penuh):
+  - Auto-Start Langsung Masuk Setelah Selesai Render GPU:
+    * Tombol manual "Mulai Misi / Enter Game" di awal permainan ditiadakan agar pemain tidak perlu klik manual.
+    * Layar loading tetap aktif secara penuh hingga seluruh aset 3D, zombie, shader pipeline, dan 3 frame offscreen
+      selesai dirender ke GPU, kemudian otomatis langsung masuk ke gameplay (Direct Seamless Play).
+  - Integrasi Aset Portal & Menara 3D (`asset dead-zone/portal dan tower`):
+    * Portal Menuju Zona Berbahaya: Gapura perbatasan Safe Zone diperbarui menggunakan model 3D `medival_ruins.fbx`
+      bertekstur PBR (Diffuse, Normal, Roughness) berdimensi megah (~8.2m x 7.8m) dengan pusaran energi cyan di tengahnya.
+    * Menara Pemancar Kembali: Suar evakuasi darurat di Sector-7 diperbarui menggunakan model 3D `Radio Tower.fbx`
+      setinggi ~23.6 meter yang menjulang di atas kanopi hutan sebagai patokan arah evakuasi pulang ke Safe Zone.
+  - Karakter NPC 3D Asli (`CustomHuman.fbx`):
+    * Warga Desa Asri yang berkunjung ke lapak dagang diperbarui menggunakan model 3D humanoid `CustomHuman.fbx`
+      dan tekstur kulit `middleage_lightskinned_male_diffuse.png`.
+    * Sistem AI belanja, waypoint melangkah, dan balon dialog interaktif dipertahankan 100%.
+  - Integrasi 4 Aset Senjata 3D Baru (`asset dead-zone/senjata`):
+    * Slot 1: Desert Eagle .50 AE (`cgtrader_optimized_Pistol_Gun.fbx` + PBR textures) — Pistol kaliber berat berdaya rusak 35 HP (Badan) dan 70 HP (Headshot), suara tembakan .50 AE bertenaga tinggi (`playDeagleShot`).
+    * Slot 2: AK-47 Assault Rifle (`cgtrader_optimized_AK47NoSubdiv.fbx` + PBR textures) — Senapan serbu otomatis kaliber 7.62mm, 30 butir mag, fire rate 0.11s, damage 28/105 HP.
+    * Slot 3: AWP Sniper Rifle (`awm.glb`) — Senapan runduk bolt-action presisi jarak jauh berdaya rusak 180 HP (Badan) dan 450 HP (Headshot), suara tembakan dentuman supersonik & kokang bolt (`playAwpShot`).
+    * Slot 4: Pisau Komando / Golok (`Machete.fbx` + PBR textures) — Senjata melee darurat senyap tanpa amunisi (45/80 HP).
+    * Slot 5: Scatter Shotgun (`lowpoly_shotgun.fbx`) — Senjata sebaran 6 butir buckshot (24/52 HP per butir).
+  - Senjata Langsung Ada di Bar Pemain & Bisa Dipakai di Safe Zone:
+    * Kelima senjata langsung terbuka dan tersedia di Hotbar Quick-Select pemain dari awal permainan.
+    * Pembatasan holster senjata di Safe Zone dihapus menyeluruh (`setHolstered(false)`), sehingga pemain bebas memegang,
+      mengganti, dan menembak senjata baik di Safe Zone (Desa Asri) maupun di Sector-7.
+  - Suite Pengujian & Kompatibilitas Headless:
+    * 100% dari 10 suite pengujian otomatis lulus dengan sempurna (61/61 unit test NPC & marketplace, 10/10 v3 tactical test, 9/9 v6 inventory test).
+
 * 10 November 2026 (Sesi Sore — Natural Locomotion Audio Overhaul):
   - Perombakan Suara Langkah Kaki, Lompatan, dan Pendaratan Natural (Organic Audio):
     * Suara lompat (`playJump`) lama yang berupa beep osilator kartun diganti dengan
