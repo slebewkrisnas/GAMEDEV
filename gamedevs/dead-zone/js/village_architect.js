@@ -2221,9 +2221,10 @@ export class VillageArchitect {
     this.group.add(square);
   }
 
-  // Menunggu seluruh aset 3D GLB Safe Zone selesai dimuat
+  // Menunggu seluruh aset 3D GLB Safe Zone selesai dimuat (dengan failsafe timeout 5s)
   whenLoaded() {
-    return Promise.all(this.loadPromises);
+    const timeout = new Promise((resolve) => setTimeout(() => resolve([]), 5000));
+    return Promise.race([Promise.all(this.loadPromises), timeout]);
   }
 
   // --------------------------------------------------------------------------

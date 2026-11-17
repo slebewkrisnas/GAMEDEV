@@ -248,10 +248,14 @@ export class VillageNPC {
     }
 
     if (customHumanLoading) {
+      let attempts = 0;
       const checkInt = setInterval(() => {
+        attempts++;
         if (customHumanTemplate) {
           clearInterval(checkInt);
           this.attachHumanModel(customHumanTemplate.clone());
+        } else if (attempts > 30) {
+          clearInterval(checkInt);
         }
       }, 100);
       return;
@@ -285,10 +289,14 @@ export class VillageNPC {
           console.log('✅ [NPC] CustomHuman FBX model loaded for village NPCs.');
         },
         undefined,
-        (err) => console.warn('NPC FBX fallback:', err)
+        (err) => {
+          console.warn('NPC FBX fallback:', err);
+          customHumanLoading = false;
+        }
       );
     } catch (e) {
       console.warn('NPC loader init:', e);
+      customHumanLoading = false;
     }
   }
 

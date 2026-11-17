@@ -183,7 +183,12 @@ export function initZombieAssets() {
     }
   })();
 
-  return _initPromise;
+  const timeoutPromise = new Promise((resolve) => setTimeout(() => {
+    zombieAssets.isLoading = false;
+    resolve();
+  }, 5000));
+
+  return Promise.race([_initPromise, timeoutPromise]);
 }
 
 /**

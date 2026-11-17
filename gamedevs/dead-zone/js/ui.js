@@ -454,7 +454,6 @@ export class UIManager {
       slot8.classList.toggle('active', isFlashOn);
     }
   }
-  }
 
   // Menampilkan / menyembunyikan banner hitung mundur evakuasi
   showHoldoutBanner(show, initialDuration = 12.0) {

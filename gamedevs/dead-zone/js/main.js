@@ -81,24 +81,62 @@ class DeadZoneGame {
       titleEl.style.color = '#22c55e';
     }
     if (subEl) subEl.textContent = 'Memuat arsitektur 3D, rumah, dan toko serba ada...';
-    if (fillEl) fillEl.style.width = '20%';
-    if (statEl) statEl.textContent = 'MEMUAT ASET DESA 3D... 20%';
+    if (fillEl) fillEl.style.width = '25%';
+    if (statEl) statEl.textContent = 'MEMUAT ASET DESA 3D... 25%';
     if (btnPlay) {
       btnPlay.disabled = true;
       btnPlay.style.opacity = '0.5';
     }
 
+    let isDone = false;
+    const finishLoading = () => {
+      if (isDone) return;
+      isDone = true;
+
+      if (fillEl) fillEl.style.width = '100%';
+      if (statEl) statEl.textContent = 'DUNIA SELESAI DIRENDER! 100%';
+      if (subEl) subEl.textContent = 'Dunia 3D & shader GPU telah siap!';
+      this.isWorldRendered = true;
+      if (btnPlay) {
+        btnPlay.disabled = false;
+        btnPlay.style.opacity = '1';
+      }
+
+      setTimeout(() => {
+        if (screen) screen.classList.add('hidden');
+        const menuScreen = document.getElementById('menu-screen');
+        if (menuScreen) menuScreen.classList.add('hidden');
+        this.startGame();
+      }, 300);
+    };
+
+    // Hard fail-safe timeout 6.5s: Loading screen TIDAK PERNAH bisa stuck
+    const failSafeTimer = setTimeout(() => {
+      console.warn('⚠️ [DEAD-ZONE] Preload timeout reached, forcing start with ready assets.');
+      try {
+        this.renderer.compile(this.scene, this.camera);
+        this.renderer.render(this.scene, this.camera);
+      } catch (e) {}
+      finishLoading();
+    }, 6500);
+
     try {
-      // 1. Tunggu model 3D Safe Zone (House 39MB + Shop 10.5MB)
-      await this.environment.whenReady();
-      if (fillEl) fillEl.style.width = '55%';
-      if (statEl) statEl.textContent = 'MEMUAT ZOMBIE & ANIMASI... 55%';
+      // 1. Tunggu model 3D Safe Zone (House GLB, Shop GLB, Lapak FBX, Portal FBX)
+      await Promise.race([
+        this.environment.whenReady(),
+        new Promise(r => setTimeout(r, 4500))
+      ]);
+      if (fillEl) fillEl.style.width = '60%';
+      if (statEl) statEl.textContent = 'MEMUAT ZOMBIE & ANIMASI... 60%';
       if (subEl) subEl.textContent = 'Memuat mutan zombie FBX & animasi tempur...';
 
       // 2. Tunggu aset zombie FBX & tekstur
-      await initZombieAssets();
-      if (fillEl) fillEl.style.width = '80%';
-      if (statEl) statEl.textContent = 'KOMPILASI SHADER GPU... 80%';
+      await Promise.race([
+        initZombieAssets(),
+        new Promise(r => setTimeout(r, 4500))
+      ]);
+      if (fillEl) fillEl.style.width = '85%';
+      if (statEl) statEl.textContent = 'KOMPILASI SHADER GPU... 85%';
       if (subEl) subEl.textContent = 'Kompilasi pipeline shader Three.js ke GPU...';
 
       // 3. Kompilasi GPU shader
@@ -106,52 +144,21 @@ class DeadZoneGame {
         this.renderer.compile(this.scene, this.camera);
       } catch (e) {}
 
-      // 4. Pre-render 3 frame offscreen agar seluruh buffer & VRAM terisi
-      let warmFrames = 0;
-      const warmUp = () => {
-        try {
-          this.renderer.render(this.scene, this.camera);
-        } catch (e) {}
-        warmFrames++;
-        if (warmFrames < 3) {
-          requestAnimationFrame(warmUp);
-        } else {
-          // 5. Dunia selesai dirender 100%! Otomatis langsung masuk ke game
-          if (fillEl) fillEl.style.width = '100%';
-          if (statEl) statEl.textContent = 'DUNIA SELESAI DIRENDER! 100%';
-          if (subEl) subEl.textContent = 'Dunia 3D & shader GPU telah siap!';
-          this.isWorldRendered = true;
-          if (btnPlay) {
-            btnPlay.disabled = false;
-            btnPlay.style.opacity = '1';
-          }
-          setTimeout(() => {
-            if (screen) screen.classList.add('hidden');
-            const menuScreen = document.getElementById('menu-screen');
-            if (menuScreen) menuScreen.classList.add('hidden');
-            this.startGame();
-          }, 350);
-        }
-      };
-      requestAnimationFrame(warmUp);
+      // 4. Pre-render offscreen frame
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (e) {}
+
+      clearTimeout(failSafeTimer);
+      finishLoading();
     } catch (err) {
       console.warn('Preload warning:', err);
+      clearTimeout(failSafeTimer);
       try {
         this.renderer.compile(this.scene, this.camera);
         this.renderer.render(this.scene, this.camera);
       } catch (e) {}
-      this.isWorldRendered = true;
-      if (btnPlay) {
-        btnPlay.disabled = false;
-        btnPlay.style.opacity = '1';
-      }
-      if (fillEl) fillEl.style.width = '100%';
-      setTimeout(() => {
-        if (screen) screen.classList.add('hidden');
-        const menuScreen = document.getElementById('menu-screen');
-        if (menuScreen) menuScreen.classList.add('hidden');
-        this.startGame();
-      }, 350);
+      finishLoading();
     }
   }
 
