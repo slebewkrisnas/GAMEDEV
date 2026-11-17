@@ -55,11 +55,23 @@ export class UIManager {
     this.modalHow = document.getElementById('modal-how');
     this.modalSettings = document.getElementById('modal-settings');
 
-    // Settings Inputs
+    // Settings Inputs & Controls
     this.settingSens = document.getElementById('setting-sensitivity');
     this.valSens = document.getElementById('val-sensitivity');
     this.settingVol = document.getElementById('setting-volume');
     this.valVol = document.getElementById('val-volume');
+    this.btnToggleMute = document.getElementById('btn-toggle-mute');
+    this.settingSfxVol = document.getElementById('setting-sfx-volume');
+    this.valSfxVol = document.getElementById('val-sfx-volume');
+    this.settingZombieVol = document.getElementById('setting-zombie-volume');
+    this.valZombieVol = document.getElementById('val-zombie-volume');
+    this.settingAmbientVol = document.getElementById('setting-ambient-volume');
+    this.valAmbientVol = document.getElementById('val-ambient-volume');
+    this.btnTestAudio = document.getElementById('btn-test-audio');
+    this.btnResetAudio = document.getElementById('btn-reset-audio');
+    this.btnHudAudio = document.getElementById('btn-hud-audio');
+    this.btnMobileAudio = document.getElementById('btn-mobile-audio');
+    this.btnPauseSettings = document.getElementById('btn-pause-settings');
 
     this.announcementTimer = null;
     this.hitMarkerTimer = null;
@@ -123,29 +135,141 @@ export class UIManager {
     document.getElementById('btn-how-ack').addEventListener('click', () => this.showModal('how', false));
 
     // Settings modals
-    document.getElementById('btn-settings').addEventListener('click', () => this.showModal('settings', true));
-    document.getElementById('btn-close-settings').addEventListener('click', () => this.showModal('settings', false));
-    document.getElementById('btn-save-settings').addEventListener('click', () => this.showModal('settings', false));
+    const btnSettings = document.getElementById('btn-settings');
+    if (btnSettings) btnSettings.addEventListener('click', () => this.showModal('settings', true));
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    if (btnCloseSettings) btnCloseSettings.addEventListener('click', () => this.showModal('settings', false));
+    const btnSaveSettings = document.getElementById('btn-save-settings');
+    if (btnSaveSettings) btnSaveSettings.addEventListener('click', () => this.showModal('settings', false));
+
+    // Pause screen settings button
+    if (this.btnPauseSettings) {
+      this.btnPauseSettings.addEventListener('click', () => {
+        if (this.callbacks.onOpenSettings) {
+          this.callbacks.onOpenSettings();
+        } else {
+          this.showModal('settings', true);
+        }
+      });
+    }
+
+    // HUD & Mobile Quick Audio buttons
+    if (this.btnHudAudio) {
+      this.btnHudAudio.addEventListener('click', () => {
+        if (this.callbacks.onOpenSettings) {
+          this.callbacks.onOpenSettings();
+        } else {
+          this.showModal('settings', true);
+        }
+      });
+    }
+    if (this.btnMobileAudio) {
+      this.btnMobileAudio.addEventListener('click', () => {
+        if (this.callbacks.onOpenSettings) {
+          this.callbacks.onOpenSettings();
+        } else {
+          this.showModal('settings', true);
+        }
+      });
+    }
 
     // Sensitivity slider
     if (this.settingSens) {
       this.settingSens.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
-        this.valSens.textContent = val.toFixed(4);
+        if (this.valSens) this.valSens.textContent = val.toFixed(4);
         if (this.callbacks.onSensitivityChange) {
           this.callbacks.onSensitivityChange(val);
         }
       });
     }
 
-    // Volume slider
+    // Master Volume slider
     if (this.settingVol) {
       this.settingVol.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
-        this.valVol.textContent = `${val}%`;
-        sound.setVolume(val / 100);
+        if (typeof sound !== 'undefined') {
+          sound.setVolume(val / 100);
+        }
+        this.syncAudioUI();
       });
     }
+
+    // Mute toggle button
+    if (this.btnToggleMute) {
+      this.btnToggleMute.addEventListener('click', () => {
+        if (typeof sound !== 'undefined') {
+          sound.toggleMute();
+          this.syncAudioUI();
+        }
+      });
+    }
+
+    // Preset volume pills (0%, 15%, 35%, 75%)
+    document.querySelectorAll('.preset-vol-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        const vol = parseInt(e.currentTarget.getAttribute('data-vol'), 10);
+        if (typeof sound !== 'undefined') {
+          sound.setVolume(vol / 100);
+          this.syncAudioUI();
+          if (vol > 0) sound.playTestTone();
+        }
+      });
+    });
+
+    // Subchannel: SFX Volume
+    if (this.settingSfxVol) {
+      this.settingSfxVol.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (this.valSfxVol) this.valSfxVol.textContent = `${val}%`;
+        if (typeof sound !== 'undefined') sound.setSfxVolume(val / 100);
+      });
+    }
+
+    // Subchannel: Zombie Volume
+    if (this.settingZombieVol) {
+      this.settingZombieVol.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (this.valZombieVol) this.valZombieVol.textContent = `${val}%`;
+        if (typeof sound !== 'undefined') sound.setZombieVolume(val / 100);
+      });
+    }
+
+    // Subchannel: Ambient Volume
+    if (this.settingAmbientVol) {
+      this.settingAmbientVol.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (this.valAmbientVol) this.valAmbientVol.textContent = `${val}%`;
+        if (typeof sound !== 'undefined') sound.setAmbientVolume(val / 100);
+      });
+    }
+
+    // Test Audio button
+    if (this.btnTestAudio) {
+      this.btnTestAudio.addEventListener('click', () => {
+        if (typeof sound !== 'undefined') {
+          sound.playTestTone();
+        }
+      });
+    }
+
+    // Reset Audio button
+    if (this.btnResetAudio) {
+      this.btnResetAudio.addEventListener('click', () => {
+        if (typeof sound !== 'undefined') {
+          sound.setVolume(0.35);
+          sound.setSfxVolume(0.85);
+          sound.setZombieVolume(0.80);
+          sound.setAmbientVolume(0.65);
+          sound.setMuted(false);
+          this.syncAudioUI();
+          sound.playTestTone();
+        }
+      });
+    }
+
+    // Initial audio UI sync
+    this.syncAudioUI();
 
     // Nano-Stim Button [Q] on HUD
     const btnStim = document.getElementById('btn-use-stim');
@@ -392,10 +516,71 @@ export class UIManager {
     }
   }
 
+  syncAudioUI() {
+    if (typeof sound === 'undefined') return;
+    const isMuted = !!sound.isMuted;
+    const masterPercent = isMuted ? 0 : Math.round((sound.volume !== undefined ? sound.volume : 0.35) * 100);
+    const sfxPercent = Math.round((sound.sfxVolume !== undefined ? sound.sfxVolume : 0.85) * 100);
+    const zombiePercent = Math.round((sound.zombieVolume !== undefined ? sound.zombieVolume : 0.80) * 100);
+    const ambientPercent = Math.round((sound.ambientVolume !== undefined ? sound.ambientVolume : 0.65) * 100);
+
+    if (this.settingVol) this.settingVol.value = isMuted ? 0 : masterPercent;
+    if (this.valVol) {
+      this.valVol.textContent = isMuted ? 'BISU (0%)' : `${masterPercent}%`;
+      this.valVol.style.color = isMuted ? '#ff3366' : '#00e5ff';
+    }
+
+    if (this.btnToggleMute) {
+      this.btnToggleMute.textContent = isMuted ? '🔊 NYALAKAN' : '🔇 BISU';
+      this.btnToggleMute.classList.toggle('active', isMuted);
+    }
+
+    if (this.settingSfxVol) this.settingSfxVol.value = sfxPercent;
+    if (this.valSfxVol) this.valSfxVol.textContent = `${sfxPercent}%`;
+
+    if (this.settingZombieVol) this.settingZombieVol.value = zombiePercent;
+    if (this.valZombieVol) this.valZombieVol.textContent = `${zombiePercent}%`;
+
+    if (this.settingAmbientVol) this.settingAmbientVol.value = ambientPercent;
+    if (this.valAmbientVol) this.valAmbientVol.textContent = `${ambientPercent}%`;
+
+    // Highlight active preset pill if match
+    document.querySelectorAll('.preset-vol-pill').forEach(pill => {
+      const pVol = parseInt(pill.getAttribute('data-vol'), 10);
+      if ((isMuted && pVol === 0) || (!isMuted && pVol === masterPercent)) {
+        pill.classList.add('active');
+      } else {
+        pill.classList.remove('active');
+      }
+    });
+
+    this.updateAudioHUDIndicator();
+  }
+
+  updateAudioHUDIndicator() {
+    if (!this.btnHudAudio) return;
+    if (typeof sound === 'undefined') return;
+    if (sound.isMuted || sound.volume <= 0) {
+      this.btnHudAudio.innerHTML = '🔇 BISU [O]';
+      this.btnHudAudio.style.borderColor = '#ff3366';
+      this.btnHudAudio.style.color = '#ff3366';
+    } else {
+      const pct = Math.round(sound.volume * 100);
+      this.btnHudAudio.innerHTML = `🔊 SUARA (${pct}%) [O]`;
+      this.btnHudAudio.style.borderColor = '';
+      this.btnHudAudio.style.color = '';
+    }
+  }
+
   showModal(name, show) {
     if (name === 'how') {
       this.modalHow.classList.toggle('hidden', !show);
     } else if (name === 'settings') {
+      if (show) {
+        this.syncAudioUI();
+      } else {
+        if (typeof sound !== 'undefined') sound.saveSettings();
+      }
       this.modalSettings.classList.toggle('hidden', !show);
     }
   }

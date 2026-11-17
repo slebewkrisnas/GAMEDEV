@@ -245,11 +245,17 @@ class DeadZoneGame {
     this.ui.player = this.player;
     this.player.onInteractCallback = () => this.shopManager.interact();
 
-    // Wire Player Inventory, Marketplace & Profile Hotkeys [I, M, P, Esc]
+    // Wire Player Inventory, Marketplace, Profile & Audio Settings Hotkeys [I, M, P, O, Esc]
     this.player.onToggleInventoryCallback = () => this.shopManager.toggleInventoryModal();
     this.player.onToggleMarketplaceCallback = () => this.shopManager.toggleMarketplaceModal();
     this.player.onToggleProfileCallback = () => this.shopManager.toggleProfileModal();
+    this.player.onToggleSettingsCallback = () => this.toggleSettingsModal();
     this.player.onEscapeCallback = () => {
+      const modalSettings = document.getElementById('modal-settings');
+      if (modalSettings && !modalSettings.classList.contains('hidden')) {
+        this.toggleSettingsModal();
+        return;
+      }
       if (this.shopManager.modalActive) {
         this.shopManager.closeAllModals();
       } else {
@@ -301,6 +307,7 @@ class DeadZoneGame {
         if (this.player) this.player.selectSlot(slot);
       },
       onInteract: () => this.shopManager.interact(),
+      onOpenSettings: () => this.toggleSettingsModal(),
       onSensitivityChange: (val) => {
         if (this.player) this.player.mouseSensitivity = val;
       }
@@ -318,14 +325,18 @@ class DeadZoneGame {
 
     // Re-lock pointer on canvas click at any time during gameplay
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.currentState === this.STATES.PLAYING && !this.shopManager.modalActive && !this.player.isTouchMode) {
+      const modalSettings = document.getElementById('modal-settings');
+      const isSettingsOpen = modalSettings && !modalSettings.classList.contains('hidden');
+      if (this.currentState === this.STATES.PLAYING && !this.shopManager.modalActive && !isSettingsOpen && !this.player.isTouchMode) {
         this.player.requestPointerLock();
       }
     });
 
     document.addEventListener('pointerlockchange', () => {
       if (!this.player.isTouchMode && document.pointerLockElement !== this.renderer.domElement) {
-        if (this.currentState === this.STATES.PLAYING && !this.shopManager.modalActive) {
+        const modalSettings = document.getElementById('modal-settings');
+        const isSettingsOpen = modalSettings && !modalSettings.classList.contains('hidden');
+        if (this.currentState === this.STATES.PLAYING && !this.shopManager.modalActive && !isSettingsOpen) {
           this.pauseGame();
         }
       }
@@ -333,6 +344,11 @@ class DeadZoneGame {
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape') {
+        const modalSettings = document.getElementById('modal-settings');
+        if (modalSettings && !modalSettings.classList.contains('hidden')) {
+          this.toggleSettingsModal();
+          return;
+        }
         if (this.shopManager && this.shopManager.modalActive) {
           this.shopManager.closeAllModals();
           if (!this.player.isTouchMode) this.player.requestPointerLock();
@@ -585,6 +601,26 @@ class DeadZoneGame {
     this.ui.showScreen('playing');
     if (!this.player.isTouchMode) {
       this.player.requestPointerLock();
+    }
+  }
+
+  toggleSettingsModal() {
+    const modalSettings = document.getElementById('modal-settings');
+    if (!modalSettings) return;
+    const isHidden = modalSettings.classList.contains('hidden');
+    if (isHidden) {
+      if (this.shopManager && this.shopManager.modalActive) {
+        this.shopManager.closeAllModals();
+      }
+      this.ui.showModal('settings', true);
+      if (this.player && !this.player.isTouchMode) {
+        this.player.exitPointerLock();
+      }
+    } else {
+      this.ui.showModal('settings', false);
+      if (this.currentState === this.STATES.PLAYING && this.player && !this.player.isTouchMode) {
+        this.player.requestPointerLock();
+      }
     }
   }
 

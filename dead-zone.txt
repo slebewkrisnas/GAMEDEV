@@ -679,6 +679,22 @@ Dikelola oleh class SoundManager (audio.js) tanpa ketergantungan file MP3/WAV ek
 - Raungan Boss    : Sub-bass 50 Hz berguncang dengan vibrato LFO intensitas tinggi.
 - Denting Koin    : Nada sinusoidal ganda frekuensi tinggi (987 Hz & 1318 Hz).
 
+- Pengatur Volume & Arsitektur Kanal Suara Taktis (Audio Settings System):
+  * Volume Awal Default Diturunkan: Nilai default diturunkan dari 0.8 (80%) menjadi 0.35 (35%) agar nyaman dan tidak memekakkan telinga saat game pertama kali dijalankan.
+  * 4 Node Penguatan Mandiri (GainNodes):
+    - `masterGain`: Mengontrol level keras suara keseluruhan yang langsung masuk ke output speaker.
+    - `sfxGain`: Mengontrol kanal tembakan, reload, benturan golok, ranjau bambu, denting koin, dan UI (default 0.85).
+    - `zombieGain`: Mengontrol kanal erangan walker, jeritan stalker, dan raungan gempa Titan (default 0.80).
+    - `ambientGain`: Mengontrol kanal langkah kaki, loncatan, hembusan angin, dan sirine evakuasi (default 0.65).
+  * Tombol Mute Cepat & Presets: Mendukung pembisuan instan (`🔇 BISU`) dan 4 tombol pill preset (0% Mute, 15% Pelan, 35% Nyaman, 75% Keras).
+  * Uji Suara Akord Harmoni (`playTestTone`): Memainkan nada C5-E5-G5 lembut untuk mengetes tingkat kenyamanan volume langsung di dalam menu.
+  * Aksesibilitas Multikanal:
+    - Tombol HUD Aksi Cepat: `#btn-hud-audio` menampilkan volume aktif secara live `🔊 SUARA (35%) [O]`.
+    - Tombol Mobile Layar Sentuh: `#btn-mobile-audio` di kluster kontrol HP.
+    - Tombol Tactical Pause: `#btn-pause-settings` di menu jeda simulasi.
+    - Hotkey Keyboard: Tombol `[O]` membuka modal pengaturan kapan saja saat gameplay aktif.
+  * Persistensi Penyimpanan Browser: Menyimpan dan memuat konfigurasi volume otomatis melalui `localStorage` (`deadzone_audio_settings`).
+
 ================================================================================
 10. ARSITEKTUR KODE & STRUKTUR FILE (CODEBASE ARCHITECTURE)
 ================================================================================
@@ -790,6 +806,22 @@ Rencana pengembangan berikutnya (Fitur yang BELUM ada saat ini dan akan datang):
 ================================================================================
 14. CHANGELOG & RIWAYAT PERKEMBANGAN (DEVELOPMENT LOG)
 ================================================================================
+* 17 November 2026 (Rilis Pembaruan V8 — Comprehensive Audio Volume Control & Sub-Channel Synthesizer System):
+  - Sistem Pengaturan Suara & Kontrol Volume Mandiri (Master, SFX, Zombi, Ambience):
+    * Penurunan drastis volume awal default dari 0.8 (80%) ke 0.35 (35%) agar nyaman dan tidak memekakkan telinga pemain.
+    * Pemisahan 4 node penguatan Web Audio API (`masterGain`, `sfxGain`, `zombieGain`, `ambientGain`) untuk mengatur level suara tembakan, zombi, dan langkah kaki secara independen.
+    * Tombol Mute Cepat (`toggleMute`) & 4 Tombol Preset Cepat (0% Mute, 15% Pelan, 35% Nyaman, 75% Keras).
+    * Tombol Tes Suara Akord Harmoni C5-E5-G5 (`playTestTone`) untuk pratinjau kenyamanan volume langsung di menu.
+    * Persistensi preferensi volume di `localStorage` browser (`deadzone_audio_settings`) sehingga pengaturan tetap tersimpan saat reload.
+  - Aksesibilitas Suara Multikanal saat Bermain:
+    * Tombol HUD Aksi Cepat: `#btn-hud-audio` menampilkan keras volume secara live `🔊 SUARA (35%) [O]`.
+    * Tombol Layar Sentuh Mobile: `#btn-mobile-audio` di kluster kontrol HP.
+    * Tombol Menu Jeda: `#btn-pause-settings` pada Tactical Pause screen.
+    * Hotkey Keyboard: Tombol `[O]` membuka modal pengaturan suara dan kontrol kapan saja saat gameplay aktif.
+  - Verifikasi Pengujian Menyeluruh (10 Suite 100% Lulus):
+    * Pembuatan suite pengujian otomatis `audio_settings.test.js` memverifikasi inisialisasi default, peredam, gain clamping, subkanal, mute toggle, persistensi, dan preview audio tone.
+    * Seluruh 10 test suite di `gamedevs/dead-zone/js/tests/` lulus 100% tanpa kesalahan.
+
 * 11 November 2026 (Rilis Pembaruan V7 — Visual UI Polish for Inventory & Shops, 3D Camera Anti-Underground Ground Clearance Clamp):
   - Pembatasan Pitch & Anti-Underground Ground Clearance Clamp pada Kamera 3D Game:
     * Batas pitch sudut pandang (mouse dan touch control) diatur menjadi batas bawah -0.25 rad (~ -14.3°) dan batas atas PI/2.6 (~69.2°).

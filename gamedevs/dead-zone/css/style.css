@@ -1173,23 +1173,172 @@ body {
   color: #38bdf8;
 }
 
-.setting-item {
-  margin-bottom: 20px;
+/* ==========================================================================
+   Tactical Settings Modal & Volume Audio Controls
+   ========================================================================== */
+.modal-settings-box {
+  max-width: 540px;
+  width: 95%;
+  background: rgba(13, 17, 23, 0.96);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 229, 255, 0.2);
 }
 
-.setting-item label {
-  display: block;
+.setting-section {
+  background: rgba(18, 24, 38, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.setting-section-title {
   font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  padding-bottom: 4px;
+}
+
+.setting-item {
+  margin-bottom: 10px;
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
+}
+
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.setting-label-row label {
+  margin-bottom: 0;
   font-size: 13px;
-  letter-spacing: 1px;
   color: #e2e8f0;
-  margin-bottom: 8px;
+  font-family: var(--font-display);
+}
+
+.setting-val-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  color: #00e5ff;
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.5);
+  min-width: 44px;
+  text-align: center;
+}
+
+.btn-mute-toggle {
+  background: rgba(255, 51, 102, 0.15);
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  color: #ff3366;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-mute-toggle:hover {
+  background: rgba(255, 51, 102, 0.35);
+  border-color: #ff3366;
+  box-shadow: 0 0 10px rgba(255, 51, 102, 0.4);
+}
+
+.btn-mute-toggle.active {
+  background: #ff3366;
+  color: #fff;
+  border-color: #ff3366;
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.6);
 }
 
 .setting-item input[type="range"] {
   width: 100%;
-  accent-color: var(--color-accent-red);
+  accent-color: #00e5ff;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
   cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.setting-item input[type="range"]:hover {
+  accent-color: #38bdf8;
+}
+
+.volume-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: var(--font-display);
+}
+
+.preset-vol-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-vol-pill:hover {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: #00e5ff;
+  color: #00e5ff;
+}
+
+.preset-vol-pill.active {
+  background: rgba(0, 229, 255, 0.25);
+  border-color: #00e5ff;
+  color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+.setting-actions-row {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.setting-actions-row .btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 .modal-footer {
@@ -1433,16 +1582,52 @@ body.mode-hp .hud-bottom-left {
 }
 
 .action-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
 
-  ==========================================================================*/.hud-scifi-status {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 10px;
-    font-family: var(--font-display, monospace);
-    font-size: 13px;
-    letter-spacing: 1px;
-  }
+.mobile-btn {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  font-family: var(--font-display, sans-serif);
+}
+
+.mobile-btn .btn-icon {
+  font-size: 18px;
+}
+
+.mobile-btn .btn-text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.mobile-btn:active, .mobile-btn.active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+}
+
+.hud-scifi-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-family: var(--font-display, monospace);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
 
   .hud-wallet {
     color: #38bdf8;

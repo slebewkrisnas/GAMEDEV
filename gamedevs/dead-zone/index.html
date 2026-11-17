@@ -78,11 +78,12 @@
         <div id="hud-backpack" class="hud-backpack">🎒 <span id="hud-backpack-val">0 / 6</span></div>
         <div id="hud-stim" class="hud-stim">🌿 JAMU: <span id="hud-stim-val">0</span> [Q]</div>
       </div>
-      <!-- Tactical System Quick Buttons [I, M, P] -->
+      <!-- Tactical System Quick Buttons [I, M, P, O] -->
       <div class="hud-action-bar">
         <button id="btn-hud-inventory" class="hud-quick-btn" title="Buka Inventaris 60 Slot [I / Tab]">🎒 INVENTARIS [I]</button>
         <button id="btn-hud-marketplace" class="hud-quick-btn" title="Buka Pasar Desa [M]">🏪 PASAR [M]</button>
         <button id="btn-hud-profile" class="hud-quick-btn" title="Buka Profil & Statistik [P]">👤 PROFIL [P]</button>
+        <button id="btn-hud-audio" class="hud-quick-btn" title="Atur Suara / Volume [O]">🔊 SUARA (35%)</button>
       </div>
     </div>
 
@@ -274,6 +275,10 @@
             <span class="btn-icon">👤</span>
             <span class="btn-text">PROFIL</span>
           </button>
+          <button id="btn-mobile-audio" class="mobile-btn" title="Atur Suara & Volume">
+            <span class="btn-icon">🔊</span>
+            <span class="btn-text">SUARA</span>
+          </button>
         </div>
         <div class="action-row">
           <button id="btn-mobile-interact" class="mobile-btn" title="Tombol Interaksi / Masuk">
@@ -356,6 +361,9 @@
         <button id="btn-resume" class="btn btn-primary">
           <span class="btn-glow"></span>
           <span class="btn-text">RESUME COMBAT</span>
+        </button>
+        <button id="btn-pause-settings" class="btn btn-secondary">
+          <span class="btn-text">⚙️ PENGATURAN SUARA [O]</span>
         </button>
         <button id="btn-pause-how" class="btn btn-secondary">
           <span class="btn-text">CONTROLS</span>
@@ -487,25 +495,81 @@
     </div>
   </div>
 
-  <!-- Settings Modal -->
+  <!-- Settings Modal (Pengaturan Suara & Kontrol Taktis) -->
   <div id="modal-settings" class="modal-backdrop hidden">
-    <div class="modal-box">
+    <div class="modal-box modal-settings-box">
       <div class="modal-header">
-        <h3>COMBAT SETTINGS</h3>
+        <h3>⚙️ PENGATURAN SUARA & KONTROL</h3>
         <button id="btn-close-settings" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="setting-item">
-          <label for="setting-sensitivity">Mouse Sensitivity: <span id="val-sensitivity">0.0022</span></label>
-          <input type="range" id="setting-sensitivity" min="0.0008" max="0.0050" step="0.0002" value="0.0022">
+        <!-- Master Volume Section -->
+        <div class="setting-section">
+          <div class="setting-section-title">🔊 VOLUME UTAMA (MASTER)</div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <label for="setting-volume">Keras Suara:</label>
+              <div class="setting-val-group">
+                <span id="val-volume" class="setting-badge">35%</span>
+                <button type="button" id="btn-toggle-mute" class="btn-mute-toggle" title="Matikan/Nyalakan Suara">🔇 BISU</button>
+              </div>
+            </div>
+            <input type="range" id="setting-volume" min="0" max="100" step="1" value="35">
+            <div class="volume-presets-row">
+              <span class="preset-label">Pilihan Cepat:</span>
+              <button type="button" class="preset-vol-pill" data-vol="0">0% (Mute)</button>
+              <button type="button" class="preset-vol-pill" data-vol="15">15% (Pelan)</button>
+              <button type="button" class="preset-vol-pill" data-vol="35">35% (Nyaman)</button>
+              <button type="button" class="preset-vol-pill" data-vol="75">75% (Keras)</button>
+            </div>
+          </div>
         </div>
-        <div class="setting-item">
-          <label for="setting-volume">Master Volume: <span id="val-volume">80%</span></label>
-          <input type="range" id="setting-volume" min="0" max="100" step="5" value="80">
+
+        <!-- Sub Channels Section -->
+        <div class="setting-section">
+          <div class="setting-section-title">🎚️ KANAL SUARA RINCI</div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <label for="setting-sfx-volume">💥 Senjata & Efek (SFX):</label>
+              <span id="val-sfx-volume" class="setting-badge">85%</span>
+            </div>
+            <input type="range" id="setting-sfx-volume" min="0" max="100" step="5" value="85">
+          </div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <label for="setting-zombie-volume">🧟 Raungan & Zombi:</label>
+              <span id="val-zombie-volume" class="setting-badge">80%</span>
+            </div>
+            <input type="range" id="setting-zombie-volume" min="0" max="100" step="5" value="80">
+          </div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <label for="setting-ambient-volume">🍃 Langkah & Suasana Lingkungan:</label>
+              <span id="val-ambient-volume" class="setting-badge">65%</span>
+            </div>
+            <input type="range" id="setting-ambient-volume" min="0" max="100" step="5" value="65">
+          </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="setting-section">
+          <div class="setting-section-title">🎯 SENSITIVITAS MOUSE</div>
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <label for="setting-sensitivity">Sensitivitas Bidik:</label>
+              <span id="val-sensitivity" class="setting-badge">0.0022</span>
+            </div>
+            <input type="range" id="setting-sensitivity" min="0.0008" max="0.0050" step="0.0002" value="0.0022">
+          </div>
+        </div>
+
+        <div class="setting-actions-row">
+          <button type="button" id="btn-test-audio" class="btn btn-secondary">🔔 TES SUARA</button>
+          <button type="button" id="btn-reset-audio" class="btn btn-secondary">🔄 RESET DEFAULT (35%)</button>
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-save-settings" class="btn btn-primary">SAVE & CLOSE</button>
+        <button id="btn-save-settings" class="btn btn-primary">SIMPAN & TUTUP [ESC]</button>
       </div>
     </div>
   </div>

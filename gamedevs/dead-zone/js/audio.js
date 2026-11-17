@@ -7,21 +7,50 @@ class SoundManager {
   constructor() {
     this.ctx = null;
     this.masterGain = null;
-    this.volume = 0.8;
+    this.sfxGain = null;
+    this.zombieGain = null;
+    this.ambientGain = null;
+
+    // Default volume diturunkan dari 0.8 (terlalu keras) menjadi 0.35 (nyaman & balanced)
+    this.volume = 0.35;
+    this.sfxVolume = 0.85;
+    this.zombieVolume = 0.80;
+    this.ambientVolume = 0.65;
     this.isMuted = false;
+
     this.lastStepTime = 0;
     this.isLeftFoot = false;
+
+    this.loadSettings();
   }
 
   init() {
     if (this.ctx) return;
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const AudioCtx = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) || null;
       if (!AudioCtx) return;
       this.ctx = new AudioCtx();
+
+      // Master Gain Node (terhubung ke output audio speaker)
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+      const initialMaster = this.isMuted ? 0 : this.volume;
+      this.masterGain.gain.setValueAtTime(initialMaster, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
+
+      // Sub-channel: SFX (Tembakan, senjata, reload, impact, koin, UI)
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.setValueAtTime(this.sfxVolume, this.ctx.currentTime);
+      this.sfxGain.connect(this.masterGain);
+
+      // Sub-channel: Zombi (Erangan, jeritan, serangan, roar Boss Titan)
+      this.zombieGain = this.ctx.createGain();
+      this.zombieGain.gain.setValueAtTime(this.zombieVolume, this.ctx.currentTime);
+      this.zombieGain.connect(this.masterGain);
+
+      // Sub-channel: Ambience (Langkah kaki, lompatan, desiran angin, sirine suar)
+      this.ambientGain = this.ctx.createGain();
+      this.ambientGain.gain.setValueAtTime(this.ambientVolume, this.ctx.currentTime);
+      this.ambientGain.connect(this.masterGain);
     } catch (e) {
       console.warn("AudioContext initialization error:", e);
     }
@@ -33,11 +62,135 @@ class SoundManager {
     }
   }
 
+  // Pengatur Volume Utama (Master Volume: 0.0 - 1.0)
   setVolume(vol) {
     this.volume = Math.max(0, Math.min(1, vol));
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+    if (this.volume > 0 && this.isMuted) {
+      this.isMuted = false;
     }
+    this._applyVolumes();
+    this.saveSettings();
+  }
+
+  // Pengatur Volume Efek Suara (SFX: 0.0 - 1.0)
+  setSfxVolume(vol) {
+    this.sfxVolume = Math.max(0, Math.min(1, vol));
+    this._applyVolumes();
+    this.saveSettings();
+  }
+
+  // Pengatur Volume Zombi & Monster (0.0 - 1.0)
+  setZombieVolume(vol) {
+    this.zombieVolume = Math.max(0, Math.min(1, vol));
+    this._applyVolumes();
+    this.saveSettings();
+  }
+
+  // Pengatur Volume Lingkungan / Ambience (0.0 - 1.0)
+  setAmbientVolume(vol) {
+    this.ambientVolume = Math.max(0, Math.min(1, vol));
+    this._applyVolumes();
+    this.saveSettings();
+  }
+
+  // Toggle Mute / Bisu Seketika
+  setMuted(muted) {
+    this.isMuted = !!muted;
+    this._applyVolumes();
+    this.saveSettings();
+  }
+
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    this._applyVolumes();
+    this.saveSettings();
+    return this.isMuted;
+  }
+
+  _applyVolumes() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.masterGain) {
+      const targetVol = this.isMuted ? 0 : this.volume;
+      this.masterGain.gain.setValueAtTime(targetVol, now);
+    }
+    if (this.sfxGain) {
+      this.sfxGain.gain.setValueAtTime(this.sfxVolume, now);
+    }
+    if (this.zombieGain) {
+      this.zombieGain.gain.setValueAtTime(this.zombieVolume, now);
+    }
+    if (this.ambientGain) {
+      this.ambientGain.gain.setValueAtTime(this.ambientVolume, now);
+    }
+  }
+
+  // Simpan preferensi volume ke localStorage agar tidak hilang saat refresh browser
+  saveSettings() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const payload = {
+          volume: this.volume,
+          sfxVolume: this.sfxVolume,
+          zombieVolume: this.zombieVolume,
+          ambientVolume: this.ambientVolume,
+          isMuted: this.isMuted
+        };
+        localStorage.setItem('deadzone_audio_settings', JSON.stringify(payload));
+      }
+    } catch (e) {}
+  }
+
+  // Muat preferensi volume tersimpan saat game pertama kali dijalankan
+  loadSettings() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('deadzone_audio_settings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed.volume === 'number' && !isNaN(parsed.volume)) {
+            this.volume = Math.max(0, Math.min(1, parsed.volume));
+          }
+          if (typeof parsed.sfxVolume === 'number' && !isNaN(parsed.sfxVolume)) {
+            this.sfxVolume = Math.max(0, Math.min(1, parsed.sfxVolume));
+          }
+          if (typeof parsed.zombieVolume === 'number' && !isNaN(parsed.zombieVolume)) {
+            this.zombieVolume = Math.max(0, Math.min(1, parsed.zombieVolume));
+          }
+          if (typeof parsed.ambientVolume === 'number' && !isNaN(parsed.ambientVolume)) {
+            this.ambientVolume = Math.max(0, Math.min(1, parsed.ambientVolume));
+          }
+          if (typeof parsed.isMuted === 'boolean') {
+            this.isMuted = parsed.isMuted;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Nada uji coba lembut (C-E-G Chord Preview) untuk mengetes volume suara di menu
+  playTestTone() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    this.resume();
+
+    const now = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+      gain.gain.setValueAtTime(0.001, now + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.08 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.masterGain);
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.32);
+    });
   }
 
   // Gunshot: White noise blast + fast decaying pitch sine + lowpass filter
@@ -68,7 +221,7 @@ class SoundManager {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
+    noiseGain.connect(this.sfxGain || this.masterGain);
     noise.start(now);
 
     // 2. Heavy kick oscillator (punch)
@@ -82,7 +235,7 @@ class SoundManager {
     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
     osc.connect(oscGain);
-    oscGain.connect(this.masterGain);
+    oscGain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.16);
   }
@@ -100,7 +253,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.05);
   }
@@ -137,7 +290,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.sfxGain || this.masterGain);
     osc.start(time);
     osc.stop(time + duration + 0.01);
   }
@@ -157,7 +310,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.zombieGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.11);
   }
@@ -177,7 +330,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.22);
   }
@@ -202,7 +355,7 @@ class SoundManager {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.zombieGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.52);
   }
@@ -222,7 +375,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.zombieGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.22);
   }
@@ -242,7 +395,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.26);
   }
@@ -270,7 +423,7 @@ class SoundManager {
 
     subOsc.connect(subFilter);
     subFilter.connect(subGain);
-    subGain.connect(this.masterGain);
+    subGain.connect(this.zombieGain || this.masterGain);
     subOsc.start(now);
     subOsc.stop(now + 1.3);
 
@@ -285,7 +438,7 @@ class SoundManager {
     growlGain.gain.exponentialRampToValueAtTime(0.01, now + 0.95);
 
     growl.connect(growlGain);
-    growlGain.connect(this.masterGain);
+    growlGain.connect(this.zombieGain || this.masterGain);
     growl.start(now);
     growl.stop(now + 1.0);
   }
@@ -306,7 +459,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.zombieGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 1.6);
   }
@@ -332,7 +485,7 @@ class SoundManager {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.ambientGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.95);
   }
@@ -352,7 +505,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.35);
 
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.ambientGain || this.masterGain);
       osc.start(time);
       osc.stop(time + 0.38);
     });
@@ -378,7 +531,7 @@ class SoundManager {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.ambientGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 1.9);
   }
@@ -402,7 +555,7 @@ class SoundManager {
     popGain.gain.setValueAtTime(0.35, now);
     popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
     popOsc.connect(popGain);
-    popGain.connect(this.masterGain);
+    popGain.connect(this.sfxGain || this.masterGain);
     popOsc.start(now);
     popOsc.stop(now + 0.07);
 
@@ -423,7 +576,7 @@ class SoundManager {
 
     gulp1.connect(filter1);
     filter1.connect(gulp1Gain);
-    gulp1Gain.connect(this.masterGain);
+    gulp1Gain.connect(this.sfxGain || this.masterGain);
     gulp1.start(now + 0.08);
     gulp1.stop(now + 0.20);
 
@@ -444,7 +597,7 @@ class SoundManager {
 
     gulp2.connect(filter2);
     filter2.connect(gulp2Gain);
-    gulp2Gain.connect(this.masterGain);
+    gulp2Gain.connect(this.sfxGain || this.masterGain);
     gulp2.start(now + 0.22);
     gulp2.stop(now + 0.35);
 
@@ -459,7 +612,7 @@ class SoundManager {
       hGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
       hOsc.connect(hGain);
-      hGain.connect(this.masterGain);
+      hGain.connect(this.sfxGain || this.masterGain);
       hOsc.start(now + 0.34);
       hOsc.stop(now + 0.88);
     });
@@ -482,7 +635,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.005, time + 0.25);
 
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.sfxGain || this.masterGain);
       osc.start(time);
       osc.stop(time + 0.28);
     });
@@ -511,7 +664,7 @@ class SoundManager {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.62);
   }
@@ -533,7 +686,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
 
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.sfxGain || this.masterGain);
       osc.start(time);
       osc.stop(time + 0.22);
     });
@@ -564,7 +717,7 @@ class SoundManager {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
+    noiseGain.connect(this.sfxGain || this.masterGain);
     noise.start(now);
 
     const osc = this.ctx.createOscillator();
@@ -577,7 +730,7 @@ class SoundManager {
     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
 
     osc.connect(oscGain);
-    oscGain.connect(this.masterGain);
+    oscGain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.24);
   }
@@ -608,7 +761,7 @@ class SoundManager {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
+    noiseGain.connect(this.sfxGain || this.masterGain);
     noise.start(now);
 
     const osc = this.ctx.createOscillator();
@@ -621,7 +774,7 @@ class SoundManager {
     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
 
     osc.connect(oscGain);
-    oscGain.connect(this.masterGain);
+    oscGain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.11);
   }
@@ -663,7 +816,7 @@ class SoundManager {
       thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
 
       thumpOsc.connect(thumpGain);
-      thumpGain.connect(this.masterGain);
+      thumpGain.connect(this.ambientGain || this.masterGain);
       thumpOsc.start(now);
       thumpOsc.stop(now + 0.05);
 
@@ -694,7 +847,7 @@ class SoundManager {
       noise.connect(bandFilter);
       bandFilter.connect(lowFilter);
       lowFilter.connect(noiseGain);
-      noiseGain.connect(this.masterGain);
+      noiseGain.connect(this.ambientGain || this.masterGain);
       noise.start(now);
 
       // 3. Lapisan Desiran Celana & Pakaian Taktis (Cloth Rustle)
@@ -717,7 +870,7 @@ class SoundManager {
 
       clothNoise.connect(clothFilter);
       clothFilter.connect(clothGain);
-      clothGain.connect(this.masterGain);
+      clothGain.connect(this.ambientGain || this.masterGain);
       clothNoise.start(now);
     } catch (e) {}
   }
@@ -741,7 +894,7 @@ class SoundManager {
       pushGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
 
       pushOsc.connect(pushGain);
-      pushGain.connect(this.masterGain);
+      pushGain.connect(this.ambientGain || this.masterGain);
       pushOsc.start(now);
       pushOsc.stop(now + 0.075);
 
@@ -766,7 +919,7 @@ class SoundManager {
 
       scuffNoise.connect(scuffFilter);
       scuffFilter.connect(scuffGain);
-      scuffGain.connect(this.masterGain);
+      scuffGain.connect(this.ambientGain || this.masterGain);
       scuffNoise.start(now);
 
       // 3. Desiran Udara & Kibasan Pakaian Saat Melompat (Body Whoosh)
@@ -793,7 +946,7 @@ class SoundManager {
 
       whooshNoise.connect(whooshFilter);
       whooshFilter.connect(whooshGain);
-      whooshGain.connect(this.masterGain);
+      whooshGain.connect(this.ambientGain || this.masterGain);
       whooshNoise.start(now);
     } catch (e) {}
   }
@@ -817,7 +970,7 @@ class SoundManager {
       oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
 
       osc.connect(oscGain);
-      oscGain.connect(this.masterGain);
+      oscGain.connect(this.ambientGain || this.masterGain);
       osc.start(now);
       osc.stop(now + 0.10);
 
@@ -841,7 +994,7 @@ class SoundManager {
 
       noise.connect(filter);
       filter.connect(noiseGain);
-      noiseGain.connect(this.masterGain);
+      noiseGain.connect(this.ambientGain || this.masterGain);
       noise.start(now);
 
       // 3. Kibasan Pakaian & Tekuk Lutut Meredam (Cloth Cushion)
@@ -865,7 +1018,7 @@ class SoundManager {
 
       cNoise.connect(cFilter);
       cFilter.connect(cGain);
-      cGain.connect(this.masterGain);
+      cGain.connect(this.ambientGain || this.masterGain);
       cNoise.start(now);
     } catch (e) {}
   }
@@ -889,7 +1042,7 @@ class SoundManager {
       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
       osc1.connect(gain1);
-      gain1.connect(this.masterGain);
+      gain1.connect(this.ambientGain || this.masterGain);
       osc1.start(now);
       osc1.stop(now + 0.13);
 
@@ -905,7 +1058,7 @@ class SoundManager {
       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
 
       osc2.connect(gain2);
-      gain2.connect(this.masterGain);
+      gain2.connect(this.ambientGain || this.masterGain);
       osc2.start(now + 0.14);
       osc2.stop(now + 0.27);
     } catch (e) {}
@@ -940,7 +1093,7 @@ class SoundManager {
 
       noise.connect(filter);
       filter.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.sfxGain || this.masterGain);
       noise.start(now);
     } catch (e) {}
   }
@@ -963,7 +1116,7 @@ class SoundManager {
       oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
       osc.connect(oscGain);
-      oscGain.connect(this.masterGain);
+      oscGain.connect(this.sfxGain || this.masterGain);
       osc.start(now);
       osc.stop(now + 0.12);
 
@@ -988,7 +1141,7 @@ class SoundManager {
 
       noise.connect(filter);
       filter.connect(noiseGain);
-      noiseGain.connect(this.masterGain);
+      noiseGain.connect(this.sfxGain || this.masterGain);
       noise.start(now);
     } catch (e) {}
   }
@@ -1011,7 +1164,7 @@ class SoundManager {
       oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
       osc.connect(oscGain);
-      oscGain.connect(this.masterGain);
+      oscGain.connect(this.sfxGain || this.masterGain);
       osc.start(now);
       osc.stop(now + 0.07);
 
@@ -1026,7 +1179,7 @@ class SoundManager {
       subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
       sub.connect(subGain);
-      subGain.connect(this.masterGain);
+      subGain.connect(this.sfxGain || this.masterGain);
       sub.start(now);
       sub.stop(now + 0.09);
     } catch (e) {}
@@ -1064,7 +1217,7 @@ class SoundManager {
 
       this.sirenOsc.connect(filter);
       filter.connect(this.sirenGain);
-      this.sirenGain.connect(this.masterGain);
+      this.sirenGain.connect(this.ambientGain || this.masterGain);
       this.sirenOsc.start(now);
     } catch (e) {}
   }
@@ -1106,7 +1259,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
 
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(this.ambientGain || this.masterGain);
       osc.start(now + idx * 0.12);
       osc.stop(now + idx * 0.12 + 0.65);
     });

@@ -16,6 +16,7 @@ export class Player {
     this.onDamageCallback = onDamageCallback;
     this.onDeathCallback = onDeathCallback;
     this.onInteractCallback = null;
+    this.onToggleSettingsCallback = null;
 
     // Player Hierarchy:
     // yawObject (controls horizontal rotation & position at eye height)
@@ -213,6 +214,9 @@ export class Player {
         break;
       case 'KeyP':
         if (this.onToggleProfileCallback) this.onToggleProfileCallback();
+        break;
+      case 'KeyO':
+        if (this.onToggleSettingsCallback) this.onToggleSettingsCallback();
         break;
       case 'Escape':
         if (this.onEscapeCallback) this.onEscapeCallback();
