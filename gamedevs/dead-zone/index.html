@@ -37,14 +37,79 @@
         <div class="zone-loader-spinner" id="zoneLoaderSpinner"></div>
         <span class="zone-loader-symbol" id="zoneLoaderSymbol">☣️</span>
       </div>
-      <div class="zone-loader-title" id="zoneLoaderTitle">MEMASUKI SECTOR-7</div>
-      <div class="zone-loader-subtitle" id="zoneLoaderSubtitle">Menginisialisasi Lingkungan 3D & Shader...</div>
+      <div class="zone-loader-title" id="zoneLoaderTitle">MEMASUKI DEAD ZONE</div>
+      <div class="zone-loader-subtitle" id="zoneLoaderSubtitle">Memuat permukiman aman, toko serba ada & persenjataan...</div>
       <div class="zone-loader-progress-track">
-        <div class="zone-loader-progress-fill" id="zoneLoaderFill"></div>
+        <div class="zone-loader-progress-fill" id="zoneLoaderFill" style="width: 15%;"></div>
       </div>
-      <div class="zone-loader-status" id="zoneLoaderStatus">MEMUAT... 0%</div>
+      <div class="zone-loader-status" id="zoneLoaderStatus">MEMUAT... 15%</div>
+      <button id="btn-force-start" class="btn-force-start" style="display: none;" title="Lewati proses loading dan langsung masuk ke permainan">⚡ MASUK SEKARANG (LEWATI)</button>
     </div>
   </div>
+
+  <!-- Inline Loading Guard & Protocol Failsafe -->
+  <script>
+    (function() {
+      // 1. Deteksi protokol file://
+      if (window.location.protocol === 'file:') {
+        console.warn('⚠️ [DEAD-ZONE] Protokol file:// terdeteksi. Browser memblokir ES Modules di file://.');
+        const sub = document.getElementById('zoneLoaderSubtitle');
+        const stat = document.getElementById('zoneLoaderStatus');
+        if (sub) sub.innerHTML = '<span style="color:#f59e0b;">⚠️ Dibuka via file://. Mohon gunakan server lokal (Live Server / JALANKAN_GAME.bat).</span>';
+        if (stat) stat.textContent = 'GUNAKAN HTTP SERVER';
+      }
+
+      // 2. Tombol Darurat "Masuk Sekarang" muncul jika loading melebihi 3.2 detik
+      const forceBtn = document.getElementById('btn-force-start');
+      const forceTimer = setTimeout(function() {
+        if (forceBtn) {
+          forceBtn.style.display = 'inline-flex';
+        }
+      }, 3200);
+
+      function emergencyEnter() {
+        const screen = document.getElementById('zone-loading-screen');
+        if (screen) screen.classList.add('hidden');
+        if (window.deadZoneGame && typeof window.deadZoneGame.startGame === 'function') {
+          window.deadZoneGame.isWorldRendered = true;
+          window.deadZoneGame.startGame();
+        } else {
+          const hud = document.getElementById('hud');
+          if (hud) hud.classList.remove('hidden');
+        }
+      }
+
+      if (forceBtn) {
+        forceBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          emergencyEnter();
+        });
+      }
+
+      // 3. Hard Failsafe: Maksimal 6 detik loading screen HARUS tertutup
+      setTimeout(function() {
+        const screen = document.getElementById('zone-loading-screen');
+        if (screen && !screen.classList.contains('hidden')) {
+          console.warn('⚠️ [DEAD-ZONE] Standalone loading failsafe (6s) fired: hiding loading overlay.');
+          emergencyEnter();
+        }
+      }, 6000);
+
+      // 4. Global Error Catchers agar loading screen tidak pernah stuck akibat error uncaught
+      window.addEventListener('error', function(e) {
+        console.warn('[DEAD-ZONE Loader Guard] Window error caught:', e.message);
+        const sub = document.getElementById('zoneLoaderSubtitle');
+        if (sub && !sub.textContent.includes('Memulai')) {
+          sub.textContent = 'Memulai mode aman...';
+        }
+        setTimeout(emergencyEnter, 1500);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        console.warn('[DEAD-ZONE Loader Guard] Unhandled rejection caught:', e.reason);
+        setTimeout(emergencyEnter, 1500);
+      });
+    })();
+  </script>
 
   <!-- 3D Canvas Container -->
   <div id="game-container"></div>

@@ -188,6 +188,17 @@ function dismissLoadingScreen() {
   requestAnimationFrame(warmUp);
 }
 
+// Expose secara global agar tombol bypass dapat memanggilnya
+window.dismissLoadingScreen = dismissLoadingScreen;
+
+// Tampilkan tombol "Masuk Sekarang" jika loading memakan waktu > 3.5 detik
+setTimeout(() => {
+  const skipBtn = document.getElementById('btnSkipMainLoading');
+  if (skipBtn && !isGameStarted) {
+    skipBtn.style.display = 'inline-flex';
+  }
+}, 3500);
+
 // Pastikan video berputar otomatis (looping)
 if (loadingVideo) {
   loadingVideo.play().catch(e => {
@@ -208,13 +219,13 @@ onPlayerReady(() => {
   });
 });
 
-// Failsafe Timeout: Beri waktu cukup untuk model 75MB, jangan putus sebelum GPU render
+// Failsafe Timeout: Maksimal 14 detik, jangan pernah stuck
 setTimeout(() => {
   if (!isGameStarted) {
-    console.warn('[LoadingScreen] Failsafe timeout tercapai (40 detik), memastikan render GPU selesai.');
+    console.warn('[LoadingScreen] Failsafe timeout tercapai (14 detik), memastikan render GPU selesai.');
     dismissLoadingScreen();
   }
-}, 40000);
+}, 14000);
 
 // ==================== CEK RETURN DARI GAME PORTAL ====================
 const urlParams = new URLSearchParams(window.location.search);

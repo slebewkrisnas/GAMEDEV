@@ -2131,6 +2131,37 @@ body.mode-hp .hud-bottom-left {
     letter-spacing: 1px;
   }
 
+  .btn-force-start {
+    margin-top: 10px;
+    padding: 9px 20px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    border: 1px solid #34d399;
+    border-radius: 8px;
+    font-family: var(--font-display, 'Rajdhani', sans-serif);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    animation: btnPulse 2s infinite ease-in-out;
+  }
+
+  .btn-force-start:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, #34d399, #10b981);
+    box-shadow: 0 0 24px rgba(52, 211, 153, 0.8);
+  }
+
+  @keyframes btnPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 24px rgba(16, 185, 129, 0.85); }
+  }
+
 /* ==========================================================================
    KANTONG AMAN (SECURE POUCH), BOUNTY BOARD & WORKBENCH STYLING
    ========================================================================== */

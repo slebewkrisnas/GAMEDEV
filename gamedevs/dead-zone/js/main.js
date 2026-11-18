@@ -66,7 +66,7 @@ class DeadZoneGame {
     }
   }
 
-  // Preload aset 3D, kompilasi shader Three.js ke GPU, dan render 3 frame offscreen
+  // Preload aset 3D, kompilasi shader Three.js ke GPU, dan render frame offscreen
   async preloadAndRenderWorld() {
     const screen = document.getElementById('zone-loading-screen');
     const titleEl = document.getElementById('zoneLoaderTitle');
@@ -80,18 +80,39 @@ class DeadZoneGame {
       titleEl.textContent = 'MEMASUKI DEAD ZONE';
       titleEl.style.color = '#22c55e';
     }
-    if (subEl) subEl.textContent = 'Memuat arsitektur 3D, rumah, dan toko serba ada...';
-    if (fillEl) fillEl.style.width = '25%';
-    if (statEl) statEl.textContent = 'MEMUAT ASET DESA 3D... 25%';
+    if (subEl) subEl.textContent = 'Memulai mesin 3D & inisialisasi lingkungan...';
     if (btnPlay) {
       btnPlay.disabled = true;
       btnPlay.style.opacity = '0.5';
     }
 
     let isDone = false;
+    let currentPct = 15;
+    let targetPct = 30;
+
+    // Smooth continuous progress ticker (bar selalu bergerak mulus, anti-stuck)
+    const progressInterval = setInterval(() => {
+      if (isDone) return;
+      if (currentPct < targetPct) {
+        currentPct = Math.min(targetPct, currentPct + 2.0);
+      } else if (currentPct < 96) {
+        currentPct += 0.35; // Creep pelan sehingga visual progres selalu hidup
+      }
+      const rounded = Math.min(99, Math.round(currentPct));
+      if (fillEl) fillEl.style.width = `${rounded}%`;
+      if (statEl) statEl.textContent = `MEMUAT... ${rounded}%`;
+    }, 40);
+
+    const updateStage = (target, subText) => {
+      if (isDone) return;
+      targetPct = Math.max(targetPct, target);
+      if (subEl && subText) subEl.textContent = subText;
+    };
+
     const finishLoading = () => {
       if (isDone) return;
       isDone = true;
+      clearInterval(progressInterval);
 
       if (fillEl) fillEl.style.width = '100%';
       if (statEl) statEl.textContent = 'DUNIA SELESAI DIRENDER! 100%';
@@ -107,10 +128,10 @@ class DeadZoneGame {
         const menuScreen = document.getElementById('menu-screen');
         if (menuScreen) menuScreen.classList.add('hidden');
         this.startGame();
-      }, 300);
+      }, 250);
     };
 
-    // Hard fail-safe timeout 6.5s: Loading screen TIDAK PERNAH bisa stuck
+    // Hard fail-safe timeout 4.8s: Loading screen TIDAK PERNAH bisa stuck
     const failSafeTimer = setTimeout(() => {
       console.warn('⚠️ [DEAD-ZONE] Preload timeout reached, forcing start with ready assets.');
       try {
@@ -118,26 +139,28 @@ class DeadZoneGame {
         this.renderer.render(this.scene, this.camera);
       } catch (e) {}
       finishLoading();
-    }, 6500);
+    }, 4800);
 
     try {
+      updateStage(45, 'Memuat permukiman desa 3D (Rumah, Toko & Lapak)...');
+
       // 1. Tunggu model 3D Safe Zone (House GLB, Shop GLB, Lapak FBX, Portal FBX)
       await Promise.race([
         this.environment.whenReady(),
-        new Promise(r => setTimeout(r, 4500))
+        new Promise(r => setTimeout(r, 3200))
       ]);
-      if (fillEl) fillEl.style.width = '60%';
-      if (statEl) statEl.textContent = 'MEMUAT ZOMBIE & ANIMASI... 60%';
-      if (subEl) subEl.textContent = 'Memuat mutan zombie FBX & animasi tempur...';
+      if (isDone) return;
+
+      updateStage(75, 'Memuat mutan zombie & rigging animasi...');
 
       // 2. Tunggu aset zombie FBX & tekstur
       await Promise.race([
         initZombieAssets(),
-        new Promise(r => setTimeout(r, 4500))
+        new Promise(r => setTimeout(r, 3200))
       ]);
-      if (fillEl) fillEl.style.width = '85%';
-      if (statEl) statEl.textContent = 'KOMPILASI SHADER GPU... 85%';
-      if (subEl) subEl.textContent = 'Kompilasi pipeline shader Three.js ke GPU...';
+      if (isDone) return;
+
+      updateStage(90, 'Kompilasi pipeline shader Three.js ke GPU...');
 
       // 3. Kompilasi GPU shader
       try {
@@ -383,20 +406,12 @@ class DeadZoneGame {
   startGame() {
     sound.resume();
 
-    // Jika aset belum selesai dirender, tampilkan kembali loading screen sampai siap
-    if (!this.isWorldRendered) {
-      const screen = document.getElementById('zone-loading-screen');
-      if (screen) screen.classList.remove('hidden');
-      const statEl = document.getElementById('zoneLoaderStatus');
-      if (statEl) statEl.textContent = 'MENUNGGU GPU RENDER...';
-      const checkInterval = setInterval(() => {
-        if (this.isWorldRendered) {
-          clearInterval(checkInterval);
-          this.startGame();
-        }
-      }, 100);
-      return;
-    }
+    // Pastikan status render siap & sembunyikan loading screen secara definitif
+    this.isWorldRendered = true;
+    const screen = document.getElementById('zone-loading-screen');
+    if (screen) screen.classList.add('hidden');
+    const menuScreen = document.getElementById('menu-screen');
+    if (menuScreen) menuScreen.classList.add('hidden');
 
     this.currentState = this.STATES.PLAYING;
     this.ui.showScreen('playing');
@@ -451,8 +466,24 @@ class DeadZoneGame {
 
     let startTime = performance.now();
     let halfwayTriggered = false;
+    let isTransitionDone = false;
+
+    const finishTransition = () => {
+      if (isTransitionDone) return;
+      isTransitionDone = true;
+      if (!halfwayTriggered) {
+        halfwayTriggered = true;
+        if (typeof onHalfway === 'function') onHalfway();
+      }
+      if (screen) screen.classList.add('hidden');
+      if (typeof onComplete === 'function') onComplete();
+    };
+
+    // Hard failsafe timeout agar transisi zone loading screen tidak pernah stuck
+    const safeTimer = setTimeout(finishTransition, duration + 400);
 
     const animateProgress = () => {
+      if (isTransitionDone) return;
       const elapsed = performance.now() - startTime;
       const progress = Math.min(1, elapsed / duration);
       const pct = Math.round(progress * 100);
@@ -468,10 +499,8 @@ class DeadZoneGame {
       if (progress < 1) {
         requestAnimationFrame(animateProgress);
       } else {
-        setTimeout(() => {
-          screen.classList.add('hidden');
-          if (typeof onComplete === 'function') onComplete();
-        }, 150);
+        clearTimeout(safeTimer);
+        setTimeout(finishTransition, 150);
       }
     };
 
@@ -527,6 +556,38 @@ class DeadZoneGame {
 
     if (screen) screen.classList.remove('hidden');
 
+    let isSwitchDone = false;
+    const finishZoneSwitch = () => {
+      if (isSwitchDone) return;
+      isSwitchDone = true;
+
+      if (fillEl) fillEl.style.width = '100%';
+      if (statEl) statEl.textContent = 'ZONA SELESAI DIRENDER! 100%';
+
+      setTimeout(() => {
+        if (screen) screen.classList.add('hidden');
+        this.currentState = this.STATES.PLAYING;
+        this.ui.showScreen('playing');
+
+        if (zoneName === 'safe_zone') {
+          this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
+        } else {
+          this.ui.showAnnouncement(
+            'HUTAN TERBENGKALAI (SECTOR-7)',
+            'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
+            4.0
+          );
+        }
+
+        if (!this.player.isTouchMode) {
+          this.player.requestPointerLock();
+        }
+      }, 150);
+    };
+
+    // Hard failsafe timer (2.2s): switchZone tidak akan pernah stuck
+    const switchFailsafeTimer = setTimeout(finishZoneSwitch, 2200);
+
     setTimeout(() => {
       this.environment.setZoneActive(zoneName, this.player);
       GameState.activeZone = zoneName;
@@ -571,6 +632,7 @@ class DeadZoneGame {
       // Pre-render 3 frame di balik layar loading agar seluruh geometri dan tekstur ter-render
       let warmFrames = 0;
       const warmUpZone = () => {
+        if (isSwitchDone) return;
         try {
           this.renderer.render(this.scene, this.camera);
         } catch (e) {}
@@ -578,27 +640,8 @@ class DeadZoneGame {
         if (warmFrames < 3) {
           requestAnimationFrame(warmUpZone);
         } else {
-          if (fillEl) fillEl.style.width = '100%';
-          if (statEl) statEl.textContent = 'ZONA SELESAI DIRENDER! 100%';
-          setTimeout(() => {
-            if (screen) screen.classList.add('hidden');
-            this.currentState = this.STATES.PLAYING;
-            this.ui.showScreen('playing');
-
-            if (zoneName === 'safe_zone') {
-              this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
-            } else {
-              this.ui.showAnnouncement(
-                'HUTAN TERBENGKALAI (SECTOR-7)',
-                'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
-                4.0
-              );
-            }
-
-            if (!this.player.isTouchMode) {
-              this.player.requestPointerLock();
-            }
-          }, 250);
+          clearTimeout(switchFailsafeTimer);
+          finishZoneSwitch();
         }
       };
       requestAnimationFrame(warmUpZone);
