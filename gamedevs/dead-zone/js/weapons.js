@@ -56,7 +56,7 @@ export const WEAPON_CONFIGS = {
     recoilZ: 0.05,
     recoilRotX: 0.09,
     sound: 'rifle',
-    muzzlePos: new THREE.Vector3(0.05, 0.085, -0.45)
+    muzzlePos: new THREE.Vector3(0.03, 0.04, -0.52)
   },
   awp: {
     id: 'awp',
@@ -127,7 +127,7 @@ export const WEAPON_CONFIGS = {
     recoilZ: 0.18,
     recoilRotX: 0.28,
     sound: 'shotgun',
-    muzzlePos: new THREE.Vector3(0.04, 0.035, -0.62)
+    muzzlePos: new THREE.Vector3(0.03, 0.02, -0.42)
   }
 };
 
@@ -351,17 +351,17 @@ export class WeaponManager {
 
     // High-Fidelity Tactical 12-Gauge Pump-Action Shotgun
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x1f2327,
+      color: 0x475569, // Slate / Parkerized steel finish with good ambient visibility
       metalness: 0.85,
       roughness: 0.35
     });
     const darkSteelMat = new THREE.MeshStandardMaterial({
-      color: 0x15171a,
+      color: 0x1e293b, // Deep gunmetal receiver with distinct contrast
       metalness: 0.9,
       roughness: 0.25
     });
     const polyMat = new THREE.MeshStandardMaterial({
-      color: 0x141518,
+      color: 0x0f172a, // Ribbed tactical polymer
       metalness: 0.15,
       roughness: 0.82
     });
@@ -371,12 +371,14 @@ export class WeaponManager {
       roughness: 0.2
     });
     const shellRedMat = new THREE.MeshStandardMaterial({
-      color: 0xb91c1c,
+      color: 0xdc2626, // Crimson 12-gauge shotshell
       metalness: 0.1,
       roughness: 0.4
     });
     const sightMat = new THREE.MeshStandardMaterial({
-      color: 0x22c55e,
+      color: 0x22c55e, // Glowing green fiber-optic bead
+      emissive: 0x15803d,
+      emissiveIntensity: 0.6,
       metalness: 0.1,
       roughness: 0.3
     });
@@ -384,117 +386,123 @@ export class WeaponManager {
     const sg = new THREE.Group();
     sg.name = 'tacticalShotgunModel';
 
-    // 1. Receiver (Main Body)
-    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.068, 0.28), steelMat);
-    receiver.position.set(0, 0.038, -0.04);
+    // 1. Receiver (Main Body - compact and grounded)
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.072, 0.22), darkSteelMat);
+    receiver.position.set(0, 0.035, -0.02);
     receiver.castShadow = true;
     sg.add(receiver);
 
     // Receiver top grooved sight rail
-    const recTop = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.012, 0.28), darkSteelMat);
-    recTop.position.set(0, 0.074, -0.04);
+    const recTop = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.012, 0.22), steelMat);
+    recTop.position.set(0, 0.075, -0.02);
     recTop.castShadow = true;
     sg.add(recTop);
 
     // Ejection Port (Right side)
-    const ejectPort = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.028, 0.075), darkSteelMat);
-    ejectPort.position.set(0.022, 0.045, -0.03);
+    const ejectPort = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.028, 0.07), steelMat);
+    ejectPort.position.set(0.023, 0.042, -0.01);
     sg.add(ejectPort);
 
-    // 12GA Shell chambered / visible in ejection port
-    const shellBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.02, 10), brassMat);
+    // Chrome Bolt Carrier inside ejection port
+    const boltCarrier = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.022, 0.05), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.95, roughness: 0.15 }));
+    boltCarrier.position.set(0.021, 0.042, 0.005);
+    sg.add(boltCarrier);
+
+    // 12GA Shell visible in chamber
+    const shellBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.018, 10), brassMat);
     shellBrass.geometry.rotateX(Math.PI / 2);
-    shellBrass.position.set(0.02, 0.045, -0.01);
+    shellBrass.position.set(0.02, 0.042, 0.01);
     sg.add(shellBrass);
 
-    const shellHull = new THREE.Mesh(new THREE.CylinderGeometry(0.0092, 0.0092, 0.048, 10), shellRedMat);
+    const shellHull = new THREE.Mesh(new THREE.CylinderGeometry(0.0092, 0.0092, 0.038, 10), shellRedMat);
     shellHull.geometry.rotateX(Math.PI / 2);
-    shellHull.position.set(0.02, 0.045, -0.04);
+    shellHull.position.set(0.02, 0.042, -0.018);
     sg.add(shellHull);
 
-    // 2. Heavy 12-Gauge Barrel
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.014, 0.46, 12), darkSteelMat);
+    // 2. Heavy 12-Gauge Barrel (Length 0.28m for balanced depth foreshortening)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.28, 12), steelMat);
     barrel.geometry.rotateX(Math.PI / 2);
-    barrel.position.set(0, 0.052, -0.38);
+    barrel.position.set(0, 0.048, -0.24);
     barrel.castShadow = true;
     sg.add(barrel);
 
     // Muzzle choke
-    const choke = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.035, 12), steelMat);
+    const choke = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.028, 12), darkSteelMat);
     choke.geometry.rotateX(Math.PI / 2);
-    choke.position.set(0, 0.052, -0.61);
+    choke.position.set(0, 0.048, -0.38);
     sg.add(choke);
 
     // Ventilated Rib along top of barrel
-    const ventRib = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.01, 0.44), steelMat);
-    ventRib.position.set(0, 0.068, -0.38);
+    const ventRib = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.01, 0.28), steelMat);
+    ventRib.position.set(0, 0.062, -0.24);
     sg.add(ventRib);
 
     // Fiber optic green front bead sight
-    const bead = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.018, 8), sightMat);
+    const bead = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.016, 8), sightMat);
     bead.geometry.rotateX(Math.PI / 2);
-    bead.position.set(0, 0.075, -0.59);
+    bead.position.set(0, 0.071, -0.36);
     sg.add(bead);
 
     // 3. Magazine Tube under barrel
-    const magTube = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.42, 10), steelMat);
+    const magTube = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.24, 10), darkSteelMat);
     magTube.geometry.rotateX(Math.PI / 2);
-    magTube.position.set(0, 0.022, -0.36);
+    magTube.position.set(0, 0.018, -0.22);
     magTube.castShadow = true;
     sg.add(magTube);
 
     // Barrel / Mag Tube Clamp
-    const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.052, 0.022), steelMat);
-    clamp.position.set(0, 0.038, -0.52);
+    const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.048, 0.018), steelMat);
+    clamp.position.set(0, 0.033, -0.33);
     sg.add(clamp);
 
     // 4. Tactical Pump Slide (Forend) with animated recoil slide
     this.shotgunPumpSlide = new THREE.Group();
     this.shotgunPumpSlide.name = 'shotgunPumpSlide';
-    const pumpMain = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.16, 10), polyMat);
+    this.shotgunPumpBaseZ = -0.20;
+    const pumpMain = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 10), polyMat);
     pumpMain.geometry.rotateX(Math.PI / 2);
     pumpMain.castShadow = true;
     this.shotgunPumpSlide.add(pumpMain);
 
-    for (let i = -0.06; i <= 0.06; i += 0.025) {
-      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.044, 0.008), polyMat);
+    for (let i = -0.04; i <= 0.04; i += 0.02) {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.048, 0.006), polyMat);
       rib.position.set(0, 0, i);
       rib.castShadow = true;
       this.shotgunPumpSlide.add(rib);
     }
-    this.shotgunPumpSlide.position.set(0, 0.022, -0.32);
+    this.shotgunPumpSlide.position.set(0, 0.018, this.shotgunPumpBaseZ);
     sg.add(this.shotgunPumpSlide);
 
     // 5. Trigger Guard & Grip
-    const triggerGuard = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.032, 0.05), steelMat);
-    triggerGuard.position.set(0, -0.005, -0.02);
+    const triggerGuard = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.03, 0.045), steelMat);
+    triggerGuard.position.set(0, -0.008, 0.0);
     sg.add(triggerGuard);
 
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.12, 0.062), polyMat);
-    grip.position.set(0, -0.065, 0.04);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.11, 0.058), polyMat);
+    grip.position.set(0, -0.062, 0.06);
     grip.rotation.x = 0.28;
     grip.castShadow = true;
     sg.add(grip);
 
     // 6. Tactical Stock & Recoil Pad
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.08, 0.22), polyMat);
-    stock.position.set(0, 0.015, 0.18);
-    stock.rotation.x = -0.08;
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.075, 0.18), polyMat);
+    stock.position.set(0, 0.01, 0.16);
+    stock.rotation.x = -0.07;
     stock.castShadow = true;
     sg.add(stock);
 
     const recoilPad = new THREE.Mesh(
-      new THREE.BoxGeometry(0.044, 0.09, 0.025),
-      new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.95 })
+      new THREE.BoxGeometry(0.042, 0.082, 0.022),
+      new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.95 })
     );
-    recoilPad.position.set(0, 0.01, 0.29);
-    recoilPad.rotation.x = -0.08;
+    recoilPad.position.set(0, 0.006, 0.25);
+    recoilPad.rotation.x = -0.07;
     sg.add(recoilPad);
 
-    // FPS Placement & Alignment (Framed crisply in lower right quadrant)
-    sg.position.set(0.04, -0.035, -0.06);
-    sg.rotation.set(0.04, -0.03, 0.02);
-    sg.scale.set(1.0, 1.0, 1.0);
+    // FPS Placement & Alignment: parallel to line of sight, compact in lower right quadrant
+    sg.position.set(0.03, -0.025, -0.05);
+    sg.rotation.set(-0.01, -0.01, -0.12);
+    sg.scale.set(1.0, 1.0, 0.8); // depth foreshortening so it doesn't skew across screen
 
     this.shotgunGroup.add(sg);
     this.shotgunGroup.visible = false;
@@ -570,9 +578,9 @@ export class WeaponManager {
           (fbx) => {
             const scale = 0.52;
             fbx.scale.set(scale, scale, scale);
-            // Raised and aligned to prominently display receiver, wooden furniture & curved mag
-            fbx.rotation.set(0.04, -0.04, 0.03);
-            fbx.position.set(0.05, 0.08, -0.05);
+            // Forward-facing alignment (-Z): barrel points straight to crosshair, stock at player shoulder
+            fbx.rotation.set(0.04, Math.PI - 0.04, 0.03);
+            fbx.position.set(0.03, 0.02, -0.05);
             fbx.traverse((child) => {
               if (child.isMesh) {
                 child.material = akMat;
@@ -1260,7 +1268,8 @@ export class WeaponManager {
         } else if (p < 0.9) {
           slideOffset = (1 - (p - 0.45) / 0.45) * 0.07;
         }
-        this.shotgunPumpSlide.position.z = -0.32 + slideOffset;
+        const baseZ = this.shotgunPumpBaseZ !== undefined ? this.shotgunPumpBaseZ : -0.20;
+        this.shotgunPumpSlide.position.z = baseZ + slideOffset;
       }
     }
 
