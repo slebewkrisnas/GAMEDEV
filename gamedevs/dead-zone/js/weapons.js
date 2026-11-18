@@ -30,10 +30,10 @@ export const WEAPON_CONFIGS = {
     spread: 0,
     isAutomatic: false,
     noiseRadius: 22, // Caliber noise radius in meters
-    recoilZ: 0.08,
-    recoilRotX: 0.16,
+    recoilZ: 0.09,
+    recoilRotX: 0.18,
     sound: 'deagle',
-    muzzlePos: new THREE.Vector3(0, 0.045, -0.22)
+    muzzlePos: new THREE.Vector3(0.055, 0.015, -0.28)
   },
   plasma_rifle: {
     id: 'plasma_rifle',
@@ -56,7 +56,7 @@ export const WEAPON_CONFIGS = {
     recoilZ: 0.05,
     recoilRotX: 0.09,
     sound: 'rifle',
-    muzzlePos: new THREE.Vector3(0, 0.055, -0.42)
+    muzzlePos: new THREE.Vector3(0.05, 0.085, -0.45)
   },
   awp: {
     id: 'awp',
@@ -79,7 +79,7 @@ export const WEAPON_CONFIGS = {
     recoilZ: 0.22,
     recoilRotX: 0.35,
     sound: 'awp',
-    muzzlePos: new THREE.Vector3(0, 0.06, -0.52)
+    muzzlePos: new THREE.Vector3(0.035, 0.025, -0.58)
   },
   machete: {
     id: 'machete',
@@ -109,7 +109,7 @@ export const WEAPON_CONFIGS = {
   scatter_blaster: {
     id: 'scatter_blaster',
     slot: 5,
-    name: 'SCATTER SHOTGUN',
+    name: 'TACTICAL 12-GAUGE SHOTGUN',
     shortName: 'SHOTGUN',
     icon: '💥',
     isMelee: false,
@@ -118,16 +118,16 @@ export const WEAPON_CONFIGS = {
     maxReserve: 72,
     fireRate: 0.70,
     reloadDuration: 2.0,
-    bodyDamage: 24, // 6 pellets * 24 = 144 max close range
-    headshotDamage: 52, // 6 pellets * 52 = 312 critical headshot
-    pellets: 6,
-    spread: 0.045,
+    bodyDamage: 22, // 8 pellets * 22 = 176 max close range
+    headshotDamage: 48, // 8 pellets * 48 = 384 critical headshot
+    pellets: 8,
+    spread: 0.048,
     isAutomatic: false,
     noiseRadius: 55, // Loudest blast alerts zombies across clearing
-    recoilZ: 0.16,
-    recoilRotX: 0.30,
+    recoilZ: 0.18,
+    recoilRotX: 0.28,
     sound: 'shotgun',
-    muzzlePos: new THREE.Vector3(0, 0.05, -0.32)
+    muzzlePos: new THREE.Vector3(0.04, 0.035, -0.62)
   }
 };
 
@@ -170,6 +170,8 @@ export class WeaponManager {
     this.bodyDamage = initialConfig.bodyDamage;
     this.headshotDamage = initialConfig.headshotDamage;
     this.isMouseDown = false;
+    this.pumpTimer = 0;
+    this.shotgunPumpSlide = null;
 
     // Weapon Switching State Machine (IDLE -> SWITCHING_OUT -> SWITCHING_IN -> READY)
     this.switchState = 'IDLE';
@@ -317,10 +319,11 @@ export class WeaponManager {
         fbxLoader.load(
           encodeURI('./asset dead-zone/senjata/desert eagle/cgtrader_optimized_Pistol_Gun.fbx'),
           (fbx) => {
-            const scale = 0.18;
+            const scale = 0.185;
             fbx.scale.set(scale, scale, scale);
-            fbx.rotation.set(0, Math.PI / 2, 0);
-            fbx.position.set(0.04, -0.05, -0.02);
+            // Reverse 180 deg so barrel points forward towards crosshair (-Z)
+            fbx.rotation.set(0.04, -Math.PI / 2 + 0.05, 0.04);
+            fbx.position.set(0.055, -0.055, -0.08);
             fbx.traverse((child) => {
               if (child.isMesh) {
                 child.material = deagleMat;
@@ -346,68 +349,154 @@ export class WeaponManager {
   buildShotgunModel() {
     this.shotgunGroup = new THREE.Group();
 
-    // 1. Procedural Fallback Mesh
-    const procGroup = new THREE.Group();
-    const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.8 });
-    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.068, 0.22), darkSteelMat);
-    receiver.position.set(0, 0.035, -0.02);
-    procGroup.add(receiver);
+    // High-Fidelity Tactical 12-Gauge Pump-Action Shotgun
+    const steelMat = new THREE.MeshStandardMaterial({
+      color: 0x1f2327,
+      metalness: 0.85,
+      roughness: 0.35
+    });
+    const darkSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x15171a,
+      metalness: 0.9,
+      roughness: 0.25
+    });
+    const polyMat = new THREE.MeshStandardMaterial({
+      color: 0x141518,
+      metalness: 0.15,
+      roughness: 0.82
+    });
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37,
+      metalness: 0.95,
+      roughness: 0.2
+    });
+    const shellRedMat = new THREE.MeshStandardMaterial({
+      color: 0xb91c1c,
+      metalness: 0.1,
+      roughness: 0.4
+    });
+    const sightMat = new THREE.MeshStandardMaterial({
+      color: 0x22c55e,
+      metalness: 0.1,
+      roughness: 0.3
+    });
 
-    const barrelGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.32, 8);
-    barrelGeo.rotateX(Math.PI / 2);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x181a1d, roughness: 0.3, metalness: 0.9 });
-    const topBarrel = new THREE.Mesh(barrelGeo, barrelMat);
-    topBarrel.position.set(0, 0.055, -0.18);
-    procGroup.add(topBarrel);
+    const sg = new THREE.Group();
+    sg.name = 'tacticalShotgunModel';
 
-    const botBarrel = new THREE.Mesh(barrelGeo, barrelMat);
-    botBarrel.position.set(0, 0.03, -0.18);
-    procGroup.add(botBarrel);
+    // 1. Receiver (Main Body)
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.068, 0.28), steelMat);
+    receiver.position.set(0, 0.038, -0.04);
+    receiver.castShadow = true;
+    sg.add(receiver);
 
-    const magTubeGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.26, 8);
-    magTubeGeo.rotateX(Math.PI / 2);
-    const magTube = new THREE.Mesh(magTubeGeo, barrelMat);
-    magTube.position.set(0, 0.008, -0.15);
-    procGroup.add(magTube);
+    // Receiver top grooved sight rail
+    const recTop = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.012, 0.28), darkSteelMat);
+    recTop.position.set(0, 0.074, -0.04);
+    recTop.castShadow = true;
+    sg.add(recTop);
 
-    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.045, 0.12), new THREE.MeshStandardMaterial({ color: 0x5a3825, roughness: 0.7, metalness: 0.1 }));
-    pump.position.set(0, 0.015, -0.15);
-    procGroup.add(pump);
+    // Ejection Port (Right side)
+    const ejectPort = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.028, 0.075), darkSteelMat);
+    ejectPort.position.set(0.022, 0.045, -0.03);
+    sg.add(ejectPort);
 
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.12, 0.14), new THREE.MeshStandardMaterial({ color: 0x3d2518, roughness: 0.75, metalness: 0.1 }));
-    stock.position.set(0, -0.04, 0.1);
-    stock.rotation.x = -0.15;
-    procGroup.add(stock);
+    // 12GA Shell chambered / visible in ejection port
+    const shellBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.02, 10), brassMat);
+    shellBrass.geometry.rotateX(Math.PI / 2);
+    shellBrass.position.set(0.02, 0.045, -0.01);
+    sg.add(shellBrass);
 
-    this.shotgunGroup.add(procGroup);
+    const shellHull = new THREE.Mesh(new THREE.CylinderGeometry(0.0092, 0.0092, 0.048, 10), shellRedMat);
+    shellHull.geometry.rotateX(Math.PI / 2);
+    shellHull.position.set(0.02, 0.045, -0.04);
+    sg.add(shellHull);
 
-    // 2. Asynchronous 3D FBX Loader (Shotgun)
-    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
-      try {
-        const fbxLoader = new FBXLoader();
-        fbxLoader.load(
-          encodeURI('./asset dead-zone/senjata/shotgun/lowpoly_shotgun.fbx'),
-          (fbx) => {
-            const scale = 0.006;
-            fbx.scale.set(scale, scale, scale);
-            fbx.position.set(0.02, -0.06, 0.06);
-            fbx.traverse((child) => {
-              if (child.isMesh) {
-                child.castShadow = true;
-              }
-            });
-            procGroup.visible = false;
-            this.shotgunGroup.add(fbx);
-            console.log('✅ [WEAPON] Shotgun FBX viewmodel loaded.');
-          },
-          undefined,
-          (err) => console.warn('Shotgun FBX fallback:', err)
-        );
-      } catch (e) {
-        console.warn('Shotgun loader init:', e);
-      }
+    // 2. Heavy 12-Gauge Barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.014, 0.46, 12), darkSteelMat);
+    barrel.geometry.rotateX(Math.PI / 2);
+    barrel.position.set(0, 0.052, -0.38);
+    barrel.castShadow = true;
+    sg.add(barrel);
+
+    // Muzzle choke
+    const choke = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.035, 12), steelMat);
+    choke.geometry.rotateX(Math.PI / 2);
+    choke.position.set(0, 0.052, -0.61);
+    sg.add(choke);
+
+    // Ventilated Rib along top of barrel
+    const ventRib = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.01, 0.44), steelMat);
+    ventRib.position.set(0, 0.068, -0.38);
+    sg.add(ventRib);
+
+    // Fiber optic green front bead sight
+    const bead = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.018, 8), sightMat);
+    bead.geometry.rotateX(Math.PI / 2);
+    bead.position.set(0, 0.075, -0.59);
+    sg.add(bead);
+
+    // 3. Magazine Tube under barrel
+    const magTube = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.42, 10), steelMat);
+    magTube.geometry.rotateX(Math.PI / 2);
+    magTube.position.set(0, 0.022, -0.36);
+    magTube.castShadow = true;
+    sg.add(magTube);
+
+    // Barrel / Mag Tube Clamp
+    const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.052, 0.022), steelMat);
+    clamp.position.set(0, 0.038, -0.52);
+    sg.add(clamp);
+
+    // 4. Tactical Pump Slide (Forend) with animated recoil slide
+    this.shotgunPumpSlide = new THREE.Group();
+    this.shotgunPumpSlide.name = 'shotgunPumpSlide';
+    const pumpMain = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.16, 10), polyMat);
+    pumpMain.geometry.rotateX(Math.PI / 2);
+    pumpMain.castShadow = true;
+    this.shotgunPumpSlide.add(pumpMain);
+
+    for (let i = -0.06; i <= 0.06; i += 0.025) {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.044, 0.008), polyMat);
+      rib.position.set(0, 0, i);
+      rib.castShadow = true;
+      this.shotgunPumpSlide.add(rib);
     }
+    this.shotgunPumpSlide.position.set(0, 0.022, -0.32);
+    sg.add(this.shotgunPumpSlide);
 
+    // 5. Trigger Guard & Grip
+    const triggerGuard = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.032, 0.05), steelMat);
+    triggerGuard.position.set(0, -0.005, -0.02);
+    sg.add(triggerGuard);
+
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.12, 0.062), polyMat);
+    grip.position.set(0, -0.065, 0.04);
+    grip.rotation.x = 0.28;
+    grip.castShadow = true;
+    sg.add(grip);
+
+    // 6. Tactical Stock & Recoil Pad
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.08, 0.22), polyMat);
+    stock.position.set(0, 0.015, 0.18);
+    stock.rotation.x = -0.08;
+    stock.castShadow = true;
+    sg.add(stock);
+
+    const recoilPad = new THREE.Mesh(
+      new THREE.BoxGeometry(0.044, 0.09, 0.025),
+      new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.95 })
+    );
+    recoilPad.position.set(0, 0.01, 0.29);
+    recoilPad.rotation.x = -0.08;
+    sg.add(recoilPad);
+
+    // FPS Placement & Alignment (Framed crisply in lower right quadrant)
+    sg.position.set(0.04, -0.035, -0.06);
+    sg.rotation.set(0.04, -0.03, 0.02);
+    sg.scale.set(1.0, 1.0, 1.0);
+
+    this.shotgunGroup.add(sg);
     this.shotgunGroup.visible = false;
     this.weaponGroup.add(this.shotgunGroup);
   }
@@ -481,8 +570,9 @@ export class WeaponManager {
           (fbx) => {
             const scale = 0.52;
             fbx.scale.set(scale, scale, scale);
-            fbx.rotation.set(0, Math.PI, 0);
-            fbx.position.set(0.02, -0.06, 0.08);
+            // Raised and aligned to prominently display receiver, wooden furniture & curved mag
+            fbx.rotation.set(0.04, -0.04, 0.03);
+            fbx.position.set(0.05, 0.08, -0.05);
             fbx.traverse((child) => {
               if (child.isMesh) {
                 child.material = akMat;
@@ -553,11 +643,12 @@ export class WeaponManager {
         gltfLoader.load(
           encodeURI('./asset dead-zone/senjata/awp/awm.glb'),
           (gltf) => {
-            const scale = 0.0078;
+            const scale = 0.0075;
             const model = gltf.scene;
             model.scale.set(scale, scale, scale);
-            model.rotation.set(0, -Math.PI / 2, 0);
-            model.position.set(0.02, -0.05, 0.02);
+            // Reverse 180 deg so sniper barrel & scope face forward (-Z) towards crosshair
+            model.rotation.set(0.02, Math.PI / 2 + 0.04, 0.02);
+            model.position.set(0.035, -0.015, -0.11);
             model.traverse((child) => {
               if (child.isMesh) {
                 child.castShadow = true;
@@ -648,9 +739,11 @@ export class WeaponManager {
         fbxLoader.load(
           encodeURI('./asset dead-zone/senjata/knife/Machete/Machete/Machete.fbx'),
           (fbx) => {
-            const scale = 0.0055;
+            const scale = 0.0052;
             fbx.scale.set(scale, scale, scale);
-            fbx.position.set(0.02, -0.08, 0.08);
+            // Angled naturally in player's right hand with razor edge & tip pointing forward and up
+            fbx.rotation.set(-1.30, 0.20, -0.25);
+            fbx.position.set(0.075, -0.065, -0.06);
             fbx.traverse((child) => {
               if (child.isMesh) {
                 child.material = knifeMat;
@@ -994,6 +1087,12 @@ export class WeaponManager {
     // Play gunshot sound according to weapon
     if (cfg.sound === 'shotgun') {
       sound.playShotgunShot();
+      this.pumpTimer = 0.45;
+      setTimeout(() => {
+        if (this.currentWeaponId === 'scatter_blaster' && typeof sound.playShotgunPump === 'function') {
+          sound.playShotgunPump();
+        }
+      }, 180);
     } else if (cfg.sound === 'rifle') {
       sound.playRifleShot();
     } else if (cfg.sound === 'awp') {
@@ -1150,6 +1249,21 @@ export class WeaponManager {
       this.shoot();
     }
 
+    // Shotgun pump-action slide animation
+    if (this.pumpTimer > 0) {
+      this.pumpTimer -= delta;
+      if (this.shotgunPumpSlide) {
+        const p = 1 - Math.max(0, this.pumpTimer / 0.45);
+        let slideOffset = 0;
+        if (p < 0.45) {
+          slideOffset = (p / 0.45) * 0.07;
+        } else if (p < 0.9) {
+          slideOffset = (1 - (p - 0.45) / 0.45) * 0.07;
+        }
+        this.shotgunPumpSlide.position.z = -0.32 + slideOffset;
+      }
+    }
+
     // Muzzle flash timer
     if (this.flashTimer > 0) {
       this.flashTimer -= delta;
@@ -1280,6 +1394,7 @@ export class WeaponManager {
       pulse_pistol: { ammoInMag: 12, reserveAmmo: 60 },
       scatter_blaster: { ammoInMag: 6, reserveAmmo: 36 },
       plasma_rifle: { ammoInMag: 30, reserveAmmo: 90 },
+      awp: { ammoInMag: 5, reserveAmmo: 20 },
       machete: { ammoInMag: 1, reserveAmmo: 0 }
     };
     this.currentWeaponId = 'pulse_pistol';
@@ -1302,6 +1417,7 @@ export class WeaponManager {
     if (this.pistolGroup) this.pistolGroup.visible = true;
     if (this.shotgunGroup) this.shotgunGroup.visible = false;
     if (this.rifleGroup) this.rifleGroup.visible = false;
+    if (this.awpGroup) this.awpGroup.visible = false;
     if (this.macheteGroup) this.macheteGroup.visible = false;
 
     this.uiManager.showReloadAlert(false);

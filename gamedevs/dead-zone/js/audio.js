@@ -385,12 +385,30 @@ class SoundManager {
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(freq, time);
     gain.gain.setValueAtTime(vol, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    this._safeExponentialRamp(gain.gain, 0.001, time + duration);
 
     osc.connect(gain);
     gain.connect(this.sfxGain || this.masterGain);
     osc.start(time);
     osc.stop(time + duration + 0.01);
+  }
+
+  _safeLinearRamp(param, val, time) {
+    if (!param) return;
+    if (typeof param.linearRampToValueAtTime === 'function') {
+      param.linearRampToValueAtTime(val, time);
+    } else if (typeof param.setValueAtTime === 'function') {
+      param.setValueAtTime(val, time);
+    }
+  }
+
+  _safeExponentialRamp(param, val, time) {
+    if (!param) return;
+    if (typeof param.exponentialRampToValueAtTime === 'function') {
+      param.exponentialRampToValueAtTime(val, time);
+    } else if (typeof param.setValueAtTime === 'function') {
+      param.setValueAtTime(val, time);
+    }
   }
 
   // Bullet impact on zombie (flesh thud)
@@ -442,17 +460,20 @@ class SoundManager {
     const gain = this.ctx.createGain();
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(95, now);
-    osc.frequency.linearRampToValueAtTime(65, now + 0.5);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(350, now);
+    this._safeLinearRamp(osc.frequency, 65, now + 0.5);
 
     gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    this._safeExponentialRamp(gain.gain, 0.01, now + 0.5);
 
-    osc.connect(filter);
-    filter.connect(gain);
+    const filter = (this.ctx && typeof this.ctx.createBiquadFilter === 'function') ? this.ctx.createBiquadFilter() : null;
+    if (filter) {
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(350, now);
+      osc.connect(filter);
+      filter.connect(gain);
+    } else {
+      osc.connect(gain);
+    }
     gain.connect(this.zombieGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.52);
@@ -487,10 +508,10 @@ class SoundManager {
     const gain = this.ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(140, now);
-    osc.frequency.exponentialRampToValueAtTime(45, now + 0.25);
+    this._safeExponentialRamp(osc.frequency, 45, now + 0.25);
 
     gain.gain.setValueAtTime(0.7, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    this._safeExponentialRamp(gain.gain, 0.01, now + 0.25);
 
     osc.connect(gain);
     gain.connect(this.sfxGain || this.masterGain);
@@ -509,18 +530,24 @@ class SoundManager {
     const subGain = this.ctx.createGain();
     subOsc.type = "sawtooth";
     subOsc.frequency.setValueAtTime(80, now);
-    subOsc.frequency.linearRampToValueAtTime(35, now + 1.2);
+    this._safeLinearRamp(subOsc.frequency, 35, now + 1.2);
 
-    const subFilter = this.ctx.createBiquadFilter();
-    subFilter.type = "lowpass";
-    subFilter.frequency.setValueAtTime(220, now);
-    subFilter.frequency.linearRampToValueAtTime(120, now + 1.2);
+    const subFilter = (this.ctx && typeof this.ctx.createBiquadFilter === 'function') ? this.ctx.createBiquadFilter() : null;
+    if (subFilter) {
+      subFilter.type = "lowpass";
+      subFilter.frequency.setValueAtTime(220, now);
+      this._safeLinearRamp(subFilter.frequency, 120, now + 1.2);
+    }
 
     subGain.gain.setValueAtTime(0.85, now);
-    subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.25);
+    this._safeExponentialRamp(subGain.gain, 0.01, now + 1.25);
 
-    subOsc.connect(subFilter);
-    subFilter.connect(subGain);
+    if (subFilter) {
+      subOsc.connect(subFilter);
+      subFilter.connect(subGain);
+    } else {
+      subOsc.connect(subGain);
+    }
     subGain.connect(this.zombieGain || this.masterGain);
     subOsc.start(now);
     subOsc.stop(now + 1.3);
@@ -530,10 +557,10 @@ class SoundManager {
     const growlGain = this.ctx.createGain();
     growl.type = "sawtooth";
     growl.frequency.setValueAtTime(140, now);
-    growl.frequency.exponentialRampToValueAtTime(50, now + 0.9);
+    this._safeExponentialRamp(growl.frequency, 50, now + 0.9);
 
     growlGain.gain.setValueAtTime(0.6, now);
-    growlGain.gain.exponentialRampToValueAtTime(0.01, now + 0.95);
+    this._safeExponentialRamp(growlGain.gain, 0.01, now + 0.95);
 
     growl.connect(growlGain);
     growlGain.connect(this.zombieGain || this.masterGain);
@@ -551,10 +578,10 @@ class SoundManager {
     const gain = this.ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(180, now);
-    osc.frequency.exponentialRampToValueAtTime(25, now + 1.5);
+    this._safeExponentialRamp(osc.frequency, 25, now + 1.5);
 
     gain.gain.setValueAtTime(0.9, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+    this._safeExponentialRamp(gain.gain, 0.01, now + 1.5);
 
     osc.connect(gain);
     gain.connect(this.zombieGain || this.masterGain);
@@ -571,18 +598,21 @@ class SoundManager {
     const gain = this.ctx.createGain();
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(320, now);
-    osc.frequency.linearRampToValueAtTime(480, now + 0.4);
-    osc.frequency.linearRampToValueAtTime(320, now + 0.8);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(650, now);
+    this._safeLinearRamp(osc.frequency, 480, now + 0.4);
+    this._safeLinearRamp(osc.frequency, 320, now + 0.8);
 
     gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
+    this._safeExponentialRamp(gain.gain, 0.01, now + 0.9);
 
-    osc.connect(filter);
-    filter.connect(gain);
+    const filter = (this.ctx && typeof this.ctx.createBiquadFilter === 'function') ? this.ctx.createBiquadFilter() : null;
+    if (filter) {
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(650, now);
+      osc.connect(filter);
+      filter.connect(gain);
+    } else {
+      osc.connect(gain);
+    }
     gain.connect(this.ambientGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.95);
@@ -831,6 +861,17 @@ class SoundManager {
     oscGain.connect(this.sfxGain || this.masterGain);
     osc.start(now);
     osc.stop(now + 0.24);
+  }
+
+  // Shotgun Pump-Action racking slide mechanical sound
+  playShotgunPump() {
+    if (!this.ctx) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+    // Slide back rack click
+    this._playClick(now, 850, 0.05, 0.45);
+    // Slide forward lock clack
+    this._playClick(now + 0.16, 1200, 0.06, 0.55);
   }
 
   // Automatic Rifle Shot: Sharp, high-speed military crack
