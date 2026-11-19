@@ -448,11 +448,14 @@ function animate() {
   const dpaz = player.position.z - ARENA_PORTAL_POS.z;
   const distArenaPortal = Math.hypot(dpax, dpaz);
   if (distArenaPortal < 1.4 && arenaPortalCooldown <= 0) {
-    arenaPortalCooldown = 999;
-    if (arenaPortalLight) arenaPortalLight.intensity = 8;
-    triggerPortalWarp('arena', () => {
-      window.location.href = 'bakalae/index.html';
-    });
+    arenaPortalCooldown = 3.0;
+    const hint = document.getElementById('hint');
+    if (hint) {
+      hint.textContent = '🔒 Portal Battle Arena saat ini sedang dinonaktifkan.';
+      setTimeout(() => {
+        if (hint && hint.textContent.includes('Battle Arena')) hint.textContent = '';
+      }, 3000);
+    }
   }
 
   // Update NPC System (Patrol AI & Proximity)
