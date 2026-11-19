@@ -2017,6 +2017,7 @@ body.mode-hp .hud-bottom-left {
     justify-content: center;
     z-index: 99999;
     background: #040810;
+    overflow: hidden;
     opacity: 1;
     transition: opacity 0.4s ease, visibility 0.4s ease;
     pointer-events: auto;
@@ -2028,15 +2029,27 @@ body.mode-hp .hud-bottom-left {
     pointer-events: none;
   }
 
+  .zone-loading-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    filter: brightness(0.85) contrast(1.08);
+  }
+
   .zone-loader-backdrop {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at center, rgba(14, 165, 233, 0.12) 0%, rgba(2, 6, 23, 0.96) 80%);
+    z-index: 2;
+    background: radial-gradient(circle at center, rgba(6, 10, 20, 0.3) 0%, rgba(2, 6, 23, 0.85) 80%),
+                linear-gradient(to top, rgba(2, 6, 23, 0.95) 0%, transparent 60%);
   }
 
   .zone-loader-box {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2044,12 +2057,12 @@ body.mode-hp .hud-bottom-left {
     width: 90%;
     max-width: 440px;
     padding: 32px 28px;
-    background: rgba(15, 23, 42, 0.94);
-    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.4);
     border-radius: 18px;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(56, 189, 248, 0.1);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(56, 189, 248, 0.15);
     text-align: center;
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
   }
 
   .zone-loader-icon-wrap {

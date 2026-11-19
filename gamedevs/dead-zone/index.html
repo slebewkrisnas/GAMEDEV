@@ -31,6 +31,10 @@
 
   <!-- Transition & Zone Warp Loading Screen (Active on initial load) -->
   <div id="zone-loading-screen" class="zone-loading-screen">
+    <video id="zoneLoadingVideo" class="zone-loading-video" autoplay muted loop playsinline preload="auto">
+      <source src="loading/loading.mp4" type="video/mp4">
+      <source src="../loading/loading.mp4" type="video/mp4">
+    </video>
     <div class="zone-loader-backdrop"></div>
     <div class="zone-loader-box">
       <div class="zone-loader-icon-wrap">
@@ -57,6 +61,12 @@
         const stat = document.getElementById('zoneLoaderStatus');
         if (sub) sub.innerHTML = '<span style="color:#f59e0b;">⚠️ Dibuka via file://. Mohon gunakan server lokal (Live Server / JALANKAN_GAME.bat).</span>';
         if (stat) stat.textContent = 'GUNAKAN HTTP SERVER';
+      }
+
+      // Pastikan video latar belakang berputar otomatis
+      const vid = document.getElementById('zoneLoadingVideo');
+      if (vid) {
+        vid.play().catch(function(e) { console.log('[Loading] Video autoplay notice:', e); });
       }
 
       // 2. Tombol Darurat "Masuk Sekarang" muncul jika loading melebihi 3.2 detik
