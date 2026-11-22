@@ -613,11 +613,6 @@ function loadRealisticManModel() {
 
   const candidateUrls = [
     './realistic_man.glb',
-    './Realistic man_Glb/realistic_man.glb',
-    './Realistic man_Glb/Realistic man.glb',
-    '../Realistic man_Glb/realistic_man.glb',
-    '../Realistic man_Glb/Realistic man.glb',
-    '/Realistic man_Glb/realistic_man.glb',
     '/gamedevs/realistic_man.glb'
   ];
 
