@@ -5,7 +5,9 @@ node_modules/
 # Antigravity & AI Agent Internal Data
 .gemini/
 
-# OS and Editor generated files
+# Backup folder
+backup_3d_walking_world/
+
 .DS_Store
 Thumbs.db
 *.log
