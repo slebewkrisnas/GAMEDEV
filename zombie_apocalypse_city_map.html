@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zombie Apocalypse City (300m x 300m) - Interactive 3D Map Explorer</title>
+<style>
+  :root {
+    --bg-panel: rgba(15, 20, 26, 0.88);
+    --border-panel: rgba(255, 255, 255, 0.12);
+    --accent: #f59e0b;
+    --accent-red: #ef4444;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0f141a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-primary);
+    user-select: none;
+  }
+  #webgl-canvas {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+  }
+  /* Top Left HUD */
+  #header-hud {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-panel);
+    border-radius: 10px;
+    padding: 14px 18px;
+    max-width: 380px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+  #header-hud h1 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.5px;
+  }
+  #header-hud .badge {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  #header-hud p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+  #status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    margin-right: 6px;
+  }
+
+  /* Right Control Panel */
+  #control-panel {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 320px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    background: var(--bg-panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-panel);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    font-size: 13px;
+    z-index: 10;
+  }
+  .panel-section {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .panel-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+  }
+  .btn-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .btn-group-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  button {
+    background: rgba(255,255,255,0.06);
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  button:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fbbf24;
+  }
+  button.active {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: #111827;
+    font-weight: 700;
+  }
+  .layer-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .layer-checkbox input {
+    accent-color: #f59e0b;
+    cursor: pointer;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 3px 0;
+  }
+  .stat-row span:last-child {
+    color: #fbbf24;
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  /* Bottom Center Crosshair for FPS mode */
+  #crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    display: none;
+  }
+  #crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.85);
+  }
+  #crosshair::before { top: 6px; left: 0; width: 14px; height: 2px; }
+  #crosshair::after { top: 0; left: 6px; width: 2px; height: 14px; }
+
+  /* FPS Instructions overlay */
+  #fps-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    display: none;
+    pointer-events: none;
+  }
+
+  /* Loading Overlay */
+  #loading-screen {
+    position: absolute;
+    inset: 0;
+    background: #0b0f14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity 0.5s;
+  }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(245, 158, 11, 0.2);
+    border-top-color: #f59e0b;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-text { font-size: 15px; font-weight: 600; color: #fbbf24; }
+  #loading-sub { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div id="loading-text">Memuat Zombie Apocalypse City (300m x 300m)...</div>
+  <div id="loading-sub">Mengunduh aset 3D & geosimetri kota apokaliptik...</div>
+</div>
+
+<div id="crosshair"></div>
+<div id="fps-hint">
+  <b>WASD</b>: Gerak &nbsp;|&nbsp; <b>SHIFT</b>: Sprint &nbsp;|&nbsp; <b>SPACE</b>: Lompat &nbsp;|&nbsp; <b>F</b>: Senter &nbsp;|&nbsp; <b>ESC</b>: Keluar Mode Jalan
+</div>
+
+<div id="header-hud">
+  <h1>
+    <span id="status-indicator"></span>
+    ZOMBIE APOCALYPSE CITY
+    <span class="badge">300m × 300m</span>
+  </h1>
+  <p id="hud-desc">
+    Kota metropolitan hancur pasca-kiamat zombi lengkap dengan gedung pencakar langit setinggi 89m, barikade militer, bangkai mobil berapi, dan puing reruntuhan.
+  </p>
+</div>
+
+<div id="control-panel">
+  <!-- Mode Kamera -->
+  <div class="panel-section">
+    <div class="section-title">Mode Kamera / Navigasi</div>
+    <div class="btn-group-3">
+      <button id="btn-cam-orbit" class="active" title="Putar, geser & zoom bebas">🌐 Orbit</button>
+      <button id="btn-cam-walk" title="Jalan kaki sudut pandang orang pertama">🚶 FPS Walk</button>
+      <button id="btn-cam-fly" title="Terbang bebas di udara">🦅 Flycam</button>
+    </div>
+  </div>
+
+  <!-- Lokasi Cepat / Teleport POV -->
+  <div class="panel-section">
+    <div class="section-title">Titik Tinjauan (Teleport)</div>
+    <div class="btn-group">
+      <button onclick="teleportTo('overview')">🦅 Mata Elang (300m)</button>
+      <button onclick="teleportTo('center')">🏙️ Perempatan Pusat</button>
+      <button onclick="teleportTo('military')">🪖 Pos Barikade Militer</button>
+      <button onclick="teleportTo('highway')">🚗 Kemacetan Mobil</button>
+      <button onclick="teleportTo('rooftop')">🏢 Atap Pencakar Langit</button>
+      <button onclick="teleportTo('street')">🚶 Tepi Jalan Trotoar</button>
+    </div>
+  </div>
+
+  <!-- Atmosfer & Pencahayaan -->
+  <div class="panel-section">
+    <div class="section-title">Atmosfer Cuaca & Waktu</div>
+    <div class="btn-group">
+      <button id="btn-light-day" class="active" onclick="setWeather('day')">☀️ Siang Berdebu</button>
+      <button id="btn-light-dusk" onclick="setWeather('dusk')">🌅 Senja Jingga</button>
+      <button id="btn-light-night" onclick="setWeather('night')">🌙 Malam Berkabut</button>
+      <button id="btn-light-alert" onclick="setWeather('alert')">🚨 Darurat Merah</button>
+    </div>
+  </div>
+
+  <!-- Filter Layer Objek -->
+  <div class="panel-section">
+    <div class="section-title">Filter Lapisan Objek (Layers)</div>
+    <label class="layer-checkbox">
+      <span>🏢 Gedung & Pencakar Langit</span>
+      <input type="checkbox" id="chk-buildings" checked onchange="toggleLayer('Buildings', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🪖 Aset & Benteng Militer</span>
+      <input type="checkbox" id="chk-military" checked onchange="toggleLayer('Military', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🚗 Bangkai Mobil & Bus</span>
+      <input type="checkbox" id="chk-vehicles" checked onchange="toggleLayer('Vehicles', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🧱 Puing & Reruntuhan Beton</span>
+      <input type="checkbox" id="chk-debris" checked onchange="toggleLayer('Debris', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🚦 Lampu & Perabotan Jalan</span>
+      <input type="checkbox" id="chk-props" checked onchange="toggleLayer('Props', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🛣️ Jalan Aspal & Tanah</span>
+      <input type="checkbox" id="chk-roads" checked onchange="toggleLayer('Roads', this.checked)">
+    </label>
+    <label class="layer-checkbox">
+      <span>🔥 Efek Api & Asap Gedung</span>
+      <input type="checkbox" id="chk-fx" checked onchange="toggleLayer('FX', this.checked)">
+    </label>
+  </div>
+
+  <!-- Statistik Model -->
+  <div class="panel-section">
+    <div class="section-title">Spesifikasi Teknis 3D</div>
+    <div class="stat-row"><span>Dimensi Wilayah:</span> <span>300m × 300m</span></div>
+    <div class="stat-row"><span>Tinggi Maksimal:</span> <span>89 Meter</span></div>
+    <div class="stat-row"><span>Total Poligon / Tris:</span> <span id="stat-tris">71.874</span></div>
+    <div class="stat-row"><span>Total Meshes:</span> <span id="stat-meshes">34</span></div>
+    <div class="stat-row"><span>Performa Frame Rate:</span> <span id="stat-fps">60 FPS</span></div>
+  </div>
+
+  <!-- Suara Atmosfer -->
+  <div class="panel-section">
+    <button id="btn-audio" style="width:100%" onclick="toggleAudio()">🔊 Putar Suara Angin & Sirene Kota</button>
+  </div>
+</div>
+
+<canvas id="webgl-canvas"></canvas>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// --------------------------------------------------------------------------
+// 1. SCENE, RENDERER & CAMERAS SETUP
+// --------------------------------------------------------------------------
+const canvas = document.getElementById('webgl-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x4a5056);
+scene.fog = new THREE.FogExp2(0x454b52, 0.0055);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 550);
+camera.position.set(-65, 48, 75);
+
+// Orbit Controls
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.target.set(0, 8, 0);
+orbitControls.maxPolarAngle = Math.PI * 0.495;
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.08;
+orbitControls.update();
+
+// Pointer Lock Controls (FPS Walk & Flycam)
+const fpsControls = new PointerLockControls(camera, document.body);
+let currentCamMode = 'orbit'; // 'orbit' | 'walk' | 'fly'
+
+// --------------------------------------------------------------------------
+// 2. LIGHTING RIG (ATMOSPHERIC PRESETS)
+// --------------------------------------------------------------------------
+const hemiLight = new THREE.HemisphereLight(0x9ea7b0, 0x3b352e, 1.1);
+scene.add(hemiLight);
+
+const sunLight = new THREE.DirectionalLight(0xffdfc2, 1.8);
+sunLight.position.set(-90, 120, 65);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 10;
+sunLight.shadow.camera.far = 400;
+sunLight.shadow.camera.left = sunLight.shadow.camera.bottom = -160;
+sunLight.shadow.camera.right = sunLight.shadow.camera.top = 160;
+sunLight.shadow.bias = -0.0004;
+scene.add(sunLight);
+
+// Tactical Flashlight attached to camera for Night exploration
+const flashlight = new THREE.SpotLight(0xfff7ed, 0, 45, Math.PI / 5, 0.35, 1.2);
+camera.add(flashlight);
+flashlight.position.set(0.2, -0.2, -0.1);
+const flashlightTarget = new THREE.Object3D();
+flashlightTarget.position.set(0, 0, -10);
+camera.add(flashlightTarget);
+flashlight.target = flashlightTarget;
+scene.add(camera);
+
+// --------------------------------------------------------------------------
+// 3. LOAD CITY COMPLETE MODEL & CLASSIFY LAYERS
+// --------------------------------------------------------------------------
+const cityLayers = {
+  Buildings: new THREE.Group(),
+  Military: new THREE.Group(),
+  Vehicles: new THREE.Group(),
+  Debris: new THREE.Group(),
+  Props: new THREE.Group(),
+  Roads: new THREE.Group(),
+  FX: new THREE.Group()
+};
+Object.values(cityLayers).forEach(g => scene.add(g));
+
+const loader = new GLTFLoader();
+const modelUrl = './Zombie_Apocalypse_City_300x300m_GLB_Pack/Zombie_Apocalypse_City_Complete.glb';
+
+loader.load(
+  modelUrl,
+  (gltf) => {
+    const root = gltf.scene;
+    const meshItems = [];
+    root.traverse(c => { if (c.isMesh) meshItems.push(c); });
+
+    meshItems.forEach((child) => {
+      const name = child.name.toLowerCase();
+      const isFireOrSmoke = (child.material && (child.material.name === 'fire_fx' || child.material.name === 'smoke_fx')) || name.includes('fire') || name.includes('smoke');
+
+      if (isFireOrSmoke) {
+        if (child.material) {
+          child.material.depthWrite = false;
+          child.material.transparent = true;
+        }
+        cityLayers.FX.add(child);
+      } else if (name.includes('building')) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        cityLayers.Buildings.add(child);
+      } else if (name.includes('military') || name.includes('asset')) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        cityLayers.Military.add(child);
+      } else if (name.includes('vehicle')) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        cityLayers.Vehicles.add(child);
+      } else if (name.includes('debris') || name.includes('rubble')) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        cityLayers.Debris.add(child);
+      } else if (name.includes('prop') || name.includes('street')) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        cityLayers.Props.add(child);
+      } else {
+        child.receiveShadow = true;
+        cityLayers.Roads.add(child);
+      }
+    });
+
+    const loadingScreen = document.getElementById('loading-screen');
+    loadingScreen.style.opacity = '0';
+    setTimeout(() => loadingScreen.remove(), 500);
+  },
+  undefined,
+  (err) => {
+    console.error('Failed to load complete city glb:', err);
+    document.getElementById('loading-text').textContent = 'Gagal memuat GLB.';
+    document.getElementById('loading-sub').textContent = 'Pastikan server lokal berjalan: python -m http.server 8088';
+  }
+);
+
+// --------------------------------------------------------------------------
+// 4. WEATHER & LIGHTING CONTROLS
+// --------------------------------------------------------------------------
+window.setWeather = function(type) {
+  ['day', 'dusk', 'night', 'alert'].forEach(w => {
+    const el = document.getElementById(`btn-light-${w}`);
+    if (el) el.classList.remove('active');
+  });
+  const activeBtn = document.getElementById(`btn-light-${type}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  if (type === 'day') {
+    scene.background.setHex(0x52575c);
+    scene.fog.color.setHex(0x4c5156);
+    scene.fog.density = 0.0052;
+    hemiLight.color.setHex(0x9ea7b0);
+    hemiLight.groundColor.setHex(0x3b352e);
+    hemiLight.intensity = 1.15;
+    sunLight.color.setHex(0xffdfc2);
+    sunLight.intensity = 1.8;
+    flashlight.intensity = 0;
+  } else if (type === 'dusk') {
+    scene.background.setHex(0x3a2018);
+    scene.fog.color.setHex(0x3b1f17);
+    scene.fog.density = 0.0068;
+    hemiLight.color.setHex(0xf97316);
+    hemiLight.groundColor.setHex(0x1e1511);
+    hemiLight.intensity = 0.85;
+    sunLight.color.setHex(0xfb923c);
+    sunLight.intensity = 2.4;
+    flashlight.intensity = 0;
+  } else if (type === 'night') {
+    scene.background.setHex(0x06090e);
+    scene.fog.color.setHex(0x090d14);
+    scene.fog.density = 0.011;
+    hemiLight.color.setHex(0x1e293b);
+    hemiLight.groundColor.setHex(0x020617);
+    hemiLight.intensity = 0.35;
+    sunLight.color.setHex(0x38bdf8);
+    sunLight.intensity = 0.4;
+    flashlight.intensity = 2.6;
+  } else if (type === 'alert') {
+    scene.background.setHex(0x2a0808);
+    scene.fog.color.setHex(0x2d0a0a);
+    scene.fog.density = 0.0085;
+    hemiLight.color.setHex(0xef4444);
+    hemiLight.groundColor.setHex(0x180404);
+    hemiLight.intensity = 0.9;
+    sunLight.color.setHex(0xdc2626);
+    sunLight.intensity = 1.6;
+    flashlight.intensity = 1.8;
+  }
+};
+
+// --------------------------------------------------------------------------
+// 5. LAYER TOGGLES
+// --------------------------------------------------------------------------
+window.toggleLayer = function(layerName, visible) {
+  if (cityLayers[layerName]) {
+    cityLayers[layerName].visible = visible;
+  }
+};
+
+// --------------------------------------------------------------------------
+// 6. TELEPORT PRESETS
+// --------------------------------------------------------------------------
+const presets = {
+  overview: { pos: [-75, 75, 95], target: [0, 8, 0], fpsPos: [0, 80, 0] },
+  center:   { pos: [-15, 12, 25], target: [0, 2, 0],  fpsPos: [0, 1.8, 0] },
+  military: { pos: [-45, 10, -10], target: [-30, 2, -15], fpsPos: [-35, 1.8, -15] },
+  highway:  { pos: [10, 14, 55], target: [0, 2, 20], fpsPos: [5, 1.8, 30] },
+  rooftop:  { pos: [-5, 82, 12], target: [15, 70, 0], fpsPos: [-8, 76, 5] },
+  street:   { pos: [45, 6, -30], target: [30, 2, -20], fpsPos: [40, 1.8, -25] }
+};
+
+window.teleportTo = function(presetKey) {
+  const p = presets[presetKey];
+  if (!p) return;
+  if (currentCamMode === 'orbit') {
+    camera.position.set(...p.pos);
+    orbitControls.target.set(...p.target);
+    orbitControls.update();
+  } else {
+    camera.position.set(...p.fpsPos);
+  }
+};
+
+// --------------------------------------------------------------------------
+// 7. CAMERA MODES SWITCHER (ORBIT / FPS / FLY)
+// --------------------------------------------------------------------------
+const btnOrbit = document.getElementById('btn-cam-orbit');
+const btnWalk = document.getElementById('btn-cam-walk');
+const btnFly = document.getElementById('btn-cam-fly');
+const crosshair = document.getElementById('crosshair');
+const fpsHint = document.getElementById('fps-hint');
+
+function setCamMode(mode) {
+  currentCamMode = mode;
+  [btnOrbit, btnWalk, btnFly].forEach(b => b.classList.remove('active'));
+
+  if (mode === 'orbit') {
+    btnOrbit.classList.add('active');
+    fpsControls.unlock();
+    orbitControls.enabled = true;
+    crosshair.style.display = 'none';
+    fpsHint.style.display = 'none';
+  } else {
+    orbitControls.enabled = false;
+    fpsControls.lock();
+    crosshair.style.display = 'block';
+    fpsHint.style.display = 'block';
+    if (mode === 'walk') {
+      btnWalk.classList.add('active');
+      fpsHint.innerHTML = '<b>WASD</b>: Gerak &nbsp;|&nbsp; <b>SHIFT</b>: Sprint &nbsp;|&nbsp; <b>SPACE</b>: Lompat &nbsp;|&nbsp; <b>F</b>: Senter &nbsp;|&nbsp; <b>ESC</b>: Orbit';
+    } else {
+      btnFly.classList.add('active');
+      fpsHint.innerHTML = '<b>WASD</b>: Terbang Horizontal &nbsp;|&nbsp; <b>SPACE</b>: Naik &nbsp;|&nbsp; <b>SHIFT</b>: Turun &nbsp;|&nbsp; <b>ESC</b>: Orbit';
+    }
+  }
+}
+
+btnOrbit.onclick = () => setCamMode('orbit');
+btnWalk.onclick = () => {
+  if (currentCamMode === 'orbit') {
+    camera.position.set(0, 1.8, 15);
+  }
+  setCamMode('walk');
+};
+btnFly.onclick = () => {
+  if (currentCamMode === 'orbit') {
+    camera.position.set(0, 25, 30);
+  }
+  setCamMode('fly');
+};
+
+fpsControls.addEventListener('unlock', () => {
+  if (currentCamMode !== 'orbit') {
+    setCamMode('orbit');
+  }
+});
+
+// --------------------------------------------------------------------------
+// 8. FPS & FLY NAVIGATION CONTROLS (WASD + PHYSICS)
+// --------------------------------------------------------------------------
+const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
+let velocityY = 0;
+let isGrounded = true;
+
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'w') keys.w = true;
+  if (k === 'a') keys.a = true;
+  if (k === 's') keys.s = true;
+  if (k === 'd') keys.d = true;
+  if (e.key === 'Shift') keys.shift = true;
+  if (e.key === ' ') {
+    keys.space = true;
+    if (currentCamMode === 'walk' && isGrounded) {
+      velocityY = 8.5;
+      isGrounded = false;
+    }
+  }
+  if (k === 'f') {
+    flashlight.intensity = flashlight.intensity > 0 ? 0 : 2.6;
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'w') keys.w = false;
+  if (k === 'a') keys.a = false;
+  if (k === 's') keys.s = false;
+  if (k === 'd') keys.d = false;
+  if (e.key === 'Shift') keys.shift = false;
+  if (e.key === ' ') keys.space = false;
+});
+
+// --------------------------------------------------------------------------
+// 9. ATMOSPHERIC SOUND SYNTHESIS (WEB AUDIO API - ZERO EXTERNAL ASSETS)
+// --------------------------------------------------------------------------
+let audioCtx = null;
+let isAudioPlaying = false;
+let windNoiseNode = null;
+let sirenOsc = null;
+
+window.toggleAudio = function() {
+  const btn = document.getElementById('btn-audio');
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (isAudioPlaying) {
+    audioCtx.suspend();
+    isAudioPlaying = false;
+    btn.textContent = '🔊 Putar Suara Angin & Sirene Kota';
+    btn.style.color = '#e5e7eb';
+  } else {
+    audioCtx.resume();
+    if (!windNoiseNode) startProceduralWind(audioCtx);
+    isAudioPlaying = true;
+    btn.textContent = '🔇 Matikan Suara Atmosfer';
+    btn.style.color = '#fbbf24';
+  }
+};
+
+function startProceduralWind(ctx) {
+  // Low frequency wind buffer
+  const bufferSize = ctx.sampleRate * 2;
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = Math.random() * 2 - 1;
+  }
+
+  const whiteNoise = ctx.createBufferSource();
+  whiteNoise.buffer = noiseBuffer;
+  whiteNoise.loop = true;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(180, ctx.currentTime);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+
+  whiteNoise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  whiteNoise.start();
+  windNoiseNode = whiteNoise;
+}
+
+// --------------------------------------------------------------------------
+// 10. ANIMATION & MAIN RENDER LOOP
+// --------------------------------------------------------------------------
+const clock = new THREE.Clock();
+let frameCount = 0;
+let lastFpsTime = performance.now();
+const statFps = document.getElementById('stat-fps');
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.1);
+
+  // FPS Counter
+  frameCount++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 500) {
+    const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+    statFps.textContent = `${fps} FPS`;
+    frameCount = 0;
+    lastFpsTime = now;
+  }
+
+  // Camera movement
+  if (currentCamMode === 'orbit') {
+    orbitControls.update();
+  } else if (currentCamMode === 'walk') {
+    const speed = keys.shift ? 16.0 : 7.5;
+    const moveZ = (Number(keys.w) - Number(keys.s)) * speed * delta;
+    const moveX = (Number(keys.d) - Number(keys.a)) * speed * delta;
+
+    fpsControls.moveForward(moveZ);
+    fpsControls.moveRight(moveX);
+
+    // Gravity & Ground Check (Terrain at Y = 0, eye height = 1.8)
+    velocityY -= 22.0 * delta;
+    camera.position.y += velocityY * delta;
+    if (camera.position.y <= 1.8) {
+      camera.position.y = 1.8;
+      velocityY = 0;
+      isGrounded = true;
+    }
+  } else if (currentCamMode === 'fly') {
+    const speed = keys.shift ? 40.0 : 18.0;
+    const moveZ = (Number(keys.w) - Number(keys.s)) * speed * delta;
+    const moveX = (Number(keys.d) - Number(keys.a)) * speed * delta;
+    const moveY = (Number(keys.space) - Number(keys.shift)) * speed * delta;
+
+    fpsControls.moveForward(moveZ);
+    fpsControls.moveRight(moveX);
+    camera.position.y += moveY;
+  }
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
