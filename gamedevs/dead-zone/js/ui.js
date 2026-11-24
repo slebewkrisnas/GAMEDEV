@@ -73,10 +73,57 @@ export class UIManager {
     this.btnMobileAudio = document.getElementById('btn-mobile-audio');
     this.btnPauseSettings = document.getElementById('btn-pause-settings');
 
+    // Graphics, Camera & Dialog Controls
+    this.settingFov = document.getElementById('setting-fov');
+    this.valFov = document.getElementById('val-fov');
+    this.settingCrosshairColor = document.getElementById('setting-crosshair-color');
+    this.settingQuality = document.getElementById('setting-quality');
+    this.settingShadows = document.getElementById('setting-shadows');
+    this.toastContainer = document.getElementById('toast-container');
+    this.modalConfirm = document.getElementById('modal-confirm');
+    this.confirmTitle = document.getElementById('confirm-title');
+    this.confirmMessage = document.getElementById('confirm-message');
+    this.btnConfirmYes = document.getElementById('btn-confirm-yes');
+    this.btnConfirmNo = document.getElementById('btn-confirm-no');
+    this.pauseZoneVal = document.getElementById('pause-zone-val');
+    this.pauseKillsVal = document.getElementById('pause-kills-val');
+    this.pauseWalletVal = document.getElementById('pause-wallet-val');
+
+    this.gfxSettings = this.loadGraphicsSettings();
+    this.confirmCallback = null;
+
     this.announcementTimer = null;
     this.hitMarkerTimer = null;
     this.recoilTimer = null;
     this.flashTimer = null;
+  }
+
+  loadGraphicsSettings() {
+    const defaults = {
+      fov: 75,
+      crosshairColor: 'rgba(255, 255, 255, 0.88)',
+      quality: 'native',
+      shadows: true
+    };
+    try {
+      const raw = localStorage.getItem('deadzone_gfx_settings');
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      return {
+        fov: Math.min(95, Math.max(65, parseInt(parsed.fov, 10) || 75)),
+        crosshairColor: parsed.crosshairColor || defaults.crosshairColor,
+        quality: ['0.75', '1', 'native'].includes(String(parsed.quality)) ? String(parsed.quality) : 'native',
+        shadows: parsed.shadows !== undefined ? !!parsed.shadows : true
+      };
+    } catch (e) {
+      return defaults;
+    }
+  }
+
+  saveGraphicsSettings() {
+    try {
+      localStorage.setItem('deadzone_gfx_settings', JSON.stringify(this.gfxSettings));
+    } catch (e) {}
   }
 
   init(callbacks) {
@@ -87,6 +134,13 @@ export class UIManager {
       sound.init();
       if (this.callbacks.onStartGame) this.callbacks.onStartGame();
     };
+
+    const unlockSound = () => {
+      sound.init();
+      sound.resume();
+    };
+    window.addEventListener('pointerdown', unlockSound, { once: true, passive: true });
+    window.addEventListener('keydown', unlockSound, { once: true, passive: true });
 
     const btnPlay = document.getElementById('btn-play');
     if (btnPlay) {
@@ -268,8 +322,76 @@ export class UIManager {
       });
     }
 
-    // Initial audio UI sync
+    // Initial audio & graphics UI sync
     this.syncAudioUI();
+    this.syncGraphicsUI();
+
+    // Settings Tabs Navigation
+    document.querySelectorAll('#settings-tabs [data-settings-tab]').forEach(tabBtn => {
+      tabBtn.addEventListener('click', () => {
+        const targetTab = tabBtn.dataset.settingsTab;
+        document.querySelectorAll('#settings-tabs [data-settings-tab]').forEach(b => {
+          b.classList.toggle('active', b.dataset.settingsTab === targetTab);
+        });
+        document.querySelectorAll('#modal-settings [data-settings-pane]').forEach(pane => {
+          pane.classList.toggle('hidden', pane.dataset.settingsPane !== targetTab);
+        });
+      });
+    });
+
+    // Graphics & Camera Settings
+    const notifyGfxChange = () => {
+      this.saveGraphicsSettings();
+      this.syncGraphicsUI();
+      if (this.callbacks.onGraphicsChange) {
+        this.callbacks.onGraphicsChange(this.gfxSettings);
+      }
+    };
+
+    if (this.settingFov) {
+      this.settingFov.addEventListener('input', (e) => {
+        this.gfxSettings.fov = Math.min(95, Math.max(65, parseInt(e.target.value, 10) || 75));
+        notifyGfxChange();
+      });
+    }
+    if (this.settingCrosshairColor) {
+      this.settingCrosshairColor.addEventListener('change', (e) => {
+        this.gfxSettings.crosshairColor = e.target.value;
+        notifyGfxChange();
+      });
+    }
+    if (this.settingQuality) {
+      this.settingQuality.addEventListener('change', (e) => {
+        this.gfxSettings.quality = e.target.value;
+        notifyGfxChange();
+      });
+    }
+    if (this.settingShadows) {
+      this.settingShadows.addEventListener('change', (e) => {
+        this.gfxSettings.shadows = !!e.target.checked;
+        notifyGfxChange();
+      });
+    }
+
+    if (this.callbacks.onGraphicsChange) {
+      this.callbacks.onGraphicsChange(this.gfxSettings);
+    }
+
+    // Confirmation Dialog Modal
+    const closeConfirm = () => {
+      if (this.modalConfirm) this.modalConfirm.classList.add('hidden');
+      this.confirmCallback = null;
+    };
+    if (this.btnConfirmNo) {
+      this.btnConfirmNo.addEventListener('click', closeConfirm);
+    }
+    if (this.btnConfirmYes) {
+      this.btnConfirmYes.addEventListener('click', () => {
+        const cb = this.confirmCallback;
+        closeConfirm();
+        if (typeof cb === 'function') cb();
+      });
+    }
 
     // Nano-Stim Button [Q] on HUD
     const btnStim = document.getElementById('btn-use-stim');
@@ -322,13 +444,13 @@ export class UIManager {
     }
     if (this.hudZoneBadge) {
       if (GameState.activeZone === 'safe_zone') {
-        this.hudZoneBadge.textContent = 'SAFE ZONE (AMAN)';
-        this.hudZoneBadge.style.color = '#00e5ff';
-        this.hudWaveTitle.textContent = 'DESA ASRI (PERMUKIMAN AMAN)';
+        this.hudZoneBadge.textContent = 'SAFE ZONE · AMAN';
+        this.hudZoneBadge.style.color = '#4fa8c8';
+        this.hudWaveTitle.textContent = 'DESA ASRI — PERMUKIMAN AMAN';
       } else {
-        this.hudZoneBadge.textContent = 'HUTAN SECTOR-7 (BAHAYA)';
-        this.hudZoneBadge.style.color = '#10b981';
-        this.hudWaveTitle.textContent = 'HUTAN RIMBA SECTOR-7';
+        this.hudZoneBadge.textContent = 'KOTA SECTOR-7 · ZONA MERAH';
+        this.hudZoneBadge.style.color = '#dc3545';
+        this.hudWaveTitle.textContent = 'KOTA APOKALIPTIK SECTOR-7';
       }
     }
     this.updateQuickSelectBar();
@@ -561,16 +683,34 @@ export class UIManager {
     this.updateAudioHUDIndicator();
   }
 
+  syncGraphicsUI() {
+    const g = this.gfxSettings || {};
+    if (this.settingFov) this.settingFov.value = g.fov || 75;
+    if (this.valFov) this.valFov.textContent = `${g.fov || 75}°`;
+    if (this.settingCrosshairColor && g.crosshairColor) {
+      this.settingCrosshairColor.value = g.crosshairColor;
+    }
+    if (this.settingQuality && g.quality) {
+      this.settingQuality.value = g.quality;
+    }
+    if (this.settingShadows) {
+      this.settingShadows.checked = g.shadows !== undefined ? !!g.shadows : true;
+    }
+    if (this.crosshair && g.crosshairColor) {
+      this.crosshair.style.setProperty('--ch-color', g.crosshairColor);
+    }
+  }
+
   updateAudioHUDIndicator() {
     if (!this.btnHudAudio) return;
     if (typeof sound === 'undefined') return;
     if (sound.isMuted || sound.volume <= 0) {
       this.btnHudAudio.innerHTML = '🔇 BISU [O]';
-      this.btnHudAudio.style.borderColor = '#ff3366';
-      this.btnHudAudio.style.color = '#ff3366';
+      this.btnHudAudio.style.borderColor = '#dc3545';
+      this.btnHudAudio.style.color = '#dc3545';
     } else {
       const pct = Math.round(sound.volume * 100);
-      this.btnHudAudio.innerHTML = `🔊 SUARA (${pct}%) [O]`;
+      this.btnHudAudio.innerHTML = `🔊 ${pct}% [O]`;
       this.btnHudAudio.style.borderColor = '';
       this.btnHudAudio.style.color = '';
     }
@@ -582,8 +722,10 @@ export class UIManager {
     } else if (name === 'settings') {
       if (show) {
         this.syncAudioUI();
+        this.syncGraphicsUI();
       } else {
         if (typeof sound !== 'undefined') sound.saveSettings();
+        this.saveGraphicsSettings();
       }
       this.modalSettings.classList.toggle('hidden', !show);
     }
@@ -606,6 +748,15 @@ export class UIManager {
       case 'paused':
         this.hud.classList.remove('hidden');
         this.pauseScreen.classList.remove('hidden');
+        if (this.pauseZoneVal) {
+          this.pauseZoneVal.textContent = GameState.activeZone === 'sector_7' ? 'SECTOR-7 (KOTA)' : 'SAFE ZONE (DESA)';
+        }
+        if (this.pauseKillsVal && this.hudKillCount) {
+          this.pauseKillsVal.textContent = this.hudKillCount.textContent || '0';
+        }
+        if (this.pauseWalletVal) {
+          this.pauseWalletVal.textContent = `${GameState.formatRp(GameState.wallet)} · ${GameState.backpack.length}/${GameState.backpackMaxSlots}`;
+        }
         break;
       case 'gameover':
         this.gameOverScreen.classList.remove('hidden');
@@ -656,10 +807,10 @@ export class UIManager {
         } else {
           const bossProgress = kills % 10;
           const remainingToBoss = 10 - bossProgress;
-          this.hudWaveTitle.innerHTML = `<span>HUTAN DEAD-ZONE · MENUJU BOSS: <strong style="color:#38bdf8;">${bossProgress}/10</strong> (Sisa ${remainingToBoss} Kill)</span>`;
+          this.hudWaveTitle.innerHTML = `<span>KOTA SECTOR-7 · MENUJU BOSS: <strong style="color:#4fa8c8;">${bossProgress}/10</strong> (Sisa ${remainingToBoss} Kill)</span>`;
         }
       } else {
-        this.hudWaveTitle.textContent = 'DESA RIMBA ASRI (SAFE ZONE)';
+        this.hudWaveTitle.textContent = 'DESA ASRI — PERMUKIMAN AMAN';
       }
     }
     if (this.hudZombiesCount) {
@@ -757,5 +908,50 @@ export class UIManager {
       msgEl.textContent = msg;
       errorEl.classList.remove('hidden');
     }
+  }
+
+  showToast(message, type = 'info', duration = 3200) {
+    if (!this.toastContainer) {
+      this.toastContainer = document.getElementById('toast-container');
+    }
+    if (!this.toastContainer || !message) return;
+
+    const icons = {
+      success: '✅',
+      warning: '⚠️',
+      error: '⛔',
+      info: 'ℹ️'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast-item toast-${type}`;
+    toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span class="toast-msg"></span>`;
+    toast.querySelector('.toast-msg').textContent = String(message);
+
+    while (this.toastContainer.children.length >= 4) {
+      this.toastContainer.removeChild(this.toastContainer.firstChild);
+    }
+    this.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('toast-out');
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 220);
+    }, duration);
+  }
+
+  showConfirm(title, message, onConfirm) {
+    if (!this.modalConfirm) {
+      this.modalConfirm = document.getElementById('modal-confirm');
+    }
+    if (!this.modalConfirm) {
+      if (typeof onConfirm === 'function') onConfirm();
+      return;
+    }
+    if (this.confirmTitle) this.confirmTitle.textContent = title || 'KONFIRMASI TINDAKAN';
+    if (this.confirmMessage) this.confirmMessage.textContent = message || '';
+    this.confirmCallback = onConfirm;
+    this.modalConfirm.classList.remove('hidden');
   }
 }

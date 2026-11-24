@@ -353,12 +353,39 @@ class DeadZoneGame {
       onOpenSettings: () => this.toggleSettingsModal(),
       onSensitivityChange: (val) => {
         if (this.player) this.player.mouseSensitivity = val;
-      }
+      },
+      onGraphicsChange: (gfx) => this.applyGraphicsSettings(gfx)
     });
 
     // Do not show menu screen - loading screen is active and will transition directly into game after rendering
     const menuScreen = document.getElementById('menu-screen');
     if (menuScreen) menuScreen.classList.add('hidden');
+  }
+
+  applyGraphicsSettings(gfx) {
+    if (!gfx) return;
+    if (this.camera && gfx.fov) {
+      const fov = Math.min(95, Math.max(65, parseFloat(gfx.fov) || 75));
+      if (this.camera.fov !== fov) {
+        this.camera.fov = fov;
+        this.camera.updateProjectionMatrix();
+      }
+    }
+    if (this.renderer && gfx.quality) {
+      const scale = gfx.quality === 'native'
+        ? Math.min(window.devicePixelRatio || 1, 2)
+        : Math.max(0.5, parseFloat(gfx.quality) || 1);
+      this.renderer.setPixelRatio(scale);
+    }
+    if (this.renderer && typeof gfx.shadows === 'boolean') {
+      if (this.renderer.shadowMap.enabled !== gfx.shadows) {
+        this.renderer.shadowMap.enabled = gfx.shadows;
+        this.renderer.shadowMap.needsUpdate = true;
+      }
+    }
+    if (this.ui && this.ui.crosshair && gfx.crosshairColor) {
+      this.ui.crosshair.style.setProperty('--ch-color', gfx.crosshairColor);
+    }
   }
 
   attachGlobalEvents() {
@@ -578,8 +605,8 @@ class DeadZoneGame {
           this.ui.showAnnouncement('DESA ASRI (SAFE ZONE)', 'Persiapkan perlengkapan di Rumah & Toko Desa', 3.0);
         } else {
           this.ui.showAnnouncement(
-            'HUTAN TERBENGKALAI (SECTOR-7)',
-            'PERINGATAN: Kematian akan menghilangkan isi tas! Cari pondok terbengkalai untuk looting!',
+            'KOTA APOKALIPTIK (SECTOR-7)',
+            'PERINGATAN: Kematian akan menghilangkan isi tas! Jarah peti pasokan & evakuasi via Menara Pusat Kota!',
             4.0
           );
         }
@@ -617,7 +644,7 @@ class DeadZoneGame {
           setTimeout(() => {
             this.ui.showAnnouncement(
               "📡 SUAR EVAKUASI TERDETEKSI",
-              `Lokasi Suar: Di dekat ${this.environment.currentBeaconSite.name}. Cari laser pilar cyan di atas pepohonan!`,
+              `Lokasi Suar: ${this.environment.currentBeaconSite.name}. Cari pilar cahaya cyan menuju pusat kota!`,
               5.0
             );
           }, 1800);
@@ -800,7 +827,7 @@ class DeadZoneGame {
     if (this.waveManager) {
       GameState.recordWaveSurvived(this.waveManager.currentWave);
     }
-    this.ui.showAnnouncement('HUTAN TELAH DIBERSIHKAN!', 'Kembali ke Suar Evakuasi untuk membawa semua jarahan pulang ke Desa Asri!', 4.0);
+    this.ui.showAnnouncement('SECTOR-7 TELAH DIBERSIHKAN!', 'Menuju Menara Evakuasi di pusat kota untuk membawa semua jarahan pulang!', 4.0);
   }
 
   // Game Loop

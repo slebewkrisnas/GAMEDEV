@@ -43,6 +43,12 @@ export class ShopManager {
     this.bindEvents();
   }
 
+  notify(msg, type = 'info') {
+    if (this.ui && typeof this.ui.showToast === 'function') {
+      this.ui.showToast(msg, type);
+    }
+  }
+
   bindEvents() {
     // Tombol close modal
     document.querySelectorAll('.btn-close-shop').forEach(btn => {
@@ -73,11 +79,11 @@ export class ShopManager {
             if (this.ui.player && this.ui.player.weapons) {
               this.ui.player.weapons.addWeaponAmmo(itemMeta.weaponId, itemMeta.count);
             }
-            alert(`Berhasil membeli amunisi! +${itemMeta.count} Peluru (${itemMeta.name}).`);
+            this.notify(`Berhasil membeli amunisi! +${itemMeta.count} Peluru (${itemMeta.name}).`, 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
         else if (target.dataset.action === 'buy-ammo') {
@@ -88,17 +94,17 @@ export class ShopManager {
             if (this.ui.player && this.ui.player.weapons) {
               this.ui.player.weapons.addWeaponAmmo('plasma_rifle', ITEMS.PLASMA_AMMO.count);
             }
-            alert(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Rifle.`);
+            this.notify(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Rifle.`, 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
         // 3. Upgrade Kapasitas Tas Ransel
         else if (target.dataset.action === 'upgrade-bag') {
           const res = GameState.upgradeBackpack();
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderGeneralStoreModal();
@@ -110,7 +116,7 @@ export class ShopManager {
           const wepId = target.dataset.weapon;
           const cost = parseInt(target.dataset.cost, 10);
           if (GameState.ownedWeapons.includes(wepId)) {
-            alert('Senjata ini sudah Anda miliki!');
+            this.notify('Senjata ini sudah Anda miliki!', 'warning');
             return;
           }
           if (GameState.canAfford(cost)) {
@@ -118,11 +124,11 @@ export class ShopManager {
             GameState.ownedWeapons.push(wepId);
             GameState.saveToStorage();
             sound.playCoinSound();
-            alert(`Berhasil membeli senjata ${target.dataset.name}!`);
+            this.notify(`Berhasil membeli senjata ${target.dataset.name}!`, 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
         // 5. Beli Jamu Herbal (Nano-Stim)
@@ -131,36 +137,36 @@ export class ShopManager {
           if (GameState.houseLevel >= 2) cost = Math.floor(cost * 0.9);
 
           if (GameState.backpack.length >= GameState.backpackMaxSlots) {
-            alert('Tas Ransel penuh! Simpan barang di Peti Kayu Stash terlebih dahulu.');
+            this.notify('Tas Ransel penuh! Simpan barang di Peti Kayu Stash terlebih dahulu.', 'warning');
             return;
           }
           if (GameState.canAfford(cost)) {
             GameState.deductRp(cost);
             GameState.addItemToBackpack({ ...ITEMS.NANO_STIM });
             sound.playCoinSound();
-            alert(`Berhasil membeli Ramuan Jamu Herbal (${GameState.formatRp(cost)})!`);
+            this.notify(`Berhasil membeli Ramuan Jamu Herbal (${GameState.formatRp(cost)})!`, 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
         // 6. Pemulihan Vitalitas Penuh (Quick Heal)
         else if (target.dataset.action === 'quick-heal') {
           const cost = 15000;
           if (this.ui.player && this.ui.player.health >= this.ui.player.maxHealth) {
-            alert('Kondisi vital Anda sudah 100% prima!');
+            this.notify('Kondisi vital Anda sudah 100% prima!', 'info');
             return;
           }
           if (GameState.canAfford(cost)) {
             GameState.deductRp(cost);
             if (this.ui.player) this.ui.player.health = this.ui.player.maxHealth;
             sound.playStimSound();
-            alert('Kondisi vital dipulihkan penuh 100% oleh Tabib Desa!');
+            this.notify('Kondisi vital dipulihkan penuh 100% oleh Tabib Desa!', 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
         // 7. Jual Semua Hasil Buruan (Sell All)
@@ -178,11 +184,11 @@ export class ShopManager {
           if (soldCount > 0) {
             GameState.addRp(totalEarned);
             sound.playCoinSound();
-            alert(`Berhasil menjual ${soldCount} barang jarahan seharga ${GameState.formatRp(totalEarned)}!`);
+            this.notify(`Berhasil menjual ${soldCount} barang jarahan seharga ${GameState.formatRp(totalEarned)}!`, 'success');
             this.renderGeneralStoreModal();
             this.ui.updateHUD();
           } else {
-            alert('Tidak ada barang jarahan (loot/material) di dalam ransel Anda.');
+            this.notify('Tidak ada barang jarahan (loot/material) di dalam ransel Anda.', 'warning');
           }
         }
         // 8. Jual Satu Item Tertentu
@@ -214,7 +220,7 @@ export class ShopManager {
             this.renderSafehouseModal();
             this.ui.updateHUD();
           } else {
-            alert('Peti Stash penuh!');
+            this.notify('Peti Stash penuh!', 'warning');
           }
         } else if (target.dataset.action === 'to-backpack') {
           const idx = parseInt(target.dataset.index, 10);
@@ -223,11 +229,11 @@ export class ShopManager {
             this.renderSafehouseModal();
             this.ui.updateHUD();
           } else {
-            alert('Tas Ransel penuh!');
+            this.notify('Tas Ransel penuh!', 'warning');
           }
         } else if (target.dataset.action === 'upgrade-house') {
           const res = GameState.upgradeHouse();
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderSafehouseModal();
@@ -236,7 +242,7 @@ export class ShopManager {
         } else if (target.dataset.action === 'to-pouch') {
           const idx = parseInt(target.dataset.index, 10);
           const res = GameState.transferToSecurePouch(idx);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderSafehouseModal();
@@ -245,7 +251,7 @@ export class ShopManager {
         } else if (target.dataset.action === 'from-pouch') {
           const idx = parseInt(target.dataset.index, 10);
           const res = GameState.transferFromSecurePouch(idx);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderSafehouseModal();
@@ -263,7 +269,7 @@ export class ShopManager {
         if (target.dataset.action === 'claim-bounty') {
           const id = target.dataset.bountyId;
           const res = GameState.claimBounty(id);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderBountyModal();
@@ -281,7 +287,7 @@ export class ShopManager {
         if (target.dataset.action === 'craft-recipe') {
           const recipeId = target.dataset.recipe;
           const res = GameState.craftRecipe(recipeId);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderWorkbenchModal();
@@ -306,15 +312,15 @@ export class ShopManager {
               const curWep = this.ui.player.weapons.getCurrentWeapon();
               curWep.reserveAmmo += ITEMS.PLASMA_AMMO.count;
             }
-            alert(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Plasma.`);
+            this.notify(`Berhasil membeli amunisi! +${ITEMS.PLASMA_AMMO.count} Peluru Plasma.`, 'success');
             this.renderArmoryModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         } else if (target.dataset.action === 'upgrade-bag') {
           const res = GameState.upgradeBackpack();
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderArmoryModal();
@@ -324,7 +330,7 @@ export class ShopManager {
           const wepId = target.dataset.weapon;
           const cost = parseInt(target.dataset.cost, 10);
           if (GameState.ownedWeapons.includes(wepId)) {
-            alert('Senjata ini sudah Anda miliki!');
+            this.notify('Senjata ini sudah Anda miliki!', 'warning');
             return;
           }
           if (GameState.canAfford(cost)) {
@@ -332,11 +338,11 @@ export class ShopManager {
             GameState.ownedWeapons.push(wepId);
             GameState.saveToStorage();
             sound.playCoinSound();
-            alert(`Berhasil membeli senjata ${target.dataset.name}!`);
+            this.notify(`Berhasil membeli senjata ${target.dataset.name}!`, 'success');
             this.renderArmoryModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
       });
@@ -354,34 +360,34 @@ export class ShopManager {
           if (GameState.houseLevel >= 2) cost = Math.floor(cost * 0.9);
 
           if (GameState.backpack.length >= GameState.backpackMaxSlots) {
-            alert('Tas Ransel penuh! Simpan barang di Safehouse terlebih dahulu.');
+            this.notify('Tas Ransel penuh! Simpan barang di Safehouse terlebih dahulu.', 'warning');
             return;
           }
           if (GameState.canAfford(cost)) {
             GameState.deductRp(cost);
             GameState.addItemToBackpack({ ...ITEMS.NANO_STIM });
             sound.playCoinSound();
-            alert(`Berhasil membeli Nano-Stim Potion (${GameState.formatRp(cost)})!`);
+            this.notify(`Berhasil membeli Nano-Stim Potion (${GameState.formatRp(cost)})!`, 'success');
             this.renderMedbayModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         } else if (target.dataset.action === 'quick-heal') {
           const cost = 15000;
           if (this.ui.player.health >= this.ui.player.maxHealth) {
-            alert('Kondisi vital Anda sudah 100% prima!');
+            this.notify('Kondisi vital Anda sudah 100% prima!', 'info');
             return;
           }
           if (GameState.canAfford(cost)) {
             GameState.deductRp(cost);
             this.ui.player.health = this.ui.player.maxHealth;
             sound.playStimSound();
-            alert('Kondisi vital dipulihkan penuh 100%!');
+            this.notify('Kondisi vital dipulihkan penuh 100%!', 'success');
             this.renderMedbayModal();
             this.ui.updateHUD();
           } else {
-            alert(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`);
+            this.notify(`Saldo Rupiah tidak mencukupi (${GameState.formatRp(cost)}).`, 'error');
           }
         }
       });
@@ -407,11 +413,11 @@ export class ShopManager {
           if (soldCount > 0) {
             GameState.addRp(totalEarned);
             sound.playCoinSound();
-            alert(`Berhasil menjual ${soldCount} barang jarahan seharga ${GameState.formatRp(totalEarned)}!`);
+            this.notify(`Berhasil menjual ${soldCount} barang jarahan seharga ${GameState.formatRp(totalEarned)}!`, 'success');
             this.renderScrapModal();
             this.ui.updateHUD();
           } else {
-            alert('Tidak ada barang jarahan (loot/material) di dalam ransel Anda.');
+            this.notify('Tidak ada barang jarahan (loot/material) di dalam ransel Anda.', 'warning');
           }
         } else if (target.dataset.action === 'sell-item') {
           const idx = parseInt(target.dataset.index, 10);
@@ -447,11 +453,11 @@ export class ShopManager {
           const res = GameState.sellItemFromBackpack(idx);
           if (res.success) {
             sound.playCoinSound();
-            alert(`Berhasil menjual ${res.itemName} seharga ${GameState.formatRp(res.earnedRp)}!`);
+            this.notify(`Berhasil menjual ${res.itemName} seharga ${GameState.formatRp(res.earnedRp)}!`, 'success');
             this.renderPlayerShopModal();
             this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'error');
           }
         }
         // 3. Jual Seluruh Jarahan / Rongsokan
@@ -459,11 +465,11 @@ export class ShopManager {
           const res = GameState.sellAllScrap();
           if (res.success) {
             sound.playCoinSound();
-            alert(`Berhasil menjual ${res.count} barang jarahan sekaligus senilai ${GameState.formatRp(res.totalEarned)}!`);
+            this.notify(`Berhasil menjual ${res.count} barang jarahan sekaligus senilai ${GameState.formatRp(res.totalEarned)}!`, 'success');
             this.renderPlayerShopModal();
             this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'warning');
           }
         }
         // 4. Pajang Item dari Ransel ke Etalase Toko
@@ -472,11 +478,11 @@ export class ShopManager {
           const res = GameState.stockItemToStall(idx);
           if (res.success) {
             sound.playCoinSound();
-            alert(res.message);
+            this.notify(res.message, 'success');
             this.renderPlayerShopModal();
             this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'error');
           }
         }
         // 5. Tarik Item dari Etalase kembali ke Ransel
@@ -485,11 +491,11 @@ export class ShopManager {
           const res = GameState.unstockItemFromStall(slot);
           if (res.success) {
             sound.playCoinSound();
-            alert(res.message);
+            this.notify(res.message, 'success');
             this.renderPlayerShopModal();
             this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'error');
           }
         }
         // 6. Ambil Uang Tunai dari Kotak Kasir Toko
@@ -497,11 +503,11 @@ export class ShopManager {
           const res = GameState.collectRegisterCash();
           if (res.success) {
             sound.playCoinSound();
-            alert(res.message);
+            this.notify(res.message, 'success');
             this.renderPlayerShopModal();
             this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'warning');
           }
         }
       });
@@ -585,7 +591,7 @@ export class ShopManager {
             this.renderInventoryModal();
             if (this.ui) this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'error');
           }
         } else if (target.dataset.action === 'unequip-item') {
           const slotName = target.dataset.slot;
@@ -595,7 +601,7 @@ export class ShopManager {
             this.renderInventoryModal();
             if (this.ui) this.ui.updateHUD();
           } else {
-            alert(res.message);
+            this.notify(res.message, 'error');
           }
         } else if (target.dataset.action === 'open-split-modal') {
           const sIdx = parseInt(target.dataset.slot, 10);
@@ -603,7 +609,7 @@ export class ShopManager {
         } else if (target.dataset.action === 'use-inv-item') {
           const sIdx = parseInt(target.dataset.slot, 10);
           const res = GameState.useItemFromInventory(sIdx, this.ui ? this.ui.player : null);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'warning');
           if (res.success) {
             this.renderInventoryModal();
             if (this.ui) this.ui.updateHUD();
@@ -616,12 +622,18 @@ export class ShopManager {
           this.openMarketplaceModal('sell');
         } else if (target.dataset.action === 'drop-inv-item') {
           const sIdx = parseInt(target.dataset.slot, 10);
-          if (confirm('Yakin ingin membuang barang ini dari inventaris ke tanah?')) {
+          const executeDrop = () => {
             const pPos = (this.ui && this.ui.player) ? this.ui.player.yawObject.position : null;
             const lootMgr = this.lootManager || (this.ui ? this.ui.lootManager : null);
             GameState.dropItem(sIdx, 1, pPos, lootMgr);
             this.selectedInvSlot = null;
             this.renderInventoryModal();
+            this.notify('Barang dijatuhkan ke tanah.', 'info');
+          };
+          if (this.ui && typeof this.ui.showConfirm === 'function') {
+            this.ui.showConfirm('BUANG BARANG', 'Yakin ingin membuang barang ini dari inventaris ke tanah?', executeDrop);
+          } else {
+            executeDrop();
           }
         }
       });
@@ -654,8 +666,9 @@ export class ShopManager {
         this.closeSplitModal();
         if (res.success) {
           this.renderInventoryModal();
+          this.notify('Tumpukan barang berhasil dipisahkan.', 'success');
         } else {
-          alert(res.message);
+          this.notify(res.message, 'error');
         }
       });
     }
@@ -720,7 +733,7 @@ export class ShopManager {
           const qty = this.marketSellQty || 1;
           const price = this.marketSellPrice;
           const res = GameState.listItemToMarketplace(this.selectedMarketSellSlot, qty, price);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.selectedMarketSellSlot = null;
@@ -735,7 +748,7 @@ export class ShopManager {
         else if (target.dataset.action === 'cancel-listing') {
           const lid = target.dataset.listingId;
           const res = GameState.cancelMarketplaceListing(lid);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderMarketplaceModal();
@@ -746,7 +759,7 @@ export class ShopManager {
         else if (target.dataset.action === 'claim-listing') {
           const lid = target.dataset.listingId;
           const res = GameState.claimListingEarnings(lid);
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'error');
           if (res.success) {
             sound.playCoinSound();
             this.renderMarketplaceModal();
@@ -756,7 +769,7 @@ export class ShopManager {
         // Claim all earnings
         else if (target.dataset.action === 'claim-all-earnings') {
           const res = GameState.claimAllEarnings();
-          alert(res.message);
+          this.notify(res.message, res.success ? 'success' : 'warning');
           if (res.success) {
             sound.playCoinSound();
             this.renderMarketplaceModal();
@@ -808,7 +821,7 @@ export class ShopManager {
         break;
       case 'workbench':
         if (GameState.houseLevel < 2) {
-          alert('🔒 Meja Perakit Amunisi & Jamu Terkunci!\nHanya pemilik Rumah Kayu Asri (Level 2) ke atas yang dapat menggunakan fasilitas ini.\nSilakan upgrade rumah Anda di Papan Depan Rumah terlebih dahulu.');
+          this.notify('Meja Perakit terkunci — butuh Rumah Level 2 ke atas. Upgrade di Papan Depan Rumah.', 'warning');
         } else {
           this.openWorkbenchModal();
         }
@@ -919,7 +932,7 @@ export class ShopManager {
     this.modalSafehouse.querySelector('.modal-body').innerHTML = `
       <div class="safehouse-header">
         <h3>🏠 ${curTier.name} (Tingkat ${GameState.houseLevel})</h3>
-        <p>Barang di dalam Peti Kayu Stash dan Kantong Aman 100% tidak akan hilang meskipun Anda gugur saat berburu di Hutan Sector-7.</p>
+        <p>Barang di dalam Peti Kayu Stash dan Kantong Aman 100% tidak akan hilang meskipun Anda gugur saat ekspedisi di Kota Sector-7.</p>
       </div>
 
       <div class="storage-columns">
@@ -1039,11 +1052,11 @@ export class ShopManager {
 
       ${bagUpgradeCard}
 
-      <div class="shop-section-heading">⚔️ Senjata Berburu Hutan Rimba</div>
+      <div class="shop-section-heading">⚔️ Persenjataan Taktis Sector-7</div>
       <div class="shop-item-card">
         <div class="item-info">
           <h4>💥 Senapan Berburu Kaliber Ganda (Scatter Shotgun)</h4>
-          <p>Tembakan menyebar berdaya rusak masif untuk jarak dekat menghadang zombie hutan.</p>
+          <p>Tembakan menyebar berdaya rusak masif untuk pertempuran jarak dekat melawan zombi kota.</p>
           <span class="price-tag">${GameState.formatRp(250000)}</span>
         </div>
         <button data-action="buy-weapon" data-weapon="scatter_blaster" data-cost="250000" data-name="Scatter Shotgun" class="btn btn-primary btn-sm" ${GameState.ownedWeapons.includes('scatter_blaster') ? 'disabled' : ''}>
@@ -1053,8 +1066,8 @@ export class ShopManager {
 
       <div class="shop-item-card">
         <div class="item-info">
-          <h4>🔫 Senapan Otomatis Hutan Rimba (Rifle Otomatis)</h4>
-          <p>Senapan tembak cepat presisi tinggi untuk menembus kawanan zombie ganas.</p>
+          <h4>🔫 Senapan Serbu Otomatis (Rifle Taktis)</h4>
+          <p>Senapan tembak cepat presisi tinggi untuk menembus kawanan zombi ganas di Sector-7.</p>
           <span class="price-tag">${GameState.formatRp(500000)}</span>
         </div>
         <button data-action="buy-weapon" data-weapon="plasma_rifle" data-cost="500000" data-name="Rifle Otomatis" class="btn btn-primary btn-sm" ${GameState.ownedWeapons.includes('plasma_rifle') ? 'disabled' : ''}>
@@ -1076,7 +1089,7 @@ export class ShopManager {
       <div class="shop-item-card">
         <div class="item-info">
           <h4>🌿 Ramuan Jamu Herbal ${stimDiscount}</h4>
-          <p>Racikan daun herbal hutan penambah +40 HP instan saat darurat (Tekan [Q]).</p>
+          <p>Racikan daun herbal penambah +40 HP instan saat darurat (Tekan [Q]).</p>
           <span class="price-tag">${GameState.formatRp(stimCost)}</span>
         </div>
         <button data-action="buy-stim" class="btn btn-primary btn-sm">BELI RAMUAN JAMU</button>
@@ -1120,7 +1133,7 @@ export class ShopManager {
       </div>
       <div class="shop-section-heading">📦 Barang Jarahan di Tas Ransel Anda</div>
       <div class="items-list">
-        ${lootItemsHtml || '<p class="empty-hint">Tidak ada barang jarahan (loot/material) di dalam ransel Anda. Pergilah berburu di Hutan Terbengkalai untuk mendapatkan drop monster!</p>'}
+        ${lootItemsHtml || '<p class="empty-hint">Tidak ada barang jarahan (loot/material) di dalam ransel Anda. Masuk ke Kota Sector-7 untuk menjarah pasokan dan memburu mutan!</p>'}
       </div>
     `;
 
@@ -1174,7 +1187,7 @@ export class ShopManager {
       <div class="shop-item-card">
         <div class="item-info">
           <h4>📦 Kotak Peluru Senapan Pemburu (24 Butir)</h4>
-          <p>Amunisi standar untuk pistol pemburu dan senapan berburu hutan.</p>
+          <p>Amunisi standar untuk pistol dan senapan tempur ekspedisi kota.</p>
           <span class="price-tag">${GameState.formatRp(ITEMS.PLASMA_AMMO.value)}</span>
         </div>
         <button data-action="buy-ammo" class="btn btn-primary btn-sm">BELI AMUNISI</button>
@@ -1185,7 +1198,7 @@ export class ShopManager {
       <div class="shop-item-card">
         <div class="item-info">
           <h4>💥 Senapan Berburu Kaliber Ganda (Scatter Shotgun)</h4>
-          <p>Tembakan menyebar berdaya rusak masif untuk jarak dekat menghadang zombie hutan.</p>
+          <p>Tembakan menyebar berdaya rusak masif untuk jarak dekat menghadang zombi kota.</p>
           <span class="price-tag">${GameState.formatRp(250000)}</span>
         </div>
         <button data-action="buy-weapon" data-weapon="scatter_blaster" data-cost="250000" data-name="Scatter Shotgun" class="btn btn-primary btn-sm" ${GameState.ownedWeapons.includes('scatter_blaster') ? 'disabled' : ''}>
@@ -1195,7 +1208,7 @@ export class ShopManager {
 
       <div class="shop-item-card">
         <div class="item-info">
-          <h4>🔫 Senapan Otomatis Hutan Rimba (Rifle Otomatis)</h4>
+          <h4>🔫 Senapan Serbu Otomatis (Rifle Taktis)</h4>
           <p>Senapan tembak cepat presisi tinggi untuk menembus kawanan zombie ganas.</p>
           <span class="price-tag">${GameState.formatRp(500000)}</span>
         </div>
@@ -1226,7 +1239,7 @@ export class ShopManager {
       <div class="shop-item-card">
         <div class="item-info">
           <h4>🌿 Ramuan Jamu Herbal ${discountNotice}</h4>
-          <p>Racikan daun herbal hutan penambah +40 HP instan saat darurat (Tekan [Q]).</p>
+          <p>Racikan daun herbal penambah +40 HP instan saat darurat (Tekan [Q]).</p>
           <span class="price-tag">${GameState.formatRp(stimCost)}</span>
         </div>
         <button data-action="buy-stim" class="btn btn-primary btn-sm">BELI RAMUAN JAMU</button>
@@ -1269,12 +1282,12 @@ export class ShopManager {
     });
 
     if (!lootItemsHtml) {
-      lootItemsHtml = '<p class="empty-hint">Tidak ada hasil buruan (daging/material) di ransel Anda. Masuki Hutan Terbengkalai untuk berburu zombie!</p>';
+      lootItemsHtml = '<p class="empty-hint">Tidak ada hasil buruan (material/drop) di ransel Anda. Masuk ke Kota Sector-7 untuk berburu zombie!</p>';
     }
 
     this.modalScrap.querySelector('.modal-body').innerHTML = `
       <div class="scrap-header">
-        <p>Jual hasil buruan zombie hutan dan material temuan Anda untuk ditukar dengan uang tunai Rupiah (Rp).</p>
+        <p>Jual hasil buruan zombi kota dan material temuan Anda untuk ditukar dengan uang tunai Rupiah (Rp).</p>
         <button data-action="sell-all" class="btn btn-primary" ${totalLootVal === 0 ? 'disabled' : ''}>
           💰 JUAL SEMUA HASIL BURUAN (${GameState.formatRp(totalLootVal)})
         </button>
@@ -1335,7 +1348,7 @@ export class ShopManager {
     body.innerHTML = `
       <div style="margin-bottom: 16px;">
         <p style="color: #cbd5e1; font-size: 13px; margin: 0 0 10px 0;">
-          Daftar target buruan resmi Kepala Desa Asri untuk para pemburu Sector-7. Selesaikan target eliminasi zombie dan penjarahan peti pondok untuk mendapatkan imbalan Rupiah ekstra.
+          Daftar target buruan resmi Kepala Desa Asri untuk para pemburu Sector-7. Selesaikan target eliminasi zombi dan penjarahan peti pasokan kota untuk mendapatkan imbalan Rupiah ekstra.
         </p>
       </div>
       <div>
@@ -2184,7 +2197,7 @@ export class ShopManager {
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <h3 style="margin: 0; font-family: 'Cinzel', serif; color: #f8fafc; font-size: 20px;">${profile.name}</h3>
-              <span style="font-size: 12px; color: #94a3b8;">Status: Korps Survivor Hutan Sector-7</span>
+              <span style="font-size: 12px; color: #94a3b8;">Status: Korps Survivor Kota Sector-7</span>
             </div>
             <span class="inv-badge-pill" style="background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 12px; padding: 4px 10px;">
               LEVEL ${lvlData.level} &bull; ${lvlData.title}

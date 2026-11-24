@@ -9,8 +9,8 @@
   <title>Zombie Survivor Outpost — 3D Walking Game &amp; Dead Zone Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261101_loading_v1">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20261125_ui_overhaul">
 
   <!-- Import Map untuk Three.js (Lokal Cepat & Anti-Gagal Offline) -->
   <script type="importmap">
@@ -53,10 +53,15 @@
     </div>
   </div>
   <div id="info">
-    <h2>🛡️ Zombie Survivor Outpost</h2>
-    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — Jalan | <kbd>Spasi</kbd> — Lompat</div>
-    <div><kbd>Shift</kbd> — Lari | <kbd>Mouse</kbd> — Lihat sekitar</div>
-    <div><kbd>E</kbd> — Bicara dengan NPC</div>
+    <div class="info-header">
+      <h2>🛡️ POS PENYINTAS 3D</h2>
+      <button type="button" id="btnInfoToggle" class="info-toggle-btn" title="Sembunyikan / Tampilkan Kontrol">[−]</button>
+    </div>
+    <div class="info-body">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Jalan &bull; <kbd>SPACE</kbd> Lompat</div>
+      <div><kbd>SHIFT</kbd> Lari &bull; <kbd>MOUSE</kbd> Kamera</div>
+      <div><kbd>E</kbd> Interaksi NPC &amp; Portal</div>
+    </div>
   </div>
 
   <!-- Realistic Character Loading Badge -->

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>DEAD ZONE — Survival & Perburuan Hutan Sector-7</title>
+  <title>DEAD ZONE — Survival &amp; Ekstraksi Kota Sector-7</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261125_ui_overhaul">
   <script type="importmap">
     {
       "imports": {
@@ -128,50 +128,56 @@
   <div id="damage-flash"></div>
   <div id="low-hp-vignette"></div>
 
+  <!-- Toast Notification Stack -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
   <!-- HUD Interface (Active during gameplay) -->
   <div id="hud" class="hidden">
-    <!-- Top Left: Health, Stamina & Status -->
+    <!-- Top Left: Health, Stamina, Economy & System Shortcuts -->
     <div class="hud-panel hud-top-left">
-      <div class="hud-label">VITALITAS (HP)</div>
+      <div class="hud-vital-head">
+        <div class="hud-label">VITALITAS</div>
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="player-status-text">SEHAT &amp; SIAGA</span>
+        </div>
+      </div>
       <div class="health-bar-wrapper">
         <div id="health-bar-fill" class="health-bar-fill"></div>
         <div id="health-text" class="health-text">100 / 100</div>
       </div>
-      <!-- Stamina Bar (Lari Cepat 5 Detik) -->
-      <div class="hud-label stamina-label">STAMINA (LARI SPRINT)</div>
+      <div class="hud-label stamina-label">STAMINA SPRINT</div>
       <div class="stamina-bar-wrapper">
         <div id="stamina-bar-fill" class="stamina-bar-fill"></div>
         <div id="stamina-text" class="stamina-text">5.0s / 100%</div>
       </div>
-      <div class="status-indicator">
-        <span class="status-dot"></span>
-        <span id="player-status-text">SEHAT & SIAGA</span>
-      </div>
-      <!-- Economy & Inventory Status (Pedesaan Taktis) -->
       <div class="hud-scifi-status">
-        <div id="hud-wallet" class="hud-wallet">💳 <span id="hud-wallet-val">Rp 50.000</span></div>
-        <div id="hud-backpack" class="hud-backpack">🎒 <span id="hud-backpack-val">0 / 6</span></div>
-        <div id="hud-stim" class="hud-stim">🌿 JAMU: <span id="hud-stim-val">0</span> [Q]</div>
+        <div id="hud-wallet" class="hud-wallet" title="Saldo Rupiah">💳 <span id="hud-wallet-val">Rp 50.000</span></div>
+        <div id="hud-backpack" class="hud-backpack" title="Kapasitas Tas Ransel">🎒 <span id="hud-backpack-val">0 / 32</span></div>
+        <div id="hud-stim" class="hud-stim" title="Tekan [Q] Pakai Jamu">🌿 <span id="hud-stim-val">0</span> [Q]</div>
       </div>
-      <!-- Tactical System Quick Buttons [I, M, P, O] -->
       <div class="hud-action-bar">
-        <button id="btn-hud-inventory" class="hud-quick-btn" title="Buka Inventaris 60 Slot [I / Tab]">🎒 INVENTARIS [I]</button>
+        <button id="btn-hud-inventory" class="hud-quick-btn" title="Buka Inventaris 60 Slot [I / Tab]">🎒 TAS [I]</button>
         <button id="btn-hud-marketplace" class="hud-quick-btn" title="Buka Pasar Desa [M]">🏪 PASAR [M]</button>
-        <button id="btn-hud-profile" class="hud-quick-btn" title="Buka Profil & Statistik [P]">👤 PROFIL [P]</button>
-        <button id="btn-hud-audio" class="hud-quick-btn" title="Atur Suara / Volume [O]">🔊 SUARA (35%)</button>
+        <button id="btn-hud-profile" class="hud-quick-btn" title="Buka Profil &amp; Statistik [P]">👤 PROFIL [P]</button>
+        <button id="btn-hud-audio" class="hud-quick-btn" title="Pengaturan Suara &amp; Grafis [O]">🔊 35% [O]</button>
       </div>
     </div>
 
-    <!-- Top Center: Wave & Threat Info -->
-    <div class="hud-panel hud-top-center">
-      <div class="wave-title" id="hud-wave-title">DESA ASRI (PERMUKIMAN AMAN)</div>
-      <div class="wave-details">
-        <span>ZONA: <strong id="hud-zone-badge" style="color:#00e5ff;">SAFE ZONE (AMAN)</strong></span>
-        <span class="hud-divider">|</span>
-        <span>MUTAN: <strong id="hud-zombies-count">0</strong></span>
-        <span class="hud-divider">|</span>
-        <span>HASIL BURUAN: <strong id="hud-kill-count">0</strong></span>
+    <!-- Top Center: Zone & Threat Telemetry + Buff Stack -->
+    <div class="hud-top-center-stack">
+      <div class="hud-panel hud-top-center">
+        <div class="wave-title" id="hud-wave-title">DESA ASRI (PERMUKIMAN AMAN)</div>
+        <div class="wave-details">
+          <span>ZONA: <strong id="hud-zone-badge" style="color:#4fa8c8;">SAFE ZONE (AMAN)</strong></span>
+          <span class="hud-divider">|</span>
+          <span>MUTAN: <strong id="hud-zombies-count">0</strong></span>
+          <span class="hud-divider">|</span>
+          <span>ELIMINASI: <strong id="hud-kill-count">0</strong></span>
+        </div>
       </div>
+      <!-- Active Consumable Buffs -->
+      <div id="active-buffs-container" class="active-buffs-container"></div>
     </div>
 
     <!-- Floating Interaction Prompt [E] -->
@@ -183,7 +189,7 @@
     <div id="holdout-banner" class="holdout-banner hidden">
       <div class="holdout-header">
         <span class="holdout-icon">🚨</span>
-        <span class="holdout-title">EVAKUASI BERTAHAN HIDUP</span>
+        <span class="holdout-title">EVAKUASI MENARA PUSAT KOTA</span>
       </div>
       <div class="holdout-timer" id="holdout-timer">12.0s</div>
       <div class="holdout-info" id="holdout-info">Tetap dalam radius suar (&le;14m)</div>
@@ -191,9 +197,6 @@
         <div class="holdout-progress-fill" id="holdout-progress-fill"></div>
       </div>
     </div>
-
-    <!-- Active Consumable Buffs (Jamu Beras Kencur & Jamu Kunyit Asam) -->
-    <div id="active-buffs-container" class="active-buffs-container"></div>
 
     <!-- Center Screen Announcement Banner -->
     <div id="announcement-banner" class="announcement-banner hidden">
@@ -309,27 +312,28 @@
 
     <!-- Bottom Right: Ammo & Weapon Details -->
     <div class="hud-panel hud-bottom-right">
-      <div class="weapon-name">TACTICAL 9MM</div>
+      <div class="weapon-name">DESERT EAGLE .50</div>
       <div class="ammo-display">
         <span id="ammo-current" class="ammo-current">12</span>
         <span class="ammo-slash">/</span>
         <span id="ammo-reserve" class="ammo-reserve">60</span>
       </div>
-      <div class="ammo-mag-label">MAGAZINE / RESERVE</div>
+      <div class="ammo-mag-label">MAGASIN / CADANGAN</div>
     </div>
 
     <!-- Bottom Left: Controls Quick Reference -->
     <div class="hud-panel hud-bottom-left">
       <div class="controls-hint">
-        <span>[WASD] Move</span>
-        <span>[SPACE] Jump</span>
-        <span>[SHIFT] Sprint</span>
-        <span>[1-3] Pilih Senjata</span>
-        <span>[4/Q] Medkit</span>
-        <span>[5/F] Senter</span>
-        <span>[L-CLICK] Tembak</span>
+        <span>[WASD] Gerak</span>
+        <span>[SHIFT] Lari</span>
+        <span>[1-5] Senjata</span>
+        <span>[6/Q] Jamu</span>
+        <span>[7/T] Ranjau</span>
+        <span>[8/F] Senter</span>
+        <span>[E] Interaksi</span>
         <span>[R] Reload</span>
-        <span>[ESC] Pause</span>
+        <span>[I/M/P] Panel</span>
+        <span>[ESC] Jeda</span>
       </div>
     </div>
 
@@ -440,24 +444,28 @@
   <div id="pause-screen" class="menu-screen hidden">
     <div class="menu-backdrop"></div>
     <div class="menu-content">
-      <h2 class="menu-title">TACTICAL PAUSE</h2>
-      <p class="pause-hint">Simulation paused. Click Resume to re-lock mouse pointer.</p>
+      <h2 class="menu-title">JEDA TAKTIS</h2>
+      <p class="pause-hint">Simulasi ditangguhkan. Tekan Lanjutkan untuk mengunci kembali bidikan.</p>
+      <div class="pause-telemetry">
+        <div class="pause-tel-cell"><span>ZONA AKTIF</span><strong id="pause-zone-val">SAFE ZONE</strong></div>
+        <div class="pause-tel-cell"><span>ELIMINASI</span><strong id="pause-kills-val">0</strong></div>
+        <div class="pause-tel-cell"><span>SALDO / TAS</span><strong id="pause-wallet-val">Rp 50.000</strong></div>
+      </div>
       <div class="menu-actions">
         <button id="btn-resume" class="btn btn-primary">
-          <span class="btn-glow"></span>
-          <span class="btn-text">RESUME COMBAT</span>
+          <span class="btn-text">▶ LANJUTKAN PERTEMPURAN</span>
         </button>
         <button id="btn-pause-settings" class="btn btn-secondary">
-          <span class="btn-text">⚙️ PENGATURAN SUARA [O]</span>
+          <span class="btn-text">⚙️ PENGATURAN (AUDIO &amp; GRAFIS) [O]</span>
         </button>
         <button id="btn-pause-how" class="btn btn-secondary">
-          <span class="btn-text">CONTROLS</span>
+          <span class="btn-text">📖 PANDUAN &amp; KONTROL</span>
         </button>
         <button id="btn-pause-restart" class="btn btn-danger">
-          <span class="btn-text">RESTART MISSION</span>
+          <span class="btn-text">↺ MULAI ULANG SESI</span>
         </button>
         <button id="btn-pause-back-world" class="btn btn-world" onclick="window.location.href='../main.html?from=camp'">
-          <span class="btn-text">🗺️ KEMBALI KE DUNIA 3D</span>
+          <span class="btn-text">🗺️ KEMBALI KE OUTPOST 3D</span>
         </button>
       </div>
     </div>
@@ -547,114 +555,201 @@
   <div id="modal-how" class="modal-backdrop hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>MISSION BRIEFING & CONTROLS</h3>
+        <h3>PANDUAN MISI &amp; KONTROL TAKTIS</h3>
         <button id="btn-close-how" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="briefing-section">
-          <h4>TACTICAL OBJECTIVE</h4>
-          <p>You are stranded in an abandoned quarantine zone. Eliminate all hostile infected across <strong>3 consecutive waves</strong> to trigger extraction.</p>
+          <h4>TUJUAN OPERASI SECTOR-7</h4>
+          <p>Persiapkan perlengkapan Anda di <strong>Desa Asri (Safe Zone)</strong> melalui Toko, Pasar Terbuka, Meja Perakit, dan Papan Kontrak Buruan. Masuki Portal Zona Bahaya menuju <strong>Kota Apokaliptik Sector-7 (300m &times; 300m)</strong> untuk memburu mutan, menjarah peti pasokan ke dalam ransel 32-slot, dan melakukan evakuasi di <strong>Menara Pemancar Pusat Kota (0, 0)</strong>.</p>
         </div>
         <div class="briefing-section">
-          <h4>COMBAT CONTROLS</h4>
+          <h4>KONTROL TEMPUR &amp; NAVIGASI</h4>
           <ul class="control-list">
-            <li><span class="key-badge">W A S D</span> Navigate horizontal space</li>
-            <li><span class="key-badge">SPACE</span> Tactical Jump / Vault</li>
-            <li><span class="key-badge">SHIFT</span> Tactical Sprint</li>
-            <li><span class="key-badge">F</span> Toggle Tactical Flashlight</li>
-            <li><span class="key-badge">MOUSE</span> Look and Aim reticle</li>
-            <li><span class="key-badge">LEFT CLICK</span> Discharge 9mm Pistol</li>
-            <li><span class="key-badge">R</span> Tactical Reload (1.3s)</li>
-            <li><span class="key-badge">ESC</span> Pause simulation / Release cursor</li>
+            <li><span class="key-badge">W A S D</span> Gerak Karakter</li>
+            <li><span class="key-badge">SPACE</span> Lompat / Panjat</li>
+            <li><span class="key-badge">SHIFT</span> Lari Sprint</li>
+            <li><span class="key-badge">1 - 5</span> Pilih Senjata &amp; Golok</li>
+            <li><span class="key-badge">6 / Q</span> Minum Jamu Herbal (+40 HP)</li>
+            <li><span class="key-badge">7 / T</span> Pasang Ranjau Paku Bambu</li>
+            <li><span class="key-badge">8 / F</span> Senter Taktis ON/OFF</li>
+            <li><span class="key-badge">KLIK KIRI</span> Tembak / Tebas</li>
+            <li><span class="key-badge">R</span> Reload Magasin</li>
+            <li><span class="key-badge">E</span> Interaksi / Evakuasi Menara</li>
+            <li><span class="key-badge">I / M / P</span> Tas / Pasar / Profil</li>
+            <li><span class="key-badge">O / ESC</span> Pengaturan / Jeda</li>
           </ul>
         </div>
         <div class="briefing-section">
-          <h4>COMBAT INTEL</h4>
-          <p><span class="intel-highlight">CRITICAL WEAKNESS:</span> Aim for the head! Headshots inflict fatal 1-shot critical damage. Body shots require 3 hits.</p>
-          <p><span class="intel-highlight">WAVE PROGRESSION:</span> Wave 1 features slow walkers. Wave 2 deploys fast sprinters. Wave 3 unleashes heavy brutes and fast sprinters.</p>
+          <h4>INTELIJEN MEDAN</h4>
+          <p><span class="intel-highlight">TITIK KRITIS:</span> Bidik kepala zombi untuk kerusakan Headshot berlipat ganda. Setiap 10–25 eliminasi memicu kemunculan <strong>Boss Titan Raksasa</strong> pembawa Inti Titan bernilai tinggi.</p>
+          <p><span class="intel-highlight">RISIKO EKSPEDISI:</span> Jika gugur di Sector-7, isi tas ekspedisi hilang kecuali item yang diamankan di Peti Stash Desa / Kantong Aman Rumah Level 3.</p>
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-how-ack" class="btn btn-secondary">UNDERSTOOD</button>
+        <button id="btn-how-ack" class="btn btn-primary">MENGERTI</button>
       </div>
     </div>
   </div>
 
-  <!-- Settings Modal (Pengaturan Suara & Kontrol Taktis) -->
+  <!-- Settings Modal (Audio, Grafis & Kontrol Taktis) -->
   <div id="modal-settings" class="modal-backdrop hidden">
     <div class="modal-box modal-settings-box">
       <div class="modal-header">
-        <h3>⚙️ PENGATURAN SUARA & KONTROL</h3>
+        <h3>⚙️ PENGATURAN PERMAINAN</h3>
         <button id="btn-close-settings" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- Master Volume Section -->
-        <div class="setting-section">
-          <div class="setting-section-title">🔊 VOLUME UTAMA (MASTER)</div>
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <label for="setting-volume">Keras Suara:</label>
-              <div class="setting-val-group">
-                <span id="val-volume" class="setting-badge">35%</span>
-                <button type="button" id="btn-toggle-mute" class="btn-mute-toggle" title="Matikan/Nyalakan Suara">🔇 BISU</button>
+        <div class="settings-tabs" id="settings-tabs">
+          <button type="button" class="settings-tab-btn active" data-settings-tab="audio">🔊 AUDIO</button>
+          <button type="button" class="settings-tab-btn" data-settings-tab="graphics">🖥️ GRAFIS &amp; KAMERA</button>
+          <button type="button" class="settings-tab-btn" data-settings-tab="controls">🎯 KONTROL</button>
+        </div>
+
+        <!-- TAB 1: AUDIO -->
+        <div class="settings-pane" data-settings-pane="audio">
+          <div class="setting-section">
+            <div class="setting-section-title">🔊 VOLUME UTAMA (MASTER)</div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-volume">Keras Suara:</label>
+                <div class="setting-val-group">
+                  <span id="val-volume" class="setting-badge">35%</span>
+                  <button type="button" id="btn-toggle-mute" class="btn-mute-toggle" title="Matikan/Nyalakan Suara">🔇 BISU</button>
+                </div>
+              </div>
+              <input type="range" id="setting-volume" min="0" max="100" step="1" value="35">
+              <div class="volume-presets-row">
+                <span class="preset-label">Pilihan Cepat:</span>
+                <button type="button" class="preset-vol-pill" data-vol="0">0% (Mute)</button>
+                <button type="button" class="preset-vol-pill" data-vol="15">15% (Pelan)</button>
+                <button type="button" class="preset-vol-pill" data-vol="35">35% (Nyaman)</button>
+                <button type="button" class="preset-vol-pill" data-vol="75">75% (Keras)</button>
               </div>
             </div>
-            <input type="range" id="setting-volume" min="0" max="100" step="1" value="35">
-            <div class="volume-presets-row">
-              <span class="preset-label">Pilihan Cepat:</span>
-              <button type="button" class="preset-vol-pill" data-vol="0">0% (Mute)</button>
-              <button type="button" class="preset-vol-pill" data-vol="15">15% (Pelan)</button>
-              <button type="button" class="preset-vol-pill" data-vol="35">35% (Nyaman)</button>
-              <button type="button" class="preset-vol-pill" data-vol="75">75% (Keras)</button>
+          </div>
+
+          <div class="setting-section">
+            <div class="setting-section-title">🎚️ KANAL SUARA RINCI</div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-sfx-volume">💥 Senjata &amp; Efek (SFX):</label>
+                <span id="val-sfx-volume" class="setting-badge">85%</span>
+              </div>
+              <input type="range" id="setting-sfx-volume" min="0" max="100" step="5" value="85">
+            </div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-zombie-volume">🧟 Raungan &amp; Zombi:</label>
+                <span id="val-zombie-volume" class="setting-badge">80%</span>
+              </div>
+              <input type="range" id="setting-zombie-volume" min="0" max="100" step="5" value="80">
+            </div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-ambient-volume">🎵 Backsound &amp; Suasana Lingkungan:</label>
+                <span id="val-ambient-volume" class="setting-badge">65%</span>
+              </div>
+              <input type="range" id="setting-ambient-volume" min="0" max="100" step="5" value="65">
+            </div>
+          </div>
+
+          <div class="setting-actions-row">
+            <button type="button" id="btn-test-audio" class="btn btn-secondary">🔔 TES SUARA</button>
+            <button type="button" id="btn-reset-audio" class="btn btn-secondary">🔄 RESET AUDIO (35%)</button>
+          </div>
+        </div>
+
+        <!-- TAB 2: GRAFIS & KAMERA (Memengaruhi WebGL & Three.js Secara Nyata) -->
+        <div class="settings-pane hidden" data-settings-pane="graphics">
+          <div class="setting-section">
+            <div class="setting-section-title">📹 KAMERA &amp; BIDIKAN</div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-fov">Sudut Pandang (FOV):</label>
+                <span id="val-fov" class="setting-badge">75°</span>
+              </div>
+              <input type="range" id="setting-fov" min="65" max="95" step="1" value="75">
+            </div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-crosshair-color">Warna Crosshair:</label>
+                <select id="setting-crosshair-color" class="setting-select">
+                  <option value="rgba(255, 255, 255, 0.88)">Putih Taktis</option>
+                  <option value="#22c55e">Hijau Militer</option>
+                  <option value="#4fa8c8">Biru Sian</option>
+                  <option value="#e59a28">Kuning Amber</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-section">
+            <div class="setting-section-title">🖥️ RENDERING WEBGL</div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-quality">Skala Resolusi Render:</label>
+                <select id="setting-quality" class="setting-select">
+                  <option value="0.75">Hemat Performa (0.75x)</option>
+                  <option value="1">Seimbang (1.0x)</option>
+                  <option value="native" selected>Tajam Penuh (Native ≤2x)</option>
+                </select>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-shadows">Bayangan Real-Time (Shadows):</label>
+                <input type="checkbox" id="setting-shadows" checked style="width:18px; height:18px; accent-color:#4fa8c8; cursor:pointer;">
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Sub Channels Section -->
-        <div class="setting-section">
-          <div class="setting-section-title">🎚️ KANAL SUARA RINCI</div>
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <label for="setting-sfx-volume">💥 Senjata & Efek (SFX):</label>
-              <span id="val-sfx-volume" class="setting-badge">85%</span>
+        <!-- TAB 3: KONTROL -->
+        <div class="settings-pane hidden" data-settings-pane="controls">
+          <div class="setting-section">
+            <div class="setting-section-title">🎯 SENSITIVITAS MOUSE</div>
+            <div class="setting-item">
+              <div class="setting-label-row">
+                <label for="setting-sensitivity">Sensitivitas Bidik:</label>
+                <span id="val-sensitivity" class="setting-badge">0.0022</span>
+              </div>
+              <input type="range" id="setting-sensitivity" min="0.0008" max="0.0050" step="0.0002" value="0.0022">
             </div>
-            <input type="range" id="setting-sfx-volume" min="0" max="100" step="5" value="85">
           </div>
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <label for="setting-zombie-volume">🧟 Raungan & Zombi:</label>
-              <span id="val-zombie-volume" class="setting-badge">80%</span>
+          <div class="setting-section">
+            <div class="setting-section-title">⌨️ PINTASAN CEPAT</div>
+            <div class="controls-hint" style="font-size:12px;">
+              <span>[I / TAB] Inventaris</span>
+              <span>[M] Pasar Desa</span>
+              <span>[P] Profil Survivor</span>
+              <span>[O] Pengaturan</span>
+              <span>[Q / 6] Pakai Jamu</span>
+              <span>[T / 7] Ranjau Paku</span>
+              <span>[F / 8] Senter</span>
+              <span>[R] Reload Senjata</span>
             </div>
-            <input type="range" id="setting-zombie-volume" min="0" max="100" step="5" value="80">
           </div>
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <label for="setting-ambient-volume">🍃 Langkah & Suasana Lingkungan:</label>
-              <span id="val-ambient-volume" class="setting-badge">65%</span>
-            </div>
-            <input type="range" id="setting-ambient-volume" min="0" max="100" step="5" value="65">
-          </div>
-        </div>
-
-        <!-- Controls Section -->
-        <div class="setting-section">
-          <div class="setting-section-title">🎯 SENSITIVITAS MOUSE</div>
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <label for="setting-sensitivity">Sensitivitas Bidik:</label>
-              <span id="val-sensitivity" class="setting-badge">0.0022</span>
-            </div>
-            <input type="range" id="setting-sensitivity" min="0.0008" max="0.0050" step="0.0002" value="0.0022">
-          </div>
-        </div>
-
-        <div class="setting-actions-row">
-          <button type="button" id="btn-test-audio" class="btn btn-secondary">🔔 TES SUARA</button>
-          <button type="button" id="btn-reset-audio" class="btn btn-secondary">🔄 RESET DEFAULT (35%)</button>
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btn-save-settings" class="btn btn-primary">SIMPAN & TUTUP [ESC]</button>
+        <button id="btn-save-settings" class="btn btn-primary">SIMPAN &amp; TUTUP [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Dialog Modal (Replaces window.confirm) -->
+  <div id="modal-confirm" class="modal-backdrop hidden" style="z-index: 1200;">
+    <div class="modal-box" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="confirm-title">KONFIRMASI TINDAKAN</h3>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message" style="font-size: 14px; color: #cbd5e1; line-height: 1.5;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-confirm-no" class="btn btn-secondary">BATAL</button>
+        <button type="button" id="btn-confirm-yes" class="btn btn-danger">YA, LANJUTKAN</button>
       </div>
     </div>
   </div>
@@ -728,7 +823,7 @@
           <h3 style="margin: 0; color: #f8fafc; font-size: 18px; display: flex; align-items: center; gap: 8px;">
             🔨 MEJA PERAKIT AMUNISI & JAMU (RUMAH JURAGAN)
           </h3>
-          <span style="font-size: 12px; color: #94a3b8;">Rakit Peluru & Racik Jamu Mandiri dari Hasil Jarahan Hutan</span>
+          <span style="font-size: 12px; color: #94a3b8;">Rakit Peluru &amp; Racik Jamu Mandiri dari Hasil Jarahan Kota</span>
         </div>
         <button class="btn-close btn-close-shop">&times;</button>
       </div>

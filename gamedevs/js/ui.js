@@ -14,26 +14,26 @@ export function initPortalOverlay() {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #060911;
+    background: #07090d;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.4s ease;
+    transition: opacity 0.35s ease;
     z-index: 99999;
-    font-family: system-ui, -apple-system, sans-serif;
-    color: #fff;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #f8fafc;
     text-align: center;
   `;
   portalOverlay.innerHTML = `
-    <div style="max-width: 420px; width: 90%; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px);">
-      <div id="portalVortexRing" style="width: 72px; height: 72px; border: 4px dashed #38bdf8; border-top: 4px solid #fff; border-radius: 50%; animation: portalSpin 1s linear infinite; box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);"></div>
+    <div style="max-width: 440px; width: 90%; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 26px; background: rgba(11, 14, 19, 0.96); border: 1px solid rgba(255, 255, 255, 0.14); border-top: 3px solid #e59a28; border-radius: 6px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);">
+      <div id="portalVortexRing" style="width: 58px; height: 58px; border: 3px solid rgba(255,255,255,0.12); border-top: 3px solid #e59a28; border-radius: 50%; animation: portalSpin 0.9s linear infinite;"></div>
       <div style="display: flex; flex-direction: column; gap: 6px;">
-        <div id="portalOverlayTitle" style="font-size: 20px; font-weight: 800; letter-spacing: 1px; color: #38bdf8; text-transform: uppercase;">MEMASUKI PORTAL...</div>
+        <div id="portalOverlayTitle" style="font-family: 'Cinzel', Georgia, serif; font-size: 20px; font-weight: 700; letter-spacing: 1.5px; color: #f8fafc; text-transform: uppercase;">MEMASUKI PORTAL</div>
         <div id="portalOverlaySubtitle" style="font-size: 13px; color: #94a3b8; font-weight: 500;">Menyiapkan dunia 3D & kompilasi visual...</div>
       </div>
-      <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 999px; overflow: hidden; position: relative;">
-        <div id="portalOverlayProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); transition: width 0.1s linear; border-radius: 999px; box-shadow: 0 0 10px #38bdf8;"></div>
+      <div style="width: 100%; height: 7px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; position: relative;">
+        <div id="portalOverlayProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #b46d0c, #e59a28); transition: width 0.1s linear;"></div>
       </div>
-      <div id="portalOverlayPct" style="font-size: 12px; font-family: monospace; color: #cbd5e1; letter-spacing: 1px;">0%</div>
+      <div id="portalOverlayPct" style="font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: #e59a28; letter-spacing: 1px;">0%</div>
     </div>
     <style>
       @keyframes portalSpin {
@@ -56,44 +56,32 @@ export function triggerPortalWarp(type, onComplete) {
   const ringEl = document.getElementById('portalVortexRing');
 
   if (type === 'camp') {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #0f1f14 0%, #030705 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #0d1712 0%, #060908 100%)';
     if (titleEl) {
-      titleEl.textContent = 'MEMASUKI DEAD ZONE (SECTOR-7)';
-      titleEl.style.color = '#4ade80';
+      titleEl.textContent = 'MEMASUKI DEAD ZONE';
+      titleEl.style.color = '#38a169';
     }
-    if (subEl) subEl.textContent = 'Memuat persenjataan, zombie AI, dan survival outpost...';
-    if (ringEl) {
-      ringEl.style.borderColor = '#4ade80';
-      ringEl.style.borderTopColor = '#fff';
-      ringEl.style.boxShadow = '0 0 25px rgba(74, 222, 128, 0.6)';
-    }
-    if (barEl) barEl.style.background = 'linear-gradient(90deg, #22c55e, #10b981)';
+    if (subEl) subEl.textContent = 'Memuat Desa Asri Safe Zone, persenjataan & Kota Sector-7...';
+    if (ringEl) ringEl.style.borderTopColor = '#38a169';
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #1e6b43, #38a169)';
   } else if (type === 'arena') {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #26110f 0%, #080302 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #1f0d0d 0%, #070404 100%)';
     if (titleEl) {
       titleEl.textContent = 'MEMASUKI BATTLE ARENA';
-      titleEl.style.color = '#f87171';
+      titleEl.style.color = '#dc3545';
     }
     if (subEl) subEl.textContent = 'Menyiapkan arena duel, robot petarung, dan sistem kombat...';
-    if (ringEl) {
-      ringEl.style.borderColor = '#f87171';
-      ringEl.style.borderTopColor = '#fff';
-      ringEl.style.boxShadow = '0 0 25px rgba(248, 113, 113, 0.6)';
-    }
-    if (barEl) barEl.style.background = 'linear-gradient(90deg, #f87171, #fb923c)';
+    if (ringEl) ringEl.style.borderTopColor = '#dc3545';
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #991b1b, #dc3545)';
   } else {
-    portalOverlay.style.background = 'radial-gradient(circle at center, #0c1a2e 0%, #040810 100%)';
+    portalOverlay.style.background = 'radial-gradient(circle at center, #0e1726 0%, #07090d 100%)';
     if (titleEl) {
       titleEl.textContent = 'MEMASUKI PORTAL';
-      titleEl.style.color = '#38bdf8';
+      titleEl.style.color = '#e59a28';
     }
     if (subEl) subEl.textContent = 'Menyiapkan dunia 3D & memuat aset grafis...';
-    if (ringEl) {
-      ringEl.style.borderColor = '#38bdf8';
-      ringEl.style.borderTopColor = '#fff';
-      ringEl.style.boxShadow = '0 0 25px rgba(56, 189, 248, 0.6)';
-    }
-    if (barEl) barEl.style.background = 'linear-gradient(90deg, #38bdf8, #818cf8)';
+    if (ringEl) ringEl.style.borderTopColor = '#e59a28';
+    if (barEl) barEl.style.background = 'linear-gradient(90deg, #b46d0c, #e59a28)';
   }
 
   portalOverlay.style.opacity = '1';
@@ -373,12 +361,25 @@ export function initDialogueUI() {
   }
 }
 
+export function initControlGuideToggle() {
+  const info = document.getElementById('info');
+  const btn = document.getElementById('btnInfoToggle');
+  if (info && btn) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = info.classList.toggle('collapsed');
+      btn.textContent = collapsed ? '[+]' : '[−]';
+    });
+  }
+}
+
 // ==================== INISIALISASI SELURUH UI ====================
 export function initUI(worldAudio) {
   initPortalOverlay();
   initAudioUI(worldAudio);
   initKioskModal();
   initDialogueUI();
+  initControlGuideToggle();
   updateQuestHUD();
 }
 
