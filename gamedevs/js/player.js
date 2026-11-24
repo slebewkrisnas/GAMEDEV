@@ -211,8 +211,9 @@ async function loadAndRetargetFBX(fbxLoader, targetModel, candidates, clipName, 
   let loadedFbx = null;
   for (const url of candidates) {
     try {
+      const targetUrl = url.includes('%20') ? url : encodeURI(url);
       loadedFbx = await new Promise((resolve, reject) => {
-        fbxLoader.load(url, resolve, undefined, reject);
+        fbxLoader.load(targetUrl, resolve, undefined, reject);
       });
       if (loadedFbx) break;
     } catch (e) {
@@ -428,7 +429,17 @@ async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = 
     console.log('[FBX Loader] Memuat dan me-retarget animasi dari folder animation...');
     notifyPlayerProgress(82, 'Memuat & me-retarget animasi FBX (Walk, Run, Jump)...');
 
-    const [walkRes, runRes, jumpRes] = await Promise.all([
+    const [idleRes, walkRes, runRes, jumpRes] = await Promise.all([
+      loadAndRetargetFBX(fbxLoader, targetModel, [
+        '../animation karakter/Standing W_Briefcase Idle.fbx',
+        './animation karakter/Standing W_Briefcase Idle.fbx',
+        '/animation karakter/Standing W_Briefcase Idle.fbx',
+        './animation/Standing W_Briefcase Idle.fbx',
+        '../animation/Standing W_Briefcase Idle.fbx',
+        '/animation/Standing W_Briefcase Idle.fbx',
+        '/gamedevs/animation/Standing W_Briefcase Idle.fbx',
+        'Standing W_Briefcase Idle.fbx'
+      ], 'Idle', bindQuats, fistFingerMap),
       loadAndRetargetFBX(fbxLoader, targetModel, [
         './animation/Walking.fbx',
         '../animation/Walking.fbx',
@@ -452,75 +463,80 @@ async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = 
     const walkClip = walkRes ? walkRes.clip : null;
     const runClip = runRes ? runRes.clip : null;
     const jumpClip = jumpRes ? jumpRes.clip : null;
-    const refBoneData = (walkRes && walkRes.boneData) || (runRes && runRes.boneData) || (jumpRes && jumpRes.boneData);
+    let idleClip = idleRes ? idleRes.clip : null;
+    const refBoneData = (idleRes && idleRes.boneData) || (walkRes && walkRes.boneData) || (runRes && runRes.boneData) || (jumpRes && jumpRes.boneData);
 
-    // Bangun Idle Clip organik dengan pernapasan dada alami & postur relaks
-    let idleClip = null;
-    if (refBoneData) {
-      const idleTracks = [];
-      const idleDuration = 2.4;
-      const idleTimes = [0, idleDuration * 0.5, idleDuration];
+    if (idleClip) {
+      console.log('✅ [FBX Loader] Animasi Idle Berdiri ("Standing W_Briefcase Idle.fbx") berhasil dimuat dan di-retarget!');
+    } else {
+      console.warn('⚠️ [FBX Loader] FBX Idle tidak ditemukan, menggunakan fallback procedural idle');
+      // Bangun Idle Clip organik dengan pernapasan dada alami & postur relaks
+      if (refBoneData) {
+        const idleTracks = [];
+        const idleDuration = 2.4;
+        const idleTimes = [0, idleDuration * 0.5, idleDuration];
 
-      for (const b of refBoneData) {
-        let q0 = (bindQuats && bindQuats.has(b.gBone)) ? bindQuats.get(b.gBone).clone() : b.bindLocal.clone();
+        for (const b of refBoneData) {
+          let q0 = (bindQuats && bindQuats.has(b.gBone)) ? bindQuats.get(b.gBone).clone() : b.bindLocal.clone();
 
-        // Relaksasikan lengan dari T-Pose ke samping pinggul untuk postur berdiri alami
-        const isArmL = b.gName === 'arm_stretch.l' || b.gName === 'arm_stretchl';
-        const isArmR = b.gName === 'arm_stretch.r' || b.gName === 'arm_stretchr';
-        const isForeArmL = b.gName === 'forearm_stretch.l' || b.gName === 'forearm_stretchl';
-        const isForeArmR = b.gName === 'forearm_stretch.r' || b.gName === 'forearm_stretchr';
-        const isHand = b.gName.startsWith('hand');
-        const isSpine = b.gName.startsWith('spine_02') || b.gName.startsWith('spine_03');
-        const isShoulderL = b.gName === 'shoulder.l' || b.gName === 'shoulderl';
-        const isShoulderR = b.gName === 'shoulder.r' || b.gName === 'shoulderr';
+          // Relaksasikan lengan dari T-Pose ke samping pinggul untuk postur berdiri alami
+          const isArmL = b.gName === 'arm_stretch.l' || b.gName === 'arm_stretchl';
+          const isArmR = b.gName === 'arm_stretch.r' || b.gName === 'arm_stretchr';
+          const isForeArmL = b.gName === 'forearm_stretch.l' || b.gName === 'forearm_stretchl';
+          const isForeArmR = b.gName === 'forearm_stretch.r' || b.gName === 'forearm_stretchr';
+          const isHand = b.gName.startsWith('hand');
+          const isSpine = b.gName.startsWith('spine_02') || b.gName.startsWith('spine_03');
+          const isShoulderL = b.gName === 'shoulder.l' || b.gName === 'shoulderl';
+          const isShoulderR = b.gName === 'shoulder.r' || b.gName === 'shoulderr';
 
-        if (isArmL) {
-          const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, -0.04, 'ZYX'));
-          q0.multiply(qRelax);
-        } else if (isArmR) {
-          const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, 0.04, 'ZYX'));
-          q0.multiply(qRelax);
-        } else if (isForeArmL) {
-          const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.22, 'ZYX'));
-          q0.multiply(qRelax);
-        } else if (isForeArmR) {
-          const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.22, 'ZYX'));
-          q0.multiply(qRelax);
-        } else if (isHand) {
-          // Telapak tangan lurus sempurna sejajar lengan bawah tanpa tekukan
-          // Tetap gunakan q0 murni bind pose yang lurus alami
-        }
+          if (isArmL) {
+            const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, -0.04, 'ZYX'));
+            q0.multiply(qRelax);
+          } else if (isArmR) {
+            const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.24, 0, 0.04, 'ZYX'));
+            q0.multiply(qRelax);
+          } else if (isForeArmL) {
+            const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.22, 'ZYX'));
+            q0.multiply(qRelax);
+          } else if (isForeArmR) {
+            const qRelax = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.22, 'ZYX'));
+            q0.multiply(qRelax);
+          } else if (isHand) {
+            // Telapak tangan lurus sempurna sejajar lengan bawah tanpa tekukan
+            // Tetap gunakan q0 murni bind pose yang lurus alami
+          }
 
-        let qMid = q0.clone();
+          let qMid = q0.clone();
 
-        // Pernapasan ritmik halus pada tulang belakang & dada
-        if (isSpine) {
-          const qBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.025);
-          qMid.multiply(qBreath);
-        } else if (isShoulderL || isShoulderR) {
-          const qShoulderBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), isShoulderL ? 0.015 : -0.015);
-          qMid.multiply(qShoulderBreath);
-        }
+          // Pernapasan ritmik halus pada tulang belakang & dada
+          if (isSpine) {
+            const qBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.025);
+            qMid.multiply(qBreath);
+          } else if (isShoulderL || isShoulderR) {
+            const qShoulderBreath = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), isShoulderL ? 0.015 : -0.015);
+            qMid.multiply(qShoulderBreath);
+          }
 
-        idleTracks.push(new THREE.QuaternionKeyframeTrack(
-          b.gName + '.quaternion',
-          idleTimes,
-          [q0.x, q0.y, q0.z, q0.w, qMid.x, qMid.y, qMid.z, qMid.w, q0.x, q0.y, q0.z, q0.w]
-        ));
-      }
-
-      // Tambahkan track kepalan tangan (clenched fist) untuk seluruh 30 tulang jari saat idle
-      if (fistFingerMap && fistFingerMap.size > 0) {
-        for (const [fBone, qFist] of fistFingerMap.entries()) {
           idleTracks.push(new THREE.QuaternionKeyframeTrack(
-            fBone.name + '.quaternion',
-            [0, idleDuration],
-            [qFist.x, qFist.y, qFist.z, qFist.w, qFist.x, qFist.y, qFist.z, qFist.w]
+            b.gName + '.quaternion',
+            idleTimes,
+            [q0.x, q0.y, q0.z, q0.w, qMid.x, qMid.y, qMid.z, qMid.w, q0.x, q0.y, q0.z, q0.w]
           ));
         }
-      }
 
-      idleClip = new THREE.AnimationClip('Idle', idleDuration, idleTracks);
+        // Tambahkan track kepalan tangan (clenched fist) untuk seluruh 30 tulang jari saat idle
+        if (fistFingerMap && fistFingerMap.size > 0) {
+          for (const [fBone, qFist] of fistFingerMap.entries()) {
+            idleTracks.push(new THREE.QuaternionKeyframeTrack(
+              fBone.name + '.quaternion',
+              [0, idleDuration],
+              [qFist.x, qFist.y, qFist.z, qFist.w, qFist.x, qFist.y, qFist.z, qFist.w]
+            ));
+          }
+        }
+
+        idleClip = new THREE.AnimationClip('Idle', idleDuration, idleTracks);
+      }
     }
 
     // Pastikan seluruh tulang dikembalikan ke bind pose murni sebelum mixer diaktifkan
@@ -574,7 +590,7 @@ async function initFBXAnimations(targetModel, bindQuats = null, fistFingerMap = 
 
     currentActionName = 'idle';
     fbxAnimationsLoaded = true;
-    console.log('[FBX Loader] Seluruh animasi FBX (Walking, Fast Run, Jumping) berhasil aktif di Realistic Man dengan postur tegak sempurna!');
+    console.log('[FBX Loader] Seluruh animasi FBX (Idle Berdiri, Walking, Fast Run, Jumping) berhasil aktif di Realistic Man dengan postur tegak sempurna!');
     return true;
   } catch (err) {
     console.warn('[FBX Loader] Gagal inisialisasi FBX animations, menggunakan fallback prosedural:', err);

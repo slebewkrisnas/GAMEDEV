@@ -35,7 +35,7 @@ import {
   GRAVITY,
   onPlayerReady,
   onPlayerProgress
-} from './js/player.js?v=20261104_fist_v1';
+} from './js/player.js?v=20261125_standing_idle';
 import {
   keys,
   getYaw,
