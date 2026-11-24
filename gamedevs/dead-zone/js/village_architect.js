@@ -934,6 +934,9 @@ export class VillageArchitect {
     // 4. Muat Model 3D FBX dengan Custom LoadingManager (Texture Redirect)
     const manager = new THREE.LoadingManager();
     manager.setURLModifier((url) => {
+      if (url.toLowerCase().endsWith('.fbx')) {
+        return url;
+      }
       let filename = url.split(/[/\\]/).pop();
       filename = filename.replace(/\.tif$/i, '.jpg');
       if (filename.includes('istockphoto-1264052147-170667a.jpg')) {
@@ -964,9 +967,14 @@ export class VillageArchitect {
 
           fbx.traverse((child) => {
             // Hilangkan sosok hitam (patung SpiderMan hitam tanpa tekstur di depan kios tempat jualan)
-            if (child.name && (child.name.toLowerCase().includes('spider') || child.name.toLowerCase().includes('mannequin') || child.name.toLowerCase().includes('human'))) {
+            if (child.isMesh && child.name && child.name.toLowerCase().includes('spider')) {
               child.visible = false;
-              if (child.geometry) child.geometry.dispose();
+              return;
+            }
+
+            // Hilangkan Plane002 (bidang alas putih polos blender yang menyilaukan di tanah)
+            if (child.isMesh && child.name && child.name.toLowerCase().includes('plane002')) {
+              child.visible = false;
               return;
             }
 
@@ -978,9 +986,9 @@ export class VillageArchitect {
                 mats.forEach(m => {
                   m.roughness = Math.max(m.roughness || 0.6, 0.85);
                   m.metalness = Math.min(m.metalness || 0.05, 0.1);
-                  // Redupkan material putih polos tanpa tekstur agar dinding dan plang tidak menyilaukan
-                  if (!m.map && m.color && m.color.r > 0.85 && m.color.g > 0.85 && m.color.b > 0.85) {
-                    m.color.setHex(0xb8aa96);
+                  // Redupkan material putih polos tanpa tekstur agar dinding dan kusen bernuansa kayu gelap hangat
+                  if (!m.map) {
+                    m.color.setHex(0x5c4a3d);
                   }
                 });
               }

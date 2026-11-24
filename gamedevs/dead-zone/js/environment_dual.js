@@ -395,6 +395,14 @@ export class EnvironmentDual {
     westPath.receiveShadow = true;
     this.safeZoneGroup.add(westPath);
 
+    // East Path: From Player Shop (x: 18) to Central Plaza (x: 0)
+    const eastGeo = new THREE.PlaneGeometry(20, 4.5);
+    const eastPath = new THREE.Mesh(eastGeo, stoneMat);
+    eastPath.rotation.x = -Math.PI / 2;
+    eastPath.position.set(10, 0.03, 0);
+    eastPath.receiveShadow = true;
+    this.safeZoneGroup.add(eastPath);
+
     // Circular Plaza around Village Well at (0, 0)
     const ringGeo = new THREE.RingGeometry(2.0, 7.5, 24);
     const ringPath = new THREE.Mesh(ringGeo, stoneMat);
