@@ -318,24 +318,24 @@ export class EnvironmentDual {
     this.safeZoneLights.add(amb);
     this.safeZoneLights.add(moon);
 
-    // Lentera Teras Rumah Utama (Cahaya Hangat Amber)
-    const houseLantern = new THREE.PointLight(0xf59e0b, 2.4, 18);
+    // Lentera Teras Rumah Utama (Cahaya Hangat Amber Lembut)
+    const houseLantern = new THREE.PointLight(0xf59e0b, 1.2, 14);
     houseLantern.position.set(0, 3.8, -14);
     this.safeZoneLights.add(houseLantern);
 
-    // Lentera Kios Toko Pedesaan (Cahaya Emas Hangat)
-    const shopLantern = new THREE.PointLight(0xfbbf24, 2.5, 18);
+    // Lentera Kios Toko Pedesaan (Cahaya Emas Hangat Lembut)
+    const shopLantern = new THREE.PointLight(0xfbbf24, 0.75, 10);
     shopLantern.position.set(-16, 3.5, 0);
     this.safeZoneLights.add(shopLantern);
 
     // Lentera Sumur Alun-Alun Desa
-    const wellLantern = new THREE.PointLight(0xf59e0b, 2.0, 16);
+    const wellLantern = new THREE.PointLight(0xf59e0b, 1.0, 12);
     wellLantern.position.set(0, 3.2, 0);
     this.safeZoneLights.add(wellLantern);
 
     // 4 Lampu Jalan Batu di sepanjang jalan utama
     [-8, 8, 18, 28].forEach(pz => {
-      const pathLantern = new THREE.PointLight(0xfbbf24, 1.5, 12);
+      const pathLantern = new THREE.PointLight(0xfbbf24, 0.8, 10);
       pathLantern.position.set(3.2, 2.2, pz);
       this.safeZoneLights.add(pathLantern);
     });

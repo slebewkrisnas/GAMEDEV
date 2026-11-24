@@ -863,12 +863,12 @@ export class VillageArchitect {
       label: '🏪 Toko Serba Ada (Beli Senjata, Amunisi, Jamu & Jual Jarahan) [E]'
     });
 
-    // 3. Pencahayaan Toko & Kios
-    const shopLight1 = new THREE.PointLight(0xffe082, 1.5, 14);
+    // 3. Pencahayaan Toko & Kios (Cahaya lembut tidak menyilaukan)
+    const shopLight1 = new THREE.PointLight(0xffe082, 0.65, 8.0);
     shopLight1.position.set(x + 2.8, 2.8, z - 2.8);
     this.lights.add(shopLight1);
 
-    const shopLight2 = new THREE.PointLight(0xffe082, 1.5, 14);
+    const shopLight2 = new THREE.PointLight(0xffe082, 0.65, 8.0);
     shopLight2.position.set(x + 2.8, 2.8, z + 2.8);
     this.lights.add(shopLight2);
 
@@ -926,27 +926,20 @@ export class VillageArchitect {
       label: '🏪 Lapak Dagang Pribadi (Jual Segala Barang Jarahan & Kasir Etalase) [E]'
     });
 
-    // 3. Pencahayaan Lentera Amber Hangat di Teras Kios
-    const stallLantern = new THREE.PointLight(0xffb74d, 1.8, 14);
+    // 3. Pencahayaan Lentera Amber Hangat di Teras Kios (Redup lembut, tidak menyilaukan)
+    const stallLantern = new THREE.PointLight(0xffaa44, 0.45, 7.0);
     stallLantern.position.set(x - 3.8, 2.6, z);
     this.lights.add(stallLantern);
-
-    // Tiang lampu lentera gantung pemanis di sudut kios
-    const poleMat = this.materials.ironFittings || new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
-    const poleGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8);
-    const pole = new THREE.Mesh(poleGeom, poleMat);
-    pole.position.set(x - 3.8, 1.6, z - 3.2);
-    pole.castShadow = true;
-    this.group.add(pole);
 
     // 4. Muat Model 3D FBX dengan Custom LoadingManager (Texture Redirect)
     const manager = new THREE.LoadingManager();
     manager.setURLModifier((url) => {
-      let mapped = url.replace(/\.tif$/i, '.jpg');
-      if (mapped.includes('istockphoto-1264052147-170667a.jpg')) {
-        mapped = mapped.replace('istockphoto-1264052147-170667a.jpg', 'shop-now-sign-or-stamp-vector-32356680.jpg');
+      let filename = url.split(/[/\\]/).pop();
+      filename = filename.replace(/\.tif$/i, '.jpg');
+      if (filename.includes('istockphoto-1264052147-170667a.jpg')) {
+        filename = 'shop-now-sign-or-stamp-vector-32356680.jpg';
       }
-      return mapped;
+      return './asset dead-zone/tempat jualan/shop+texture/' + filename;
     });
 
     const loader = new FBXLoader(manager);
@@ -970,13 +963,25 @@ export class VillageArchitect {
           fbx.position.set(287.53 * scale, 29.33 * scale, 369.56 * scale);
 
           fbx.traverse((child) => {
+            // Hilangkan sosok hitam (patung SpiderMan hitam tanpa tekstur di depan kios tempat jualan)
+            if (child.name && (child.name.toLowerCase().includes('spider') || child.name.toLowerCase().includes('mannequin') || child.name.toLowerCase().includes('human'))) {
+              child.visible = false;
+              if (child.geometry) child.geometry.dispose();
+              return;
+            }
+
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
               if (child.material) {
                 const mats = Array.isArray(child.material) ? child.material : [child.material];
                 mats.forEach(m => {
-                  m.roughness = Math.max(m.roughness || 0.5, 0.65);
+                  m.roughness = Math.max(m.roughness || 0.6, 0.85);
+                  m.metalness = Math.min(m.metalness || 0.05, 0.1);
+                  // Redupkan material putih polos tanpa tekstur agar dinding dan plang tidak menyilaukan
+                  if (!m.map && m.color && m.color.r > 0.85 && m.color.g > 0.85 && m.color.b > 0.85) {
+                    m.color.setHex(0xb8aa96);
+                  }
                 });
               }
             }
@@ -1839,171 +1844,116 @@ export class VillageArchitect {
   }
 
   // --------------------------------------------------------------------------
-  // BANGUNAN 5: GAPURA KAYU PERBATASAN HUTAN (PALISADE GATE)
+  // BANGUNAN 5: GAPURA TORAJA 3D (PORTAL PERBATASAN DUNIA ZOMBIE - SECTOR-7)
+  // Menggunakan Model 3D Asli Gapura Toraja (gapura_toraja_3d.glb)
   // --------------------------------------------------------------------------
   buildForestGate(x, z) {
     const gate = new THREE.Group();
     gate.position.set(x, 0, z);
 
-    // Dua Batang Pohon Raksasa Berakar Kokoh (Weathered Trunk Pillars)
-    const trunkGeo = new THREE.CylinderGeometry(0.48, 0.65, 7.2, 8);
-    const trunkL = new THREE.Mesh(trunkGeo, this.materials.timberPost);
-    trunkL.position.set(-3.6, 3.6, 0);
-    gate.add(trunkL);
-
-    const trunkR = new THREE.Mesh(trunkGeo, this.materials.timberPost);
-    trunkR.position.set(3.6, 3.6, 0);
-    gate.add(trunkR);
-
-    // Akar-akar pohon berlumut di dasar (Mossy buttress roots)
-    for (let r = 0; r < 4; r++) {
-      const rootGeo = new THREE.ConeGeometry(0.2, 1.4, 5);
-      const rootL = new THREE.Mesh(rootGeo, this.materials.mossGreen);
-      rootL.rotation.z = Math.PI / 3;
-      rootL.rotation.y = r * Math.PI / 2;
-      rootL.position.set(-3.6, 0.4, 0);
-      gate.add(rootL);
-
-      const rootR = new THREE.Mesh(rootGeo, this.materials.mossGreen);
-      rootR.rotation.z = -Math.PI / 3;
-      rootR.rotation.y = r * Math.PI / 2;
-      rootR.position.set(3.6, 0.4, 0);
-      gate.add(rootR);
-    }
-
-    // Balok Lintang Melintang Kayu Gelondongan Tebal di Atas
-    const crossbeamGeo = new THREE.BoxGeometry(9.6, 0.9, 0.9);
-    const crossbeam = new THREE.Mesh(crossbeamGeo, this.materials.timberPost);
-    crossbeam.position.set(0, 6.6, 0);
-    gate.add(crossbeam);
-
-    // Lilitan Tali Tambang Tebal (Heavy Rope Lashings) di Sudut
-    const ropeL = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.7, 8), this.materials.ropeFiber);
-    ropeL.position.set(-3.6, 6.6, 0); gate.add(ropeL);
-    const ropeR = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.7, 8), this.materials.ropeFiber);
-    ropeR.position.set(3.6, 6.6, 0); gate.add(ropeR);
-
-    // Tumpukan Lumut & Tanduk Rusa Raksasa di Atas Balok Lintang
-    const mossTuft = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.4, 1.2), this.materials.mossGreen);
-    mossTuft.position.set(0, 7.25, 0);
-    gate.add(mossTuft);
-
-    // Tanduk Rusa Raksasa Bercabang di Atas Gapura
-    const antlerGeo = new THREE.ConeGeometry(0.12, 1.8, 6);
-    const antlerL1 = new THREE.Mesh(antlerGeo, this.materials.whiteBone);
-    antlerL1.rotation.z = Math.PI * 0.25; antlerL1.position.set(-1.4, 8.2, 0); gate.add(antlerL1);
-    const antlerL2 = new THREE.Mesh(new THREE.ConeGeometry(0.08, 1.0, 5), this.materials.whiteBone);
-    antlerL2.rotation.z = Math.PI * 0.45; antlerL2.position.set(-2.0, 8.5, 0); gate.add(antlerL2);
-
-    const antlerR1 = new THREE.Mesh(antlerGeo, this.materials.whiteBone);
-    antlerR1.rotation.z = -Math.PI * 0.25; antlerR1.position.set(1.4, 8.2, 0); gate.add(antlerR1);
-    const antlerR2 = new THREE.Mesh(new THREE.ConeGeometry(0.08, 1.0, 5), this.materials.whiteBone);
-    antlerR2.rotation.z = -Math.PI * 0.45; antlerR2.position.set(2.0, 8.5, 0); gate.add(antlerR2);
-
-    // Plang Kayu Tergantung di Tengah: Pohon Tua & Daun Ek
-    const gateSign = new THREE.Mesh(
-      new THREE.BoxGeometry(3.6, 1.4, 0.15),
-      new THREE.MeshStandardMaterial({ map: this.textures.signGate, roughness: 0.7 })
-    );
-    gateSign.position.set(0, 5.2, 0);
-    gate.add(gateSign);
-
-    // Tali Gantungan Plang
-    const ropeH1 = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), this.materials.ropeFiber);
-    ropeH1.position.set(-1.2, 6.0, 0); gate.add(ropeH1);
-    const ropeH2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), this.materials.ropeFiber);
-    ropeH2.position.set(1.2, 6.0, 0); gate.add(ropeH2);
-
-    // Lentera Minyak di Tiang Kanan
-    gate.add(this.createWallLantern(4.4, 4.4, 0, Math.PI / 2));
-
-    // Tanaman Pakis & Bebatuan Alam Kali di Dasar
-    gate.add(this.createDecorativeBushes(-3.6, 0, 0, 3));
-    gate.add(this.createDecorativeBushes(3.6, 0, 0, 3));
-    gate.add(this.createSteppingStones(0, -3.0, 3.0, 5));
-
-    // Portal Kabut Mistis Transisi Menuju Hutan (Cyan Swirling Energy Field)
-    const portal = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.2, 5.4),
-      new THREE.MeshBasicMaterial({
-        color: 0x0ea5e9,
-        transparent: true,
-        opacity: 0.55,
-        side: THREE.DoubleSide
-      })
-    );
-    portal.position.set(0, 2.9, 0);
+    // 1. Portal Kabut Mistis Pusaran Energi di Tengah Lengkungan Gapura
+    const portalGeo = new THREE.PlaneGeometry(5.2, 5.0);
+    const portalMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.52,
+      side: THREE.DoubleSide
+    });
+    const portal = new THREE.Mesh(portalGeo, portalMat);
+    portal.position.set(0, 2.7, 0);
     gate.add(portal);
     this.env.animatedObjects.push({ mesh: portal, type: 'vortex_pulse', speed: 2.2 });
 
-    // Muat 3D Asset Portal Kuno (medival_ruins.fbx)
+    // Cincin partikel pusaran portal sekunder (Aksen Ungu Mistis)
+    const innerPortal = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 4.0),
+      new THREE.MeshBasicMaterial({
+        color: 0xa855f7,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide
+      })
+    );
+    innerPortal.position.set(0, 2.7, 0.05);
+    gate.add(innerPortal);
+    this.env.animatedObjects.push({ mesh: innerPortal, type: 'crystal_spin', speed: 1.5 });
+
+    // 2. Pencahayaan Lentera Hangat di Sudut Gerbang Toraja
+    const gateWarmLight = new THREE.PointLight(0xffb74d, 0.9, 14);
+    gateWarmLight.position.set(0, 4.2, -1.0);
+    this.lights.add(gateWarmLight);
+
+    const portalGlow = new THREE.PointLight(0x38bdf8, 1.2, 10);
+    portalGlow.position.set(0, 2.7, 0.5);
+    this.lights.add(portalGlow);
+
+    // 3. Tanaman Hias & Bebatuan Alam di Sisi Kiri & Kanan Gapura
+    gate.add(this.createDecorativeBushes(-4.8, 0, 0, 3));
+    gate.add(this.createDecorativeBushes(4.8, 0, 0, 3));
+    gate.add(this.createSteppingStones(0, -3.0, 3.0, 5));
+
+    // 4. Muat Model 3D Asli Gapura Toraja (gapura_toraja_3d.glb)
     if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
       try {
-        const texLoader = new THREE.TextureLoader();
-        const basePath = './asset dead-zone/portal dan tower/portal/Textures/';
-        const diffMap = texLoader.load(basePath + 'Ruin_Diffuse.png');
-        const normMap = texLoader.load(basePath + 'Ruin_Normal.png');
-        const roughMap = texLoader.load(basePath + 'Ruin_Roughness.png');
-
-        const ruinMat = new THREE.MeshStandardMaterial({
-          map: diffMap,
-          normalMap: normMap,
-          roughnessMap: roughMap,
-          roughness: 0.85,
-          metalness: 0.15
-        });
-
-        const fbxLoader = new FBXLoader();
+        const gltfLoader = new GLTFLoader();
         const portalPromise = new Promise((resolve) => {
-          fbxLoader.load(
-            encodeURI('./asset dead-zone/portal dan tower/portal/medival_ruins.fbx'),
-            (fbx) => {
-              const scale = 0.016;
-              fbx.scale.set(scale, scale, scale);
-              fbx.position.set(0, 0, 0);
-              fbx.traverse((child) => {
+          gltfLoader.load(
+            encodeURI('./asset dead-zone/portal dan tower/portal/gapura_toraja_3d.glb'),
+            (gltf) => {
+              const model = gltf.scene;
+              // Skala proporsional gapura Toraja megah membentang di jalan utama
+              const scale = 0.82;
+              model.scale.set(scale, scale, scale);
+              // Geser agar dasar kaki tiang tepat menapak di tanah y = 0 (min Y asli: -1.0)
+              model.position.set(0, 1.0 * scale, 0);
+
+              model.traverse((child) => {
                 if (child.isMesh) {
-                  child.material = ruinMat;
                   child.castShadow = true;
                   child.receiveShadow = true;
+                  if (child.material) {
+                    child.material.roughness = Math.max(child.material.roughness || 0.6, 0.75);
+                  }
                 }
               });
-              gate.add(fbx);
-              console.log('✅ [PORTAL] Medieval Ruins 3D Portal FBX berhasil dimuat.');
-              resolve(fbx);
+
+              gate.add(model);
+              console.log('✅ [PORTAL] Gapura Toraja 3D (gapura_toraja_3d.glb) berhasil dimuat.');
+              resolve(model);
             },
             undefined,
             (err) => {
-              console.warn('Portal FBX fallback:', err);
+              console.warn('❌ [PORTAL] Gagal memuat gapura_toraja_3d.glb:', err);
               resolve(null);
             }
           );
         });
         this.loadPromises.push(portalPromise);
       } catch (e) {
-        console.warn('Portal loader init:', e);
+        console.warn('Portal GLTF loader init:', e);
       }
     }
 
     this.group.add(gate);
 
-    // Solid Colliders untuk dua tiang gapura
+    // 5. Solid Box Colliders untuk Tiang Sayap Kiri & Kanan Gapura Toraja
+    // Memberikan lorong terbuka bebas hambatan di tengah (x: -2.6 s/d 2.6)
     this.colliders.push(new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(x - 3.6, 3.6, z),
-      new THREE.Vector3(1.8, 7.2, 1.8)
+      new THREE.Vector3(x - 4.5, 3.6, z),
+      new THREE.Vector3(3.2, 7.5, 3.2)
     ));
     this.colliders.push(new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(x + 3.6, 3.6, z),
-      new THREE.Vector3(1.8, 7.2, 1.8)
+      new THREE.Vector3(x + 4.5, 3.6, z),
+      new THREE.Vector3(3.2, 7.5, 3.2)
     ));
 
-    // Interactable Portal
+    // 6. Titik Interaksi Airlock / Portal Masuk Dunia Zombie
     this.interactables.push({
       id: 'airlock',
       type: 'airlock',
       position: new THREE.Vector3(x, 1.5, z - 2.0),
-      radius: 4.5,
-      label: 'Gerbang Batas Menuju Hutan Berbahaya [E]'
+      radius: 5.0,
+      label: '⛩️ Masuk Dunia Zombie melalui Gapura Toraja [E]'
     });
   }
 
