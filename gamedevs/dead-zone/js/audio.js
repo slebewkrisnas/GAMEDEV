@@ -193,6 +193,40 @@ class SoundManager {
     });
   }
 
+  // --------------------------------------------------------------------------
+  // PRE-CACHED PROCEDURAL AUDIO NOISE BUFFERS (ZERO ALLOCATION IN HOT COMBAT)
+  // --------------------------------------------------------------------------
+  _getNoiseBuffer(key, duration, decay) {
+    if (!this.ctx) return null;
+    if (!this._noiseBuffers) this._noiseBuffers = {};
+    if (!this._noiseBuffers[key]) {
+      const size = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      const decayCoeff = this.ctx.sampleRate * decay;
+      for (let i = 0; i < size; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / decayCoeff);
+      }
+      this._noiseBuffers[key] = buffer;
+    }
+    return this._noiseBuffers[key];
+  }
+
+  _getWhooshBuffer(key, duration) {
+    if (!this.ctx) return null;
+    if (!this._noiseBuffers) this._noiseBuffers = {};
+    if (!this._noiseBuffers[key]) {
+      const size = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < size; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.sin((i / size) * Math.PI);
+      }
+      this._noiseBuffers[key] = buffer;
+    }
+    return this._noiseBuffers[key];
+  }
+
   // Gunshot: White noise blast + fast decaying pitch sine + lowpass filter
   playPistolShot() {
     if (!this.ctx) return;
@@ -200,15 +234,9 @@ class SoundManager {
 
     const now = this.ctx.currentTime;
 
-    // 1. Noise blast for explosive pop
-    const bufferSize = this.ctx.sampleRate * 0.12;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.03));
-    }
+    // 1. Noise blast for explosive pop (Zero-allocation cached buffer)
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this._getNoiseBuffer('pistol', 0.12, 0.03);
 
     const noiseFilter = this.ctx.createBiquadFilter();
     noiseFilter.type = "bandpass";
@@ -247,15 +275,9 @@ class SoundManager {
 
     const now = this.ctx.currentTime;
 
-    // 1. Heavy noise explosive crack
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.16);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.038));
-    }
+    // 1. Heavy noise explosive crack (Zero-allocation cached buffer)
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this._getNoiseBuffer('deagle', 0.16, 0.038);
 
     const noiseFilter = this.ctx.createBiquadFilter();
     noiseFilter.type = "bandpass";
@@ -294,15 +316,9 @@ class SoundManager {
 
     const now = this.ctx.currentTime;
 
-    // 1. Supersonic crack transient
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.32);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.07));
-    }
+    // 1. Supersonic crack transient (Zero-allocation cached buffer)
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this._getNoiseBuffer('awp', 0.32, 0.07);
 
     const noiseFilter = this.ctx.createBiquadFilter();
     noiseFilter.type = "lowpass";
@@ -454,8 +470,13 @@ class SoundManager {
   // Zombie groan / growl
   playZombieGroan() {
     if (!this.ctx) return;
-    this.resume();
     const now = this.ctx.currentTime;
+    // Throttle: max 1 groan per 1.2s across the horde to prevent audio node spikes on gunshots
+    if (this._lastZombieGroanTime && (now - this._lastZombieGroanTime < 1.2)) {
+      return;
+    }
+    this._lastZombieGroanTime = now;
+    this.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = "sawtooth";
@@ -826,14 +847,9 @@ class SoundManager {
     this.resume();
     const now = this.ctx.currentTime;
 
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.22);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.05));
-    }
+    // Zero-allocation cached noise buffer
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this._getNoiseBuffer('shotgun', 0.22, 0.05);
 
     const noiseFilter = this.ctx.createBiquadFilter();
     noiseFilter.type = "lowpass";
@@ -880,14 +896,9 @@ class SoundManager {
     this.resume();
     const now = this.ctx.currentTime;
 
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.09);
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.02));
-    }
+    // Zero-allocation cached noise buffer
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this._getNoiseBuffer('rifle', 0.09, 0.02);
 
     const noiseFilter = this.ctx.createBiquadFilter();
     noiseFilter.type = "bandpass";
@@ -960,14 +971,8 @@ class SoundManager {
       thumpOsc.stop(now + 0.05);
 
       // 2. Lapisan Gesekan Sol Sepatu pada Permukaan Tanah/Hutan (Granular Texture)
-      const bufSize = Math.floor(this.ctx.sampleRate * 0.055);
-      const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.011));
-      }
       const noise = this.ctx.createBufferSource();
-      noise.buffer = buffer;
+      noise.buffer = this._getNoiseBuffer('step_scuff', 0.055, 0.011);
 
       const bandFilter = this.ctx.createBiquadFilter();
       bandFilter.type = 'bandpass';
@@ -990,14 +995,8 @@ class SoundManager {
       noise.start(now);
 
       // 3. Lapisan Desiran Celana & Pakaian Taktis (Cloth Rustle)
-      const clothBufSize = Math.floor(this.ctx.sampleRate * 0.035);
-      const clothBuf = this.ctx.createBuffer(1, clothBufSize, this.ctx.sampleRate);
-      const clothData = clothBuf.getChannelData(0);
-      for (let i = 0; i < clothBufSize; i++) {
-        clothData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.008));
-      }
       const clothNoise = this.ctx.createBufferSource();
-      clothNoise.buffer = clothBuf;
+      clothNoise.buffer = this._getNoiseBuffer('step_cloth', 0.035, 0.008);
 
       const clothFilter = this.ctx.createBiquadFilter();
       clothFilter.type = 'highpass';
@@ -1038,14 +1037,8 @@ class SoundManager {
       pushOsc.stop(now + 0.075);
 
       // 2. Gesekan Sol Lepas Landas (Sole Traction Friction)
-      const scuffSize = Math.floor(this.ctx.sampleRate * 0.045);
-      const scuffBuffer = this.ctx.createBuffer(1, scuffSize, this.ctx.sampleRate);
-      const scuffData = scuffBuffer.getChannelData(0);
-      for (let i = 0; i < scuffSize; i++) {
-        scuffData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.012));
-      }
       const scuffNoise = this.ctx.createBufferSource();
-      scuffNoise.buffer = scuffBuffer;
+      scuffNoise.buffer = this._getNoiseBuffer('jump_scuff', 0.045, 0.012);
 
       const scuffFilter = this.ctx.createBiquadFilter();
       scuffFilter.type = 'bandpass';
@@ -1062,15 +1055,8 @@ class SoundManager {
       scuffNoise.start(now);
 
       // 3. Desiran Udara & Kibasan Pakaian Saat Melompat (Body Whoosh)
-      const whooshSize = Math.floor(this.ctx.sampleRate * 0.16);
-      const whooshBuffer = this.ctx.createBuffer(1, whooshSize, this.ctx.sampleRate);
-      const whooshData = whooshBuffer.getChannelData(0);
-      for (let i = 0; i < whooshSize; i++) {
-        const envelope = Math.sin((i / whooshSize) * Math.PI);
-        whooshData[i] = (Math.random() * 2 - 1) * envelope;
-      }
       const whooshNoise = this.ctx.createBufferSource();
-      whooshNoise.buffer = whooshBuffer;
+      whooshNoise.buffer = this._getWhooshBuffer('jump_whoosh', 0.16);
 
       const whooshFilter = this.ctx.createBiquadFilter();
       whooshFilter.type = 'bandpass';

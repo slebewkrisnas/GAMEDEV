@@ -594,6 +594,10 @@ export class ZombiesManager {
     this.poisonClouds = [];
     this.traps = [];
 
+    // Zero-allocation cached hitboxes for rapid raycasting
+    this._cachedHitboxes = [];
+    this.hitboxesDirty = true;
+
     // Preload zombie FBX assets & textures early
     initZombieAssets().catch(err => {
       console.warn("Zombie assets preload warning:", err);
@@ -602,6 +606,7 @@ export class ZombiesManager {
 
   spawnZombie(config) {
     const zombie = new Zombie(this.scene, this.environment, this.player, config, (pos, isBoss, zInstance) => {
+      this.hitboxesDirty = true;
       if (this.onZombieKilled) {
         this.onZombieKilled(pos || zombie.mesh.position, isBoss, zInstance || zombie);
       }
@@ -627,6 +632,7 @@ export class ZombiesManager {
     };
 
     this.zombies.push(zombie);
+    this.hitboxesDirty = true;
     return zombie;
   }
 
@@ -641,14 +647,21 @@ export class ZombiesManager {
   }
 
   getActiveHitboxes() {
-    const list = [];
+    if (!this.hitboxesDirty && this._cachedHitboxes && this._cachedHitboxes.length > 0) {
+      return this._cachedHitboxes;
+    }
+    if (!this._cachedHitboxes) this._cachedHitboxes = [];
+    this._cachedHitboxes.length = 0;
     for (let i = 0; i < this.zombies.length; i++) {
       const z = this.zombies[i];
-      if (z.isAlive) {
-        list.push(...z.hitboxes);
+      if (z.isAlive && z.hitboxes) {
+        for (let h = 0; h < z.hitboxes.length; h++) {
+          this._cachedHitboxes.push(z.hitboxes[h]);
+        }
       }
     }
-    return list;
+    this.hitboxesDirty = false;
+    return this._cachedHitboxes;
   }
 
   getActiveCount() {
@@ -775,6 +788,7 @@ export class ZombiesManager {
       if (z.isFullyDisposed()) {
         z.destroy();
         this.zombies.splice(i, 1);
+        this.hitboxesDirty = true;
       }
     }
   }
@@ -784,6 +798,8 @@ export class ZombiesManager {
       this.zombies[i].destroy();
     }
     this.zombies = [];
+    this.hitboxesDirty = true;
+    if (this._cachedHitboxes) this._cachedHitboxes.length = 0;
 
     for (let i = 0; i < this.poisonClouds.length; i++) {
       this.poisonClouds[i].destroy();

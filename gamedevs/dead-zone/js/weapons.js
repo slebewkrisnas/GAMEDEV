@@ -187,6 +187,7 @@ export class WeaponManager {
     // Raycaster from screen center (0, 0 in NDC)
     this.raycaster = new THREE.Raycaster();
     this.screenCenter = new THREE.Vector2(0, 0);
+    this._rayCoord = new THREE.Vector2(0, 0);
 
     // Procedural weapon 3D root group
     this.weaponGroup = new THREE.Group();
@@ -782,9 +783,10 @@ export class WeaponManager {
     this.muzzleFlashMesh.visible = false;
     this.weaponGroup.add(this.muzzleFlashMesh);
 
-    this.muzzleLight = new THREE.PointLight(0xffaa22, 2.0, 6);
+    // Keep muzzleLight permanently visible with intensity 0 to eliminate WebGL shader recompilations!
+    this.muzzleLight = new THREE.PointLight(0xffaa22, 0, 6);
     this.muzzleLight.position.set(0, 0.045, -0.18);
-    this.muzzleLight.visible = false;
+    this.muzzleLight.visible = true;
     this.weaponGroup.add(this.muzzleLight);
   }
 
@@ -947,7 +949,7 @@ export class WeaponManager {
       this.muzzleLight.position.copy(cfg.muzzlePos);
     } else if (this.muzzleFlashMesh) {
       this.muzzleFlashMesh.visible = false;
-      this.muzzleLight.visible = false;
+      this.muzzleLight.intensity = 0;
     }
 
     // Update UI
@@ -1021,7 +1023,7 @@ export class WeaponManager {
     this.raycaster.setFromCamera(this.screenCenter, this.camera);
     const activeHitboxes = this.zombiesManager ? this.zombiesManager.getActiveHitboxes() : [];
     if (activeHitboxes.length > 0) {
-      const intersects = this.raycaster.intersectObjects(activeHitboxes, true);
+      const intersects = this.raycaster.intersectObjects(activeHitboxes, false);
       if (intersects.length > 0 && intersects[0].distance <= (cfg.range || 2.3)) {
         const hit = intersects[0];
         let zombie = null;
@@ -1131,66 +1133,82 @@ export class WeaponManager {
     }
 
     // Raycast hit detection (Supports shotgun multi-pellet spread)
-    if (cfg.pellets > 1) {
-      for (let i = 0; i < cfg.pellets; i++) {
-        const spreadX = (Math.random() - 0.5) * cfg.spread;
-        const spreadY = (Math.random() - 0.5) * cfg.spread;
-        this.performRaycast(spreadX, spreadY, cfg.bodyDamage, cfg.headshotDamage);
-      }
-    } else {
-      const spreadX = cfg.spread > 0 ? (Math.random() - 0.5) * cfg.spread : 0;
-      const spreadY = cfg.spread > 0 ? (Math.random() - 0.5) * cfg.spread : 0;
-      this.performRaycast(spreadX, spreadY, cfg.bodyDamage, cfg.headshotDamage);
-    }
-  }
-
-  performRaycast(spreadX = 0, spreadY = 0, bodyDmg = this.bodyDamage, headDmg = this.headshotDamage) {
-    const rayCoord = new THREE.Vector2(this.screenCenter.x + spreadX, this.screenCenter.y + spreadY);
-    this.raycaster.setFromCamera(rayCoord, this.camera);
-
     const activeHitboxes = this.zombiesManager ? this.zombiesManager.getActiveHitboxes() : [];
     const envObstacles = (this.environment && Array.isArray(this.environment.obstacleMeshes))
       ? this.environment.obstacleMeshes
       : [];
-    const targets = [...activeHitboxes, ...envObstacles];
 
-    if (targets.length === 0) return;
+    if (cfg.pellets > 1) {
+      for (let i = 0; i < cfg.pellets; i++) {
+        const spreadX = (Math.random() - 0.5) * cfg.spread;
+        const spreadY = (Math.random() - 0.5) * cfg.spread;
+        this.performRaycast(spreadX, spreadY, cfg.bodyDamage, cfg.headshotDamage, activeHitboxes, envObstacles);
+      }
+    } else {
+      const spreadX = cfg.spread > 0 ? (Math.random() - 0.5) * cfg.spread : 0;
+      const spreadY = cfg.spread > 0 ? (Math.random() - 0.5) * cfg.spread : 0;
+      this.performRaycast(spreadX, spreadY, cfg.bodyDamage, cfg.headshotDamage, activeHitboxes, envObstacles);
+    }
+  }
 
-    const intersects = this.raycaster.intersectObjects(targets, true);
+  performRaycast(spreadX = 0, spreadY = 0, bodyDmg = this.bodyDamage, headDmg = this.headshotDamage, hitboxes = null, obstacles = null) {
+    const activeHitboxes = hitboxes || (this.zombiesManager ? this.zombiesManager.getActiveHitboxes() : []);
+    if (!activeHitboxes || activeHitboxes.length === 0) return;
 
-    if (intersects.length > 0) {
-      const hit = intersects[0];
+    // Zero-allocation screen ray coordinate
+    this._rayCoord.set(this.screenCenter.x + spreadX, this.screenCenter.y + spreadY);
+    this.raycaster.setFromCamera(this._rayCoord, this.camera);
 
-      let zombie = null;
-      let isHead = false;
-      let curr = hit.object;
-      while (curr) {
-        if (curr.userData && curr.userData.zombie) {
-          zombie = curr.userData.zombie;
-          isHead = curr.userData.isHead || false;
-          break;
-        }
-        curr = curr.parent;
+    // Phase 1: Fast non-recursive check against simple zombie box hitboxes only
+    const zombieHits = this.raycaster.intersectObjects(activeHitboxes, false);
+    if (zombieHits.length === 0) {
+      return; // Early exit: no zombie in trajectory, zero obstacle traversal overhead!
+    }
+
+    const hit = zombieHits[0];
+    const zombieDist = hit.distance;
+
+    // Phase 2: Check if an environment obstacle is closer and occludes line of fire
+    const envObstacles = obstacles || ((this.environment && Array.isArray(this.environment.obstacleMeshes)) ? this.environment.obstacleMeshes : []);
+    if (envObstacles && envObstacles.length > 0) {
+      this.raycaster.far = zombieDist;
+      const obsHits = this.raycaster.intersectObjects(envObstacles, false);
+      this.raycaster.far = Infinity;
+      if (obsHits.length > 0 && obsHits[0].distance < zombieDist) {
+        return; // Bullet intercepted by an intervening obstacle or wall
+      }
+    }
+
+    // Resolve damage on hit zombie
+    let zombie = null;
+    let isHead = false;
+    let curr = hit.object;
+    while (curr) {
+      if (curr.userData && curr.userData.zombie) {
+        zombie = curr.userData.zombie;
+        isHead = curr.userData.isHead || false;
+        break;
+      }
+      curr = curr.parent;
+    }
+
+    if (zombie && zombie.isAlive) {
+      const damage = isHead ? headDmg : bodyDmg;
+
+      this.totalHits++;
+      GameState.recordDamageDealt(damage);
+      if (isHead) {
+        this.totalHeadshots++;
+        GameState.recordHeadshot();
+        sound.playHeadshot();
+        this.uiManager.showHitMarker(true);
+        this.uiManager.showAnnouncement("CRITICAL HEADSHOT!", `+${damage} DAMAGE`, 1.0);
+      } else {
+        sound.playZombieHurt();
+        this.uiManager.showHitMarker(false);
       }
 
-      if (zombie && zombie.isAlive) {
-        const damage = isHead ? headDmg : bodyDmg;
-
-        this.totalHits++;
-        GameState.recordDamageDealt(damage);
-        if (isHead) {
-          this.totalHeadshots++;
-          GameState.recordHeadshot();
-          sound.playHeadshot();
-          this.uiManager.showHitMarker(true);
-          this.uiManager.showAnnouncement("CRITICAL HEADSHOT!", `+${damage} DAMAGE`, 1.0);
-        } else {
-          sound.playZombieHurt();
-          this.uiManager.showHitMarker(false);
-        }
-
-        zombie.takeDamage(damage, isHead);
-      }
+      zombie.takeDamage(damage, isHead);
     }
   }
 
@@ -1217,7 +1235,7 @@ export class WeaponManager {
 
   showMuzzleFlash() {
     this.muzzleFlashMesh.visible = true;
-    this.muzzleLight.visible = true;
+    this.muzzleLight.intensity = 2.0;
     this.flashTimer = 0.05;
   }
 
@@ -1278,7 +1296,7 @@ export class WeaponManager {
       this.flashTimer -= delta;
       if (this.flashTimer <= 0) {
         this.muzzleFlashMesh.visible = false;
-        this.muzzleLight.visible = false;
+        this.muzzleLight.intensity = 0;
       }
     }
 

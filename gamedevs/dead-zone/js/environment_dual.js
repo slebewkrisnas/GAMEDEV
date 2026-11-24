@@ -734,7 +734,7 @@ export class EnvironmentDual {
     const frontRight = new THREE.Mesh(frontSideGeo, woodMat);
     frontRight.position.set(2.65, 1.9, 3.5);
     cabinGroup.add(frontRight);
-    this.obstacleMeshes.push(backWall, leftWall, rightWall, frontLeft, frontRight);
+    this._sector7StaticObstacles.push(backWall, leftWall, rightWall, frontLeft, frontRight);
 
     // Door Lintel (Top lintel above the 2.8m high door opening)
     const lintelGeo = new THREE.BoxGeometry(2.6, 1.0, 0.4);
