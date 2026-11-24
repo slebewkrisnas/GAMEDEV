@@ -4,7 +4,6 @@
 
 import * as THREE from 'three';
 import { worldAudio } from './audio_system.js';
-import { initNPCSystem, updateNPCSystem, getNearestNPC, interactWithNearestNPC } from './npc_system.js?v=4';
 
 import { MAP_SIZE, SPAWN_POS, collisionWalls, resolveWallCollisions, createWorld } from './js/world.js';
 import { zombieOutpostInstance } from './js/zombie_outpost_world.js';
@@ -83,7 +82,6 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.25));
 createWorld(scene);
 createZones(scene);
 createPlayer(scene);
-initNPCSystem(scene, THREE);
 
 // ==================== VARIABEL FISIKA & GAMEPLAY ====================
 let playerVelocityY = 0;
@@ -97,7 +95,7 @@ let portalCooldown = 0;
 let campPortalCooldown = 0;
 let arenaPortalCooldown = 0;
 
-let currentNearbyNPC = null;
+let nearbyOutpostNPC = null;
 let isNearKiosk = false;
 
 // ==================== INISIALISASI KONTROL & UI ====================
@@ -261,10 +259,6 @@ function triggerDialogue() {
       return;
     }
   }
-  if (!currentNearbyNPC) return;
-  const data = currentNearbyNPC.talkTo(player.position);
-  if (!data) return;
-  showDialogue(data.avatar, data.name, data.role, data.text);
 }
 
 window.addEventListener('keydown', (e) => {
@@ -353,10 +347,11 @@ function animate() {
   if (isMoving) {
     moveVec.normalize();
     const speed = isSprinting ? 10.0 : 5.5;
+    const prevPos = { x: player.position.x, z: player.position.z };
     player.position.addScaledVector(moveVec, speed * delta);
 
-    // Tabrakan Pagar & Batas Map
-    resolveWallCollisions(player.position);
+    // Tabrakan Pagar & Batas Map (Anti-Tembus Dinding)
+    resolveWallCollisions(player.position, prevPos);
 
     // Rotasi Hadap Karakter Menyesuaikan Arah Jalan
     const targetAngle = Math.atan2(moveVec.x, moveVec.z);
@@ -454,12 +449,8 @@ function animate() {
     }
   }
 
-  // Update NPC System (Patrol AI & Proximity)
-  updateNPCSystem(player.position, delta);
-  currentNearbyNPC = getNearestNPC();
-
   // Outpost NPCs (Survivors, Guards)
-  let nearbyOutpostNPC = null;
+  nearbyOutpostNPC = null;
   if (zombieOutpostInstance) {
     const n = zombieOutpostInstance.getNearestNPC(player.position, 3.6);
     if (n) nearbyOutpostNPC = n.npc;
@@ -476,9 +467,6 @@ function animate() {
       npcPrompt.classList.remove('hidden');
     } else if (nearbyOutpostNPC) {
       npcPromptText.textContent = `Tekan E untuk bicara dengan ${nearbyOutpostNPC.name}`;
-      npcPrompt.classList.remove('hidden');
-    } else if (currentNearbyNPC) {
-      npcPromptText.textContent = `Tekan E untuk bicara dengan ${currentNearbyNPC.name}`;
       npcPrompt.classList.remove('hidden');
     } else {
       npcPrompt.classList.add('hidden');

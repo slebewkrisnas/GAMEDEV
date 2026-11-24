@@ -1187,14 +1187,26 @@ class AssetLibrary {
      * ============================================================================
      */
     class CollisionSystem {
-      constructor(worldBounds = 44) {
+      constructor(worldBounds = 38.5) {
         this.circles = [];
         this.obbs = [];
+        this.segments = [];
         this.worldBounds = worldBounds;
       }
 
       addCircle(x, z, r) {
         this.circles.push({ x, z, r });
+      }
+
+      addSegment(x1, z1, x2, z2, thickness = 0.8) {
+        this.segments.push({
+          x1,
+          z1,
+          x2,
+          z2,
+          thickness,
+          halfThick: thickness * 0.5
+        });
       }
 
       addOBB(cx, cz, halfW, halfD, rotY = 0) {
@@ -1203,48 +1215,106 @@ class AssetLibrary {
           cz,
           hw: halfW,
           hd: halfD,
-          cos: Math.cos(-rotY),
-          sin: Math.sin(-rotY),
-          cosInv: Math.cos(rotY),
-          sinInv: Math.sin(rotY)
+          rotY,
+          cos: Math.cos(rotY),
+          sin: Math.sin(rotY)
         });
       }
 
       /**
-       * Resolves a 2D circle entity (player) against all registered obstacles.
+       * Resolves a 2D entity (player) against all registered wall segments, circles, and OBBs.
+       * Includes continuous ray crossing check to prevent tunneling through walls during high speeds.
        */
-      resolve(pos, radius = 0.48) {
-        // Two iterations prevent corner snagging
-        for (let iter = 0; iter < 2; iter++) {
-          // Resolve against circle colliders
+      resolve(pos, prevPos = null, radius = 0.45) {
+        // Continuous Crossing Check: if player move ray crossed any segment, pull back to prevPos
+        if (prevPos && (prevPos.x !== pos.x || prevPos.z !== pos.z)) {
+          const p0x = prevPos.x;
+          const p0z = prevPos.z;
+          const p1x = pos.x;
+          const p1z = pos.z;
+
+          for (let i = 0; i < this.segments.length; i++) {
+            const seg = this.segments[i];
+            const d = (p1x - p0x) * (seg.z2 - seg.z1) - (p1z - p0z) * (seg.x2 - seg.x1);
+            if (Math.abs(d) > 1e-6) {
+              const t = ((seg.x1 - p0x) * (seg.z2 - seg.z1) - (seg.z1 - p0z) * (seg.x2 - seg.x1)) / d;
+              const u = ((seg.x1 - p0x) * (p1z - p0z) - (seg.z1 - p0z) * (p1x - p0x)) / d;
+              if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                // Crossing detected! Revert to safe position
+                pos.x = p0x;
+                pos.z = p0z;
+                break;
+              }
+            }
+          }
+        }
+
+        // Iterative relaxation (3 iterations prevent corner snagging & ensure solid sliding)
+        for (let iter = 0; iter < 3; iter++) {
+          // 1. Line Segments (Palisade Walls, Sandbags, Gates)
+          for (let i = 0; i < this.segments.length; i++) {
+            const seg = this.segments[i];
+            const dx = seg.x2 - seg.x1;
+            const dz = seg.z2 - seg.z1;
+            const lenSq = dx * dx + dz * dz;
+            if (lenSq < 1e-6) continue;
+
+            let t = ((pos.x - seg.x1) * dx + (pos.z - seg.z1) * dz) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+
+            const closestX = seg.x1 + t * dx;
+            const closestZ = seg.z1 + t * dz;
+            const distX = pos.x - closestX;
+            const distZ = pos.z - closestZ;
+            const distSq = distX * distX + distZ * distZ;
+
+            const minDist = radius + seg.halfThick;
+            if (distSq < minDist * minDist) {
+              if (distSq > 1e-6) {
+                const dist = Math.sqrt(distSq);
+                const push = minDist - dist;
+                pos.x += (distX / dist) * push;
+                pos.z += (distZ / dist) * push;
+              } else {
+                const len = Math.sqrt(lenSq);
+                pos.x += (-dz / len) * minDist;
+                pos.z += (dx / len) * minDist;
+              }
+            }
+          }
+
+          // 2. Circles (Campfire, Drums, Gate Posts, Tower Leg Posts)
           for (let i = 0; i < this.circles.length; i++) {
             const c = this.circles[i];
             const dx = pos.x - c.x;
             const dz = pos.z - c.z;
             const minDist = radius + c.r;
             const distSq = dx * dx + dz * dz;
-            if (distSq < minDist * minDist && distSq > 1e-6) {
-              const dist = Math.sqrt(distSq);
-              const push = minDist - dist;
-              pos.x += (dx / dist) * push;
-              pos.z += (dz / dist) * push;
+            if (distSq < minDist * minDist) {
+              if (distSq > 1e-6) {
+                const dist = Math.sqrt(distSq);
+                const push = minDist - dist;
+                pos.x += (dx / dist) * push;
+                pos.z += (dz / dist) * push;
+              } else {
+                pos.x += minDist;
+              }
             }
           }
 
-          // Resolve against oriented box colliders
+          // 3. Oriented Boxes (Tents, Benches, Crates, Wrecked Cars, Watchtower)
           for (let i = 0; i < this.obbs.length; i++) {
             const b = this.obbs[i];
             const relX = pos.x - b.cx;
             const relZ = pos.z - b.cz;
-            // Transform into OBB local coordinates
             const localX = relX * b.cos - relZ * b.sin;
             const localZ = relX * b.sin + relZ * b.cos;
 
             const clampedX = Math.max(-b.hw, Math.min(b.hw, localX));
             const clampedZ = Math.max(-b.hd, Math.min(b.hd, localZ));
 
-            let dx = localX - clampedX;
-            let dz = localZ - clampedZ;
+            const dx = localX - clampedX;
+            const dz = localZ - clampedZ;
             const distSq = dx * dx + dz * dz;
 
             if (distSq < radius * radius) {
@@ -1256,20 +1326,18 @@ class AssetLibrary {
                 pushLocalX = (dx / dist) * push;
                 pushLocalZ = (dz / dist) * push;
               } else {
-                // Inside box center fallback: push along shallowest axis
                 const penX = b.hw - Math.abs(localX) + radius;
                 const penZ = b.hd - Math.abs(localZ) + radius;
                 if (penX < penZ) pushLocalX = localX >= 0 ? penX : -penX;
                 else pushLocalZ = localZ >= 0 ? penZ : -penZ;
               }
-              // Transform push vector back to world space
-              pos.x += pushLocalX * b.cosInv - pushLocalZ * b.sinInv;
-              pos.z += pushLocalX * b.sinInv + pushLocalZ * b.cosInv;
+              pos.x += pushLocalX * b.cos + pushLocalZ * b.sin;
+              pos.z += -pushLocalX * b.sin + pushLocalZ * b.cos;
             }
           }
         }
 
-        // Clamp within outer playable bounds
+        // Clamp within outer playable map boundaries
         pos.x = Math.max(-this.worldBounds, Math.min(this.worldBounds, pos.x));
         pos.z = Math.max(-this.worldBounds, Math.min(this.worldBounds, pos.z));
       }
@@ -1413,7 +1481,22 @@ class AssetLibrary {
           [25.2, -1.2]
         ];
 
+        // Enclosing rear perimeter (behind Watchtower and Portal to prevent void walk-off)
+        const rearPerimeter = [
+          [11.8, -9.2],
+          [18.5, -9.6],
+          [24.8, -6.8],
+          [25.2, -1.2]
+        ];
+
         this._buildInstancedWalls([wallArcA, wallArcB]);
+        for (let i = 0; i < rearPerimeter.length - 1; i++) {
+          this.collisions.addSegment(
+            rearPerimeter[i][0], rearPerimeter[i][1],
+            rearPerimeter[i + 1][0], rearPerimeter[i + 1][1],
+            0.9
+          );
+        }
         this._buildMainGate();
         this._buildGateSandbagsAndDrums();
 
@@ -1437,11 +1520,10 @@ class AssetLibrary {
             const dx = x2 - x1;
             const dz = z2 - z1;
             const segLen = Math.hypot(dx, dz);
-            const angle = Math.atan2(dx, dz); // Wall runs along local Z; wait: let's orient panel width along X!
             const rotY = Math.atan2(-dz, dx);
 
-            // Register single clean OBB collider per straight fence section
-            this.collisions.addOBB((x1 + x2) * 0.5, (z1 + z2) * 0.5, segLen * 0.5, 0.34, rotY);
+            // Register solid capsule line segment (thickness 0.85m)
+            this.collisions.addSegment(x1, z1, x2, z2, 0.85);
 
             const count = Math.max(1, Math.round(segLen / panelWidth));
             const actualW = segLen / count;
@@ -1601,9 +1683,11 @@ class AssetLibrary {
 
         this.group.add(gateGroup);
 
-        // Colliders strictly for the left & right gate posts (center stays 100% walkable!)
+        // Colliders strictly for the left & right gate posts & leaves (center stays 100% walkable!)
         this.collisions.addCircle(4.2, 11.4, 0.55);
         this.collisions.addCircle(10.2, 8.8, 0.55);
+        this.collisions.addSegment(4.2, 11.4, 5.4, 10.9, 0.65);
+        this.collisions.addSegment(10.2, 8.8, 9.0, 9.3, 0.65);
       }
 
       /**
@@ -1620,7 +1704,7 @@ class AssetLibrary {
           const rotY = Math.atan2(-dz, dx);
           const cols = Math.max(2, Math.round(len / 0.8));
 
-          this.collisions.addOBB((startX + endX) * 0.5, (startZ + endZ) * 0.5, len * 0.5, 0.42, rotY);
+          this.collisions.addSegment(startX, startZ, endX, endZ, 0.75);
 
           for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -2888,8 +2972,8 @@ export class ZombieOutpostWorld {
     this.lighting.update(elapsed, this.portal.pulseEnergy);
   }
 
-  resolveCollisions(pos) {
-    this.collisions.resolve(pos, 0.45);
+  resolveCollisions(pos, prevPos = null) {
+    this.collisions.resolve(pos, prevPos, 0.45);
   }
 
   getNearestNPC(pos, maxDist = 3.6) {
@@ -2920,9 +3004,9 @@ export function updateZombieOutpostWorld(delta, elapsed) {
   }
 }
 
-export function resolveOutpostCollisions(pos) {
+export function resolveOutpostCollisions(pos, prevPos = null) {
   if (zombieOutpostInstance) {
-    zombieOutpostInstance.resolveCollisions(pos);
+    zombieOutpostInstance.resolveCollisions(pos, prevPos);
   }
 }
 

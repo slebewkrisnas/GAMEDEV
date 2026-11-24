@@ -30,9 +30,9 @@ export function addWallSegment(x1, z1, x2, z2) {
   });
 }
 
-export function resolveWallCollisions(pos) {
-  // 1. Collision System Outpost (OBB & Circle Colliders untuk Barikade, Tenda, Drum, Mobil Rongsok, dsb)
-  resolveOutpostCollisions(pos);
+export function resolveWallCollisions(pos, prevPos = null) {
+  // 1. Collision System Outpost (Continuous Segments, OBB & Circle Colliders untuk Dinding Palisade, Tenda, Drum, Mobil, dsb)
+  resolveOutpostCollisions(pos, prevPos);
 
   // 2. Tabrakan Dinding Kotak Tambahan jika ada
   for (const wall of collisionWalls) {
