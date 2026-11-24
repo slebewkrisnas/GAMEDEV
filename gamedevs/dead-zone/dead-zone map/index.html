@@ -187,6 +187,8 @@
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { createBgmPlayer } from '../../../bacsound/bgm.js';
+    createBgmPlayer({ volume: 0.35, mixScale: 0.8 });
 
     class SimpleOrbitControls {
       constructor(camera, domElement) {

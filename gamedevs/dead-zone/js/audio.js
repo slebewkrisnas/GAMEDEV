@@ -3,6 +3,8 @@
 // 100% self-contained synthesized sound effects without external audio files
 // ============================================================================
 
+import { createBgmPlayer } from '../../../bacsound/bgm.js';
+
 class SoundManager {
   constructor() {
     this.ctx = null;
@@ -22,6 +24,11 @@ class SoundManager {
     this.isLeftFoot = false;
 
     this.loadSettings();
+    this.bgm = createBgmPlayer({
+      volume: this.volume * this.ambientVolume,
+      muted: this.isMuted,
+      mixScale: 1.25
+    });
   }
 
   init() {
@@ -54,12 +61,14 @@ class SoundManager {
     } catch (e) {
       console.warn("AudioContext initialization error:", e);
     }
+    this.bgm?.play();
   }
 
   resume() {
     if (this.ctx && this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
     }
+    this.bgm?.play();
   }
 
   // Pengatur Volume Utama (Master Volume: 0.0 - 1.0)
@@ -108,6 +117,7 @@ class SoundManager {
   }
 
   _applyVolumes() {
+    this.bgm?.setMix(this.volume * this.ambientVolume, this.isMuted);
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     if (this.masterGain) {
@@ -163,6 +173,7 @@ class SoundManager {
           if (typeof parsed.isMuted === 'boolean') {
             this.isMuted = parsed.isMuted;
           }
+          this.bgm?.setMix(this.volume * this.ambientVolume, this.isMuted);
         }
       }
     } catch (e) {}

@@ -248,6 +248,8 @@
 
   <script type="module">
     import * as THREE from 'three';
+    import { createBgmPlayer } from './bacsound/bgm.js';
+    createBgmPlayer({ volume: 0.35, mixScale: 0.8 });
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     /**

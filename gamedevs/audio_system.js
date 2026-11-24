@@ -5,6 +5,8 @@
    cross-fading ambient soundscapes across the 3D zones.
    ============================================================ */
 
+import { createBgmPlayer } from '../bacsound/bgm.js';
+
 class WorldAudioSystem {
   constructor() {
     this.ctx = null;
@@ -16,6 +18,8 @@ class WorldAudioSystem {
     const savedVol = localStorage.getItem('game_audio_volume');
     this.volume = savedVol !== null ? parseFloat(savedVol) : 0.65;
     this.isMuted = localStorage.getItem('game_audio_muted') === 'true';
+
+    this.bgm = createBgmPlayer({ volume: this.volume, muted: this.isMuted, mixScale: 0.55 });
 
     // Step state tracking
     this.lastStepTime = 0;
@@ -79,6 +83,7 @@ class WorldAudioSystem {
     } else if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    this.bgm?.play();
   }
 
   /* ==================== 1. PROCEDURAL AMBIENCE ==================== */
@@ -179,9 +184,9 @@ class WorldAudioSystem {
     const distCamp = Math.hypot(px - this.ZONES.camp.x, pz - this.ZONES.camp.z);
     const distArena = Math.hypot(px - this.ZONES.arena.x, pz - this.ZONES.arena.z);
 
-    const targetFarm = Math.max(0, 1 - distFarm / this.ZONES.farm.radius) * 0.28;
-    const targetCamp = Math.max(0, 1 - distCamp / this.ZONES.camp.radius) * 0.22;
-    const targetArena = Math.max(0, 1 - distArena / this.ZONES.arena.radius) * 0.26;
+    const targetFarm = Math.max(0, 1 - distFarm / this.ZONES.farm.radius) * 0.14;
+    const targetCamp = Math.max(0, 1 - distCamp / this.ZONES.camp.radius) * 0.05;
+    const targetArena = Math.max(0, 1 - distArena / this.ZONES.arena.radius) * 0.05;
 
     const t = this.ctx.currentTime;
     const rate = 0.08;
@@ -582,6 +587,7 @@ class WorldAudioSystem {
     if (this.masterGain && this.ctx && !this.isMuted) {
       this.masterGain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.05);
     }
+    this.bgm?.setMix(this.volume, this.isMuted);
   }
 
   setMuted(muted) {
@@ -594,6 +600,7 @@ class WorldAudioSystem {
       const target = this.isMuted ? 0 : this.volume;
       this.masterGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
     }
+    this.bgm?.setMix(this.volume, this.isMuted);
   }
 
   toggleMute() {
