@@ -44,27 +44,33 @@ export class WaveManager {
     this.bossActive = false;
     this.currentBoss = null;
 
-    // Wide perimeter candidate spawn points across the 230m x 230m forest
+    // Wide perimeter candidate spawn points across the 300m x 300m apocalyptic city
     this.spawnPoints = [
-      { x: -55, z: -45 },
-      { x: 55, z: -45 },
-      { x: -75, z: 10 },
-      { x: 75, z: 10 },
-      { x: -50, z: 65 },
-      { x: 50, z: 65 },
-      { x: 0, z: 75 },
-      { x: -30, z: 90 },
-      { x: 30, z: 90 },
-      { x: -70, z: -25 },
-      { x: 70, z: -15 },
-      { x: -20, z: 20 },
-      { x: 25, z: 20 },
-      { x: -60, z: -70 },
-      { x: 60, z: -70 },
-      { x: -80, z: 40 },
-      { x: 80, z: 40 },
-      { x: -15, z: 50 },
-      { x: 15, z: 50 }
+      // Central Plaza & Inner Ring
+      { x: -35, z: -25 },
+      { x: 35, z: -25 },
+      { x: -25, z: 35 },
+      { x: 30, z: 35 },
+      // North Highway & Intersections
+      { x: -75, z: -80 },
+      { x: 0, z: -95 },
+      { x: 75, z: -80 },
+      { x: -110, z: -60 },
+      { x: 110, z: -60 },
+      // South Districts & Roadblocks
+      { x: -80, z: 85 },
+      { x: 0, z: 100 },
+      { x: 80, z: 85 },
+      { x: -115, z: 60 },
+      { x: 115, z: 60 },
+      // East Avenues
+      { x: 95, z: 0 },
+      { x: 120, z: -20 },
+      { x: 120, z: 25 },
+      // West Avenues & Alleys
+      { x: -95, z: 0 },
+      { x: -120, z: -20 },
+      { x: -120, z: 25 }
     ];
   }
 
@@ -82,8 +88,8 @@ export class WaveManager {
     }
 
     this.uiManager.showAnnouncement(
-      "PERBURUAN HUTAN DIMULAI",
-      "Mutan Unlimited · Kalahkan 25 zombie untuk memanggil Boss Titan!",
+      "PERBURUAN KOTA APOKALIPTIK DIMULAI",
+      "Mutan Kota · Kalahkan 25 zombie untuk memanggil Boss Titan!",
       4.0
     );
 

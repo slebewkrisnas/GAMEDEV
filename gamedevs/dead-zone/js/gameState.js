@@ -822,9 +822,9 @@ export const CRAFTING_RECIPES = [
 ];
 
 export const BACKPACK_TIERS = [
-  { level: 1, name: 'Tas Anyaman Bambu', slots: 6, cost: 0 },
-  { level: 2, name: 'Ransel Kulit Pemburu', slots: 10, cost: 150000 },
-  { level: 3, name: 'Tas Ekspedisi Hutan Rimba', slots: 16, cost: 400000 }
+  { level: 1, name: 'Tas Taktis Lapangan', slots: 32, cost: 0 },
+  { level: 2, name: 'Ransel Tempur Khusus', slots: 48, cost: 150000 },
+  { level: 3, name: 'Tas Ekspedisi Militer', slots: 64, cost: 400000 }
 ];
 
 export const HOUSE_TIERS = [
@@ -846,7 +846,7 @@ class StateManager {
     this.securePouch = []; // 2 Slot Kantong Aman (House Lv 3 Perk)
     this.securePouchMaxSlots = 2; // Maksimal 2 slot saat Lv 3 aktif
     this.backpackTier = 1;
-    this.backpackMaxSlots = 6;
+    this.backpackMaxSlots = 32;
     this.houseLevel = 1;
     this.stashMaxSlots = 16;
     this.activeZone = 'safe_zone'; // 'safe_zone' | 'sector_7'
@@ -2537,7 +2537,11 @@ class StateManager {
           });
         }
         if (data.backpackTier) this.backpackTier = data.backpackTier;
-        if (data.backpackMaxSlots) this.backpackMaxSlots = data.backpackMaxSlots;
+        if (data.backpackMaxSlots) {
+          this.backpackMaxSlots = Math.max(32, data.backpackMaxSlots);
+        } else {
+          this.backpackMaxSlots = 32;
+        }
         if (data.houseLevel) this.houseLevel = data.houseLevel;
         if (data.stashMaxSlots) this.stashMaxSlots = data.stashMaxSlots;
         if (Array.isArray(data.ownedWeapons)) {

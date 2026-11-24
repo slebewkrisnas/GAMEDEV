@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { VillageArchitect } from './village_architect.js';
 import { VillageNPCManager } from './village_npc.js';
 import { FBXLoader } from './libs/FBXLoader.js';
+import { GLTFLoader } from './libs/GLTFLoader.js';
 import { WorldChunkManager } from './chunks/WorldChunkManager.js';
 
 export class EnvironmentDual {
@@ -29,8 +30,8 @@ export class EnvironmentDual {
     this._safeZoneObstacles = [];
     this._sector7StaticObstacles = [];
 
-    // Dynamic Chunk Streaming Manager for Sector-7 Open World
-    this.chunkManager = new WorldChunkManager(this.sector7Group);
+    // Dynamic Chunk Streaming Manager for Sector-7 Open World (hutan diganti model kota 3D 300x300m)
+    this.chunkManager = null;
 
     // Abandoned cabin footprints in Sector-7
     this.cabinSites = [
@@ -54,12 +55,12 @@ export class EnvironmentDual {
       maxZ: 45
     };
 
-    // Expanded Map 2: 230m x 230m dense forest
+    // Map 2 (Sector-7): Zombie Apocalypse City (300m x 300m)
     this.sector7Bounds = {
-      minX: -115,
-      maxX: 115,
-      minZ: -115,
-      maxZ: 115
+      minX: -150,
+      maxX: 150,
+      minZ: -150,
+      maxZ: 150
     };
 
     this.init();
@@ -506,39 +507,303 @@ export class EnvironmentDual {
   }
 
   // --------------------------------------------------------------------------
-  // MAP 2: BLACKWOOD WASTELAND (DANGER ZONE SECTOR-7) — DYNAMIC CHUNK STREAMING
-  // Arena 260m x 260m atmosferik dengan sistem chunk streaming dinamis:
-  // Memuat medan terra-firm, reruntuhan jalan raya, barikade, drum minyak menyala,
-  // limbah beracun, 4 pondok riset, dan vegetasi hutan secara bertahap
-  // mengikuti pergerakan pemain untuk menghemat 80% RAM/VRAM dan menjaga 60 FPS!
+  // MAP 2: ZOMBIE APOCALYPSE CITY (DANGER ZONE SECTOR-7) — 300m x 300m
+  // Kota metropolitan hancur pasca-kiamat dengan pencakar langit, reruntuhan jalan,
+  // barikade militer, bangkai mobil, dan Menara Pemancar Evakuasi di pusat kota (0, 0).
+  // Dikelilingi tembok pembatas beton setinggi 18m dan diterangi suasana malam pekat.
   // --------------------------------------------------------------------------
   buildSector7() {
-    // 1. Tebing Perimeter & Dinding Pengaman Zona (Tetap aktif sebagai batas terluar)
-    this.createForestPerimeter(this.sector7Group, this.sector7PerimeterColliders);
+    // 1. Tembok Pengaman Perimeter Beton Keliling (300m x 300m, tinggi 18m)
+    this.createCityPerimeterWalls(this.sector7Group, this.sector7PerimeterColliders);
 
-    // 2. Extraction Helipad & Suar Evakuasi Darurat (Posisi dinamis acak di dekat salah satu dari 4 pondok)
+    // 2. Alas Tanah Aspal & Puing Kota (Ground Base)
+    this.createCityGround(this.sector7Group);
+
+    // 3. Muat Paket Model 3D Kota Zombie Apocalypse City (300x300m GLB)
+    this.loadCityGLB(this.sector7Group);
+
+    // 4. Collider Bangunan & Gedung Pencakar Langit
+    this.createCityBuildingColliders(this.sector7Colliders);
+
+    // 5. Menara Suar Evakuasi Darurat (Radio Tower) Tepat di Tengah Kota (0, 0)
     this.cabinBeaconSites = [
-      { x: -33, z: -19, name: 'Pondok Penjaga Hutan' },
-      { x: 43, z: -7, name: 'Lab Riset Biologis' },
-      { x: -25, z: 40, name: 'Gudang Pemburu Terbengkalai' },
-      { x: 35, z: 57, name: 'Pos Pantau Reruntuhan' }
+      { x: 0, z: 0, name: 'Menara Pemancar Pusat Kota' },
+      { x: 0, z: 0, name: 'Menara Pemancar Plaza Utama' },
+      { x: 0, z: 0, name: 'Menara Pemancar Sektor Tengah' },
+      { x: 0, z: 0, name: 'Menara Pemancar Monolit Kota' }
     ];
     this.currentBeaconSite = this.cabinBeaconSites[0];
-    this.createExtractionBeacon(this.currentBeaconSite.x, this.currentBeaconSite.z);
+    this.createExtractionBeacon(0, 0);
 
-    // 3. Pencahayaan Malam Hari Dramatis Sector-7
-    const amb = new THREE.AmbientLight(0x0f1c16, 1.2);
-    const moon = new THREE.DirectionalLight(0x7ea494, 1.5);
-    moon.position.set(-50, 75, -40);
+    // 6. Pencahayaan Suasana Malam Hari Kota Apokaliptik
+    const amb = new THREE.AmbientLight(0x111827, 0.75); // Navy pekat malam
+    const moon = new THREE.DirectionalLight(0x7dd3fc, 1.4); // Cahaya bulan kebiruan
+    moon.position.set(-60, 110, -50);
     moon.castShadow = true;
     moon.shadow.mapSize.width = 2048;
     moon.shadow.mapSize.height = 2048;
-    moon.shadow.camera.left = -110;
-    moon.shadow.camera.right = 110;
-    moon.shadow.camera.top = 110;
-    moon.shadow.camera.bottom = -110;
+    moon.shadow.camera.left = -160;
+    moon.shadow.camera.right = 160;
+    moon.shadow.camera.top = 160;
+    moon.shadow.camera.bottom = -160;
     this.sector7Lights.add(amb);
     this.sector7Lights.add(moon);
+
+    // 7. Drum Minyak Api Menyala di Perempatan Jalan Kota (Pencahayaan Api Malam)
+    this.createCityFireBarrels(this.sector7Group, this.sector7Colliders);
+
+    // 8. Peti Kargo Jarahan Taktis di Sudut-Sudut Strategis Kota
+    this.createCityLootCaches(this.sector7Group, this.sector7Colliders, this.sector7Interactables);
+  }
+
+  // 🧱 Concrete Military Perimeter Wall (Keliling Map 300m x 300m)
+  createCityPerimeterWalls(group, colliders) {
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x1f242d,
+      roughness: 0.9,
+      metalness: 0.2
+    });
+    const capMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.6,
+      metalness: 0.5
+    });
+
+    // 4 Tembok Perimeter Militer (Utara, Selatan, Barat, Timur)
+    const walls = [
+      { x: 0, z: -150, w: 304, d: 4, h: 18 },  // Utara
+      { x: 0, z: 150, w: 304, d: 4, h: 18 },   // Selatan
+      { x: -150, z: 0, w: 4, d: 304, h: 18 },  // Barat
+      { x: 150, z: 0, w: 4, d: 304, h: 18 }    // Timur
+    ];
+
+    walls.forEach(w => {
+      const geo = new THREE.BoxGeometry(w.w, w.h, w.d);
+      const mesh = new THREE.Mesh(geo, wallMat);
+      mesh.position.set(w.x, w.h / 2, w.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+
+      const capGeo = new THREE.BoxGeometry(w.w, 0.8, w.d + 0.4);
+      const capMesh = new THREE.Mesh(capGeo, capMat);
+      capMesh.position.set(w.x, w.h + 0.4, w.z);
+      group.add(capMesh);
+
+      const col = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(w.x, w.h / 2, w.z),
+        new THREE.Vector3(w.w, w.h, w.d)
+      );
+      colliders.push(col);
+      this._sector7StaticObstacles.push(mesh);
+    });
+  }
+
+  // 🏙️ Urban Ground Base (Tanah Padat Aspal & Reruntuhan 300x300m)
+  createCityGround(group) {
+    const groundGeo = new THREE.PlaneGeometry(300, 300);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x141820,
+      roughness: 0.95,
+      metalness: 0.1
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
+    ground.receiveShadow = true;
+    group.add(ground);
+  }
+
+  // 🏙️ Muat Paket Model 3D Kota Zombie Apocalypse City
+  loadCityGLB(group) {
+    if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+      try {
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load(
+          encodeURI('./dead-zone map/Zombie_Apocalypse_City_Complete.glb'),
+          (gltf) => {
+            const cityScene = gltf.scene;
+            cityScene.traverse((child) => {
+              if (child.isMesh) {
+                const isFX = child.material && (child.material.name === 'fire_fx' || child.material.name === 'smoke_fx');
+                child.castShadow = !isFX;
+                child.receiveShadow = !isFX;
+                if (!isFX) {
+                  this._sector7StaticObstacles.push(child);
+                }
+              }
+            });
+            group.add(cityScene);
+            console.log('✅ [SECTOR-7] Zombie Apocalypse City 3D (300x300m) berhasil dimuat!');
+          },
+          undefined,
+          (err) => console.warn('City GLB loading warning:', err)
+        );
+      } catch (err) {
+        console.warn('City GLB loader init:', err);
+      }
+    }
+  }
+
+  // 🏢 Collider Blok Bangunan Kota (Mencegah Player & Zombie Menembus Gedung)
+  createCityBuildingColliders(colliders) {
+    const blocks = [
+      // NW District
+      { x: -35, z: -35, w: 38, d: 40, h: 45 },
+      { x: -15, z: -40, w: 36, d: 48, h: 60 },
+      { x: -58, z: -35, w: 26, d: 40, h: 45 },
+      { x: -58, z: -60, w: 26, d: 25, h: 35 },
+      { x: -36, z: -62, w: 38, d: 22, h: 40 },
+      { x: -105, z: -40, w: 32, d: 44, h: 30 },
+      { x: -105, z: -52, w: 30, d: 20, h: 30 },
+      { x: -132, z: -39, w: 16, d: 42, h: 25 },
+      { x: -37, z: -112, w: 38, d: 30, h: 32 },
+      { x: -56, z: -110, w: 34, d: 26, h: 32 },
+      { x: -110, z: -110, w: 32, d: 28, h: 25 },
+
+      // NE District
+      { x: 35, z: -35, w: 38, d: 38, h: 45 },
+      { x: 24, z: -63, w: 18, d: 16, h: 46 },
+      { x: 35, z: -63, w: 38, d: 16, h: 46 },
+      { x: 70, z: -28, w: 42, d: 30, h: 88 },
+      { x: 112, z: -24, w: 34, d: 18, h: 25 },
+      { x: 112, z: -63, w: 36, d: 18, h: 70 },
+      { x: 132, z: -70, w: 32, d: 30, h: 70 },
+      { x: 56, z: -110, w: 34, d: 28, h: 32 },
+      { x: 115, z: -112, w: 40, d: 32, h: 24 },
+
+      // SW District
+      { x: -35, z: 36, w: 38, d: 40, h: 35 },
+      { x: -58, z: 36, w: 28, d: 38, h: 30 },
+      { x: -58, z: 56, w: 28, d: 32, h: 25 },
+      { x: -20, z: 57, w: 26, d: 30, h: 65 },
+      { x: -36, z: 56, w: 38, d: 32, h: 28 },
+      { x: -58, z: 125, w: 32, d: 30, h: 56 },
+      { x: -108, z: 128, w: 34, d: 16, h: 22 },
+
+      // SE District
+      { x: 35, z: 36, w: 38, d: 40, h: 70 },
+      { x: 57, z: 36, w: 32, d: 40, h: 70 },
+      { x: 36, z: 60, w: 38, d: 26, h: 40 },
+      { x: 60, z: 60, w: 26, d: 26, h: 22 },
+      { x: 115, z: 58, w: 36, d: 30, h: 62 },
+      { x: 110, z: 28, w: 28, d: 20, h: 15 },
+      { x: 60, z: 112, w: 20, d: 18, h: 15 }
+    ];
+
+    blocks.forEach(b => {
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(b.x, b.h / 2, b.z),
+        new THREE.Vector3(b.w, b.h, b.d)
+      ));
+    });
+  }
+
+  // 🔥 Drum Api Menyala di Perempatan Jalan Kota (Atmosfer Malam)
+  createCityFireBarrels(group, colliders) {
+    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x2e1a12, roughness: 0.7, metalness: 0.4 });
+    const flameMat = new THREE.MeshStandardMaterial({
+      color: 0xff6600,
+      emissive: 0xff3300,
+      emissiveIntensity: 2.8,
+      roughness: 0.2
+    });
+
+    const fireLocations = [
+      { x: -22, z: -20 },
+      { x: 22, z: -20 },
+      { x: -22, z: 22 },
+      { x: 22, z: 22 },
+      { x: -60, z: -40 },
+      { x: 60, z: -40 },
+      { x: -50, z: 60 },
+      { x: 50, z: 60 },
+      { x: 0, z: -60 },
+      { x: 0, z: 60 }
+    ];
+
+    fireLocations.forEach((pos, idx) => {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.95, 12), barrelMat);
+      barrel.position.set(pos.x, 0.48, pos.z);
+      barrel.castShadow = true;
+      group.add(barrel);
+
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.55, 8), flameMat);
+      flame.position.set(pos.x, 1.15, pos.z);
+      group.add(flame);
+
+      const fireLight = new THREE.PointLight(0xff6600, 2.2, 16);
+      fireLight.position.set(pos.x, 1.35, pos.z);
+      this.sector7Lights.add(fireLight);
+
+      this.animatedObjects.push({
+        type: 'fire_flicker',
+        light: fireLight,
+        mesh: flame,
+        baseIntensity: 2.2,
+        idx
+      });
+
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(pos.x, 0.5, pos.z),
+        new THREE.Vector3(0.8, 1.0, 0.8)
+      ));
+    });
+  }
+
+  // 📦 Peti Kargo Jarahan Taktis Kota Zombie
+  createCityLootCaches(group, colliders, interactables) {
+    const crateMat = new THREE.MeshStandardMaterial({
+      color: 0x3b4554,
+      metalness: 0.6,
+      roughness: 0.4
+    });
+    const indMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+    const caches = [
+      { id: 'crate_city_checkpoint_w', x: -50, z: 20, name: 'Pos Militer Barat' },
+      { id: 'crate_city_checkpoint_e', x: 55, z: -25, name: 'Pos Militer Timur' },
+      { id: 'crate_city_convoy_n', x: 20, z: -70, name: 'Bangkai Konvoi Ambulans Utara' },
+      { id: 'crate_city_military_s', x: -25, z: 65, name: 'Plaza Militer Selatan' },
+      { id: 'crate_city_central', x: 12, z: 12, name: 'Gudang Perbekalan Menara Tengah' }
+    ];
+
+    caches.forEach(c => {
+      const cacheGroup = new THREE.Group();
+      cacheGroup.position.set(c.x, 0, c.z);
+
+      const boxGeo = new THREE.BoxGeometry(1.8, 1.2, 1.4);
+      const box = new THREE.Mesh(boxGeo, crateMat);
+      box.position.y = 0.6;
+      box.castShadow = true;
+      box.receiveShadow = true;
+      cacheGroup.add(box);
+
+      const indGeo = new THREE.BoxGeometry(0.4, 0.2, 0.1);
+      const ind = new THREE.Mesh(indGeo, indMat);
+      ind.position.set(0, 0.9, 0.72);
+      cacheGroup.add(ind);
+
+      group.add(cacheGroup);
+
+      colliders.push(new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(c.x, 0.6, c.z),
+        new THREE.Vector3(1.8, 1.2, 1.4)
+      ));
+
+      interactables.push({
+        id: c.id,
+        type: 'loot_crate',
+        position: new THREE.Vector3(c.x, 0.6, c.z),
+        radius: 3.5,
+        label: `Peti Jarahan (${c.name}) [E]`
+      });
+    });
+  }
+
+  // 🌲 Forest Perimeter Rock Cliffs (Backward compatibility)
+  createForestPerimeter(group, colliders) {
+    this.createCityPerimeterWalls(group, colliders);
   }
 
   // 🛣️ Jalan Raya Hancur, Barikade Tempur, & Drum Api Menyala
@@ -1187,29 +1452,29 @@ export class EnvironmentDual {
       type: 'extraction',
       position: new THREE.Vector3(x, 1, z),
       radius: 4.8,
-      label: `Suar Evakuasi [E] (${this.currentBeaconSite?.name || 'Pondok Hutan'})`
+      label: `Suar Evakuasi [E] (${this.currentBeaconSite?.name || 'Menara Pemancar Pusat Kota'})`
     };
     this.sector7Interactables.push(this.extractionInteractable);
   }
 
-  // Pindahkan posisi beacon evakuasi secara acak ke salah satu dari 4 pondok hutan
+  // Menara Suar Evakuasi Darurat di Pusat Kota (0, 0)
   randomizeExtractionBeacon() {
     if (!this.cabinBeaconSites || !this.extractionGroup) return null;
     const site = this.cabinBeaconSites[Math.floor(Math.random() * this.cabinBeaconSites.length)];
     this.currentBeaconSite = site;
 
-    this.extractionGroup.position.set(site.x, 0, site.z);
+    this.extractionGroup.position.set(0, 0, 0);
     if (this.extractionCollider) {
       this.extractionCollider.setFromCenterAndSize(
-        new THREE.Vector3(site.x, 1.5, site.z),
+        new THREE.Vector3(0, 1.5, 0),
         new THREE.Vector3(4, 3, 4)
       );
     }
     if (this.extractionInteractable) {
-      this.extractionInteractable.position.set(site.x, 1, site.z);
+      this.extractionInteractable.position.set(0, 1, 0);
       this.extractionInteractable.label = `Suar Evakuasi [E] (${site.name})`;
     }
-    console.log(`📡 [SECTOR-7] Suar Evakuasi dipindahkan ke: ${site.name} (${site.x}, ${site.z})`);
+    console.log(`📡 [SECTOR-7] Suar Evakuasi aktif di Menara Pusat Kota: ${site.name} (0, 0)`);
     return site;
   }
 
@@ -1234,27 +1499,41 @@ export class EnvironmentDual {
         player.teleport(0, 1.7, -6); // Spawn with clear view in front of Hab Pod
       }
     } else {
-      // sector_7
+      // sector_7 (Zombie Apocalypse City 300x300m)
       this.safeZoneGroup.visible = false;
       this.safeZoneLights.visible = false;
 
       this.sector7Group.visible = true;
       this.sector7Lights.visible = true;
 
-      // Pindahkan Suar Evakuasi secara acak agar pemain menjelajahi pondok hutan
+      // Menara Pemancar Evakuasi di Tengah Kota (0, 0)
       const chosenSite = this.randomizeExtractionBeacon();
 
-      // Eerie Dark Overgrown Forest atmosphere (Wasteland Malam)
-      this.scene.background = new THREE.Color(0x040907);
-      this.scene.fog = new THREE.FogExp2(0x050e0a, 0.014);
+      // Suasana Malam Pekat Kota Apokaliptik (Dark Night Sky & Fog)
+      this.scene.background = new THREE.Color(0x060910);
+      this.scene.fog = new THREE.FogExp2(0x080d18, 0.0075);
 
-      if (player) {
-        player.teleport(0, 1.7, -80); // Masuk dari selatan hutan
+      // Spawn Pemain Acak di Pinggir Map (Random Perimeter Edge Spawn)
+      const edge = Math.floor(Math.random() * 4);
+      const span = (Math.random() - 0.5) * 220; // -110 s/d +110
+      let spawnX = 0;
+      let spawnZ = 0;
+      if (edge === 0) { // Sisi Utara
+        spawnX = span; spawnZ = -135;
+      } else if (edge === 1) { // Sisi Selatan
+        spawnX = span; spawnZ = 135;
+      } else if (edge === 2) { // Sisi Barat
+        spawnX = -135; spawnZ = span;
+      } else { // Sisi Timur
+        spawnX = 135; spawnZ = span;
       }
 
-      // Preload chunk area di sekitar titik spawn pemain (0, -80)
-      if (this.chunkManager) {
-        this.chunkManager.preloadInitialChunks(0, -80, 2);
+      if (player) {
+        player.teleport(spawnX, 1.7, spawnZ);
+        // Arahkan pandangan menghadap ke tengah map (0, 0)
+        if (typeof player.yaw !== 'undefined') {
+          player.yaw = Math.atan2(-spawnX, -spawnZ);
+        }
       }
     }
   }
@@ -1264,8 +1543,8 @@ export class EnvironmentDual {
       return this.safeZoneColliders;
     }
     const chunkCols = this.chunkManager ? this.chunkManager.getColliders() : [];
-    const colliders = [...this.sector7PerimeterColliders, ...chunkCols];
-    if (this.extractionCollider) {
+    const colliders = [...this.sector7PerimeterColliders, ...this.sector7Colliders, ...chunkCols];
+    if (this.extractionCollider && !colliders.includes(this.extractionCollider)) {
       colliders.push(this.extractionCollider);
     }
     return colliders;

@@ -6,7 +6,7 @@ console.log('--- STARTING SCI-FI SURVIVAL & ECONOMIC INTEGRATION TEST ---');
 // 1. Reset state
 GameState.reset();
 assert.strictEqual(GameState.wallet, 50000, 'Initial balance is Rp 50.000');
-assert.strictEqual(GameState.backpackMaxSlots, 6, 'Initial backpack is 6 slots');
+assert.strictEqual(GameState.backpackMaxSlots, 32, 'Initial backpack is 32 slots');
 assert.strictEqual(GameState.stashMaxSlots, 16, 'Initial stash is 16 slots');
 
 // 2. Buy Nano-Stim at Med-Bay
@@ -60,7 +60,7 @@ assert.strictEqual(GameState.backpack.length, 0, 'Backpack emptied after selling
 // 8. Armory: Upgrade Backpack to Tactical Rig (Rp 150.000)
 const bagUp = GameState.upgradeBackpack();
 assert.ok(bagUp.success, 'Backpack upgrade succeeded');
-assert.strictEqual(GameState.backpackMaxSlots, 10, 'Backpack capacity expanded to 10 slots');
+assert.strictEqual(GameState.backpackMaxSlots, 48, 'Backpack capacity expanded to 48 slots');
 assert.strictEqual(GameState.wallet, 0, 'Wallet is Rp 0 after upgrade');
 
 // 9. Format verification

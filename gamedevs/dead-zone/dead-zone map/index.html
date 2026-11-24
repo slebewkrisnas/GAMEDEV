@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zombie Apocalypse City (300x300m) — 3D GLB Pack Viewer</title>
+  <style>
+    :root {
+      --bg-dark: #0f141c;
+      --panel-bg: rgba(18, 24, 36, 0.92);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --accent: #f59e0b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      overflow: hidden;
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    }
+    #canvas3d { width: 100vw; height: 100vh; display: block; }
+    #header-hud {
+      position: absolute; top: 16px; left: 16px;
+      background: var(--panel-bg); backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border); border-radius: 12px;
+      padding: 16px 20px; max-width: 420px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.6); z-index: 10;
+    }
+    #header-hud h1 {
+      font-size: 17px; font-weight: 700; color: #fbbf24;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .badge {
+      background: rgba(245, 158, 11, 0.18); color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.4); font-size: 11px;
+      padding: 2px 7px; border-radius: 5px; font-weight: 600;
+    }
+    #header-hud p { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+    #loading-overlay {
+      position: absolute; inset: 0; background: rgba(10, 14, 20, 0.95);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 50; transition: opacity 0.4s ease;
+    }
+    .spinner {
+      width: 52px; height: 52px; border: 4px solid rgba(245, 158, 11, 0.2);
+      border-top-color: #f59e0b; border-radius: 50%;
+      animation: spin 1s linear infinite; margin-bottom: 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-status { font-size: 16px; font-weight: 600; color: #fbbf24; }
+    #loading-detail { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+    #control-sidebar {
+      position: absolute; top: 16px; right: 16px; width: 320px;
+      max-height: calc(100vh - 32px); overflow-y: auto;
+      background: var(--panel-bg); backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border); border-radius: 12px;
+      padding: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+      z-index: 10; font-size: 13px;
+    }
+    .control-group {
+      margin-bottom: 14px; padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .control-group:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .group-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+      color: var(--accent); margin-bottom: 8px; font-weight: 700;
+    }
+    select, button {
+      width: 100%; background: rgba(255,255,255,0.06); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.15); padding: 9px 12px;
+      border-radius: 8px; font-size: 12.5px; cursor: pointer;
+      transition: all 0.2s ease; outline: none;
+    }
+    select { background: #1b2333; }
+    select:focus, select:hover { border-color: var(--accent); }
+    button:hover { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; }
+    button.active { background: #f59e0b; color: #111827; font-weight: 700; border-color: #f59e0b; }
+    .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: var(--text-muted); }
+    .stat-row span:last-child { color: #fbbf24; font-weight: 600; font-family: monospace; }
+    #nav-hint {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(18, 24, 36, 0.85); backdrop-filter: blur(8px);
+      border: 1px solid var(--panel-border); border-radius: 30px;
+      padding: 8px 20px; font-size: 12px; color: var(--text-muted); z-index: 10;
+      display: flex; gap: 16px; pointer-events: none;
+    }
+    #nav-hint b { color: var(--accent); }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "../gamedevs/libs/three.module.js",
+      "three/addons/loaders/GLTFLoader.js": "../gamedevs/libs/GLTFLoader.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loading-status">Memuat Zombie Apocalypse City...</div>
+    <div id="loading-detail">Mengunduh aset 3D GLB & tekstur kota...</div>
+  </div>
+
+  <div id="header-hud">
+    <h1>
+      <span>🏙️</span>
+      ZOMBIE APOCALYPSE CITY
+      <span class="badge">300m × 300m</span>
+    </h1>
+    <p>
+      Paket Model 3D Kota Metropolitan Hancur Pasca-Kiamat. Lengkap dengan gedung pencakar langit setinggi 89m, barikade militer, bangkai mobil, reruntuhan jalan aspal retak, dan puing lingkungan.
+    </p>
+  </div>
+
+  <div id="control-sidebar">
+    <div class="control-group">
+      <div class="group-title">Pilih Model / Lapisan Kota</div>
+      <select id="model-select">
+        <option value="Zombie_Apocalypse_City_Complete.glb">🏙️ Complete City (Semua Gabungan - 300x300m)</option>
+        <option value="Buildings.glb">🏢 Buildings (Gedung & Pencakar Langit)</option>
+        <option value="Destroyed_Vehicles.glb">🚗 Destroyed Vehicles (Bangkai Mobil & Bus)</option>
+        <option value="Environmental_Debris.glb">🧱 Environmental Debris (Puing Reruntuhan)</option>
+        <option value="Military_Assets.glb">🪖 Military Assets (Pos Barikade Militer)</option>
+        <option value="Props_and_Street_Objects.glb">🛑 Props & Street (Objek Jalanan & Lampu)</option>
+        <option value="Roads_and_Terrain.glb">🛣️ Roads & Terrain (Jalan Aspal Retak)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <div class="group-title">Sudut Kamera (Teleport POV)</div>
+      <div class="btn-grid-2">
+        <button id="btn-pov-birds">🦅 Mata Elang (300m)</button>
+        <button id="btn-pov-street">🚶 Sudut Jalan</button>
+        <button id="btn-pov-intersection">🚦 Perempatan</button>
+        <button id="btn-pov-roof">🏢 Puncak Gedung</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="group-title">Pencahayaan & Atmosfer</div>
+      <div class="btn-grid-3">
+        <button id="light-day" class="active">☀️ Siang</button>
+        <button id="light-sunset">🌆 Senja</button>
+        <button id="light-night">🌑 Malam</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="group-title">Fitur Visual</div>
+      <div class="btn-grid-2">
+        <button id="btn-autorotate">🔄 Auto-Rotate</button>
+        <button id="btn-wireframe">📐 Wireframe</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="group-title">Spesifikasi Teknis Model</div>
+      <div class="stat-row"><span>Nama File:</span> <span id="stat-filename">Complete.glb</span></div>
+      <div class="stat-row"><span>Ukuran Berkas:</span> <span id="stat-filesize">7.41 MB</span></div>
+      <div class="stat-row"><span>Total Meshes:</span> <span id="stat-mesh-count">0</span></div>
+      <div class="stat-row"><span>Total Poligon:</span> <span id="stat-poly-count">0</span></div>
+      <div class="stat-row"><span>Dimensi Wilayah:</span> <span id="stat-bounds">300m × 300m</span></div>
+      <div class="stat-row"><span>Tinggi Maksimal:</span> <span id="stat-height">89.4m</span></div>
+    </div>
+
+    <div class="control-group">
+      <a href="../index.html" style="text-decoration:none;"><button style="background:rgba(59,130,246,0.2); border-color:#3b82f6; color:#60a5fa; font-weight:600;">⬅️ Kembali ke Menu Utama</button></a>
+    </div>
+  </div>
+
+  <div id="nav-hint">
+    <span><b>Klik Kiri + Seret:</b> Putar Orbit</span>
+    <span><b>Klik Kanan + Seret:</b> Geser (Pan)</span>
+    <span><b>Scroll Mouse:</b> Zoom</span>
+  </div>
+
+  <canvas id="canvas3d"></canvas>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    class SimpleOrbitControls {
+      constructor(camera, domElement) {
+        this.camera = camera;
+        this.domElement = domElement;
+        this.target = new THREE.Vector3(0, 0, 0);
+        this.distance = 180;
+        this.minDistance = 2;
+        this.maxDistance = 600;
+        this.phi = Math.PI / 4;
+        this.theta = -Math.PI / 4;
+        this.autoRotate = false;
+        this.autoRotateSpeed = 0.5;
+        this.isMouseDown = false;
+        this.isRightDown = false;
+        this.prevMouseX = 0;
+        this.prevMouseY = 0;
+        this.attachEvents();
+        this.updateCamera();
+      }
+
+      attachEvents() {
+        this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+        this.domElement.addEventListener('mousedown', (e) => {
+          this.isMouseDown = (e.button === 0);
+          this.isRightDown = (e.button === 2);
+          this.prevMouseX = e.clientX;
+          this.prevMouseY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => {
+          this.isMouseDown = false;
+          this.isRightDown = false;
+        });
+        window.addEventListener('mousemove', (e) => {
+          if (!this.isMouseDown && !this.isRightDown) return;
+          const deltaX = e.clientX - this.prevMouseX;
+          const deltaY = e.clientY - this.prevMouseY;
+          this.prevMouseX = e.clientX;
+          this.prevMouseY = e.clientY;
+
+          if (this.isMouseDown) {
+            this.theta -= deltaX * 0.005;
+            this.phi -= deltaY * 0.005;
+            this.phi = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, this.phi));
+            this.updateCamera();
+          } else if (this.isRightDown) {
+            const panSpeed = this.distance * 0.0012;
+            const forward = new THREE.Vector3().subVectors(this.target, this.camera.position).normalize();
+            const right = new THREE.Vector3().crossVectors(forward, this.camera.up).normalize();
+            const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+            this.target.addScaledVector(right, -deltaX * panSpeed);
+            this.target.addScaledVector(up, deltaY * panSpeed);
+            this.updateCamera();
+          }
+        });
+        this.domElement.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 1.1 : 0.9;
+          this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, this.distance * factor));
+          this.updateCamera();
+        }, { passive: false });
+      }
+
+      updateCamera() {
+        const sinPhi = Math.sin(this.phi);
+        const cosPhi = Math.cos(this.phi);
+        const sinTheta = Math.sin(this.theta);
+        const cosTheta = Math.cos(this.theta);
+        this.camera.position.set(
+          this.target.x + this.distance * sinPhi * sinTheta,
+          this.target.y + this.distance * cosPhi,
+          this.target.z + this.distance * sinPhi * cosTheta
+        );
+        this.camera.lookAt(this.target);
+      }
+
+      update(delta) {
+        if (this.autoRotate && !this.isMouseDown && !this.isRightDown) {
+          this.theta += this.autoRotateSpeed * delta * 0.4;
+          this.updateCamera();
+        }
+      }
+
+      setLookAt(targetVec, distance, phi, theta) {
+        this.target.copy(targetVec);
+        this.distance = distance;
+        if (phi !== undefined) this.phi = phi;
+        if (theta !== undefined) this.theta = theta;
+        this.updateCamera();
+      }
+    }
+
+    const canvas = document.getElementById('canvas3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x3a4047);
+    scene.fog = new THREE.FogExp2(0x363c43, 0.0035);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.2, 1000);
+    const controls = new SimpleOrbitControls(camera, canvas);
+    controls.setLookAt(new THREE.Vector3(0, 10, 0), 190, Math.PI * 0.32, -Math.PI * 0.25);
+
+    const grid = new THREE.GridHelper(300, 30, 0xf59e0b, 0x475569);
+    grid.position.y = -0.05;
+    scene.add(grid);
+
+    const hemiLight = new THREE.HemisphereLight(0xb1b8c0, 0x3b352e, 1.2);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffdfc2, 2.2);
+    dirLight.position.set(-120, 140, 80);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.camera.near = 10;
+    dirLight.shadow.camera.far = 450;
+    dirLight.shadow.camera.left = -170;
+    dirLight.shadow.camera.right = 170;
+    dirLight.shadow.camera.top = 170;
+    dirLight.shadow.camera.bottom = -170;
+    dirLight.shadow.bias = -0.0004;
+    scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.6);
+    fillLight.position.set(120, 50, -80);
+    scene.add(fillLight);
+
+    function applyLightingPreset(mode) {
+      if (mode === 'day') {
+        scene.background.setHex(0x40474f);
+        scene.fog.color.setHex(0x3b424a);
+        hemiLight.intensity = 1.2;
+        dirLight.intensity = 2.2;
+      } else if (mode === 'sunset') {
+        scene.background.setHex(0x2d1f24);
+        scene.fog.color.setHex(0x381f21);
+        hemiLight.intensity = 0.9;
+        dirLight.intensity = 2.6;
+      } else if (mode === 'night') {
+        scene.background.setHex(0x0a0f16);
+        scene.fog.color.setHex(0x090d14);
+        hemiLight.intensity = 0.45;
+        dirLight.intensity = 0.9;
+      }
+    }
+
+    let currentModelGroup = null;
+    const loader = new GLTFLoader();
+
+    const FILE_SIZES = {
+      'Zombie_Apocalypse_City_Complete.glb': '7.41 MB',
+      'Buildings.glb': '2.45 MB',
+      'Destroyed_Vehicles.glb': '550 KB',
+      'Environmental_Debris.glb': '827 KB',
+      'Military_Assets.glb': '2.61 MB',
+      'Props_and_Street_Objects.glb': '825 KB',
+      'Roads_and_Terrain.glb': '1.84 MB'
+    };
+
+    function loadCityModel(filename) {
+      const overlay = document.getElementById('loading-overlay');
+      const statusText = document.getElementById('loading-status');
+      const detailText = document.getElementById('loading-detail');
+
+      overlay.style.opacity = '1';
+      overlay.style.pointerEvents = 'auto';
+      statusText.textContent = `Memuat ${filename}...`;
+
+      if (currentModelGroup) {
+        scene.remove(currentModelGroup);
+        currentModelGroup.traverse((child) => {
+          if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+              else child.material.dispose();
+            }
+          }
+        });
+        currentModelGroup = null;
+      }
+
+      loader.load(
+        './' + filename,
+        (gltf) => {
+          currentModelGroup = gltf.scene;
+          let meshCount = 0;
+          let polyCount = 0;
+
+          currentModelGroup.traverse((child) => {
+            if (child.isMesh) {
+              meshCount++;
+              if (child.geometry) {
+                const count = child.geometry.index ? child.geometry.index.count / 3 : child.geometry.attributes.position.count / 3;
+                polyCount += Math.round(count);
+              }
+              const isFX = child.material && (child.material.name === 'fire_fx' || child.material.name === 'smoke_fx');
+              child.castShadow = !isFX;
+              child.receiveShadow = !isFX;
+              if (isFX && child.material) child.material.depthWrite = false;
+            }
+          });
+
+          scene.add(currentModelGroup);
+
+          const box = new THREE.Box3().setFromObject(currentModelGroup);
+          const size = new THREE.Vector3();
+          const center = new THREE.Vector3();
+          box.getSize(size);
+          box.getCenter(center);
+
+          document.getElementById('stat-filename').textContent = filename;
+          document.getElementById('stat-filesize').textContent = FILE_SIZES[filename] || '-';
+          document.getElementById('stat-mesh-count').textContent = meshCount.toLocaleString('id-ID');
+          document.getElementById('stat-poly-count').textContent = polyCount.toLocaleString('id-ID') + ' Tris';
+          document.getElementById('stat-bounds').textContent = `${Math.round(size.x)}m × ${Math.round(size.z)}m`;
+          document.getElementById('stat-height').textContent = `${size.y.toFixed(1)} Meter`;
+
+          const maxDim = Math.max(size.x, size.z);
+          const camDist = Math.max(maxDim * 0.75, 25);
+          controls.setLookAt(center, camDist, Math.PI * 0.32, -Math.PI * 0.25);
+
+          setTimeout(() => {
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+          }, 200);
+        },
+        undefined,
+        (err) => {
+          console.error(err);
+          statusText.textContent = 'Gagal memuat GLB!';
+          detailText.textContent = 'Jalankan via server lokal (python -m http.server)';
+        }
+      );
+    }
+
+    document.getElementById('model-select').addEventListener('change', (e) => loadCityModel(e.target.value));
+
+    document.getElementById('light-day').addEventListener('click', (e) => {
+      document.querySelectorAll('#light-day, #light-sunset, #light-night').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      applyLightingPreset('day');
+    });
+    document.getElementById('light-sunset').addEventListener('click', (e) => {
+      document.querySelectorAll('#light-day, #light-sunset, #light-night').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      applyLightingPreset('sunset');
+    });
+    document.getElementById('light-night').addEventListener('click', (e) => {
+      document.querySelectorAll('#light-day, #light-sunset, #light-night').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      applyLightingPreset('night');
+    });
+
+    const btnAutoRotate = document.getElementById('btn-autorotate');
+    btnAutoRotate.addEventListener('click', () => {
+      controls.autoRotate = !controls.autoRotate;
+      btnAutoRotate.classList.toggle('active', controls.autoRotate);
+    });
+
+    const btnWireframe = document.getElementById('btn-wireframe');
+    let isWireframe = false;
+    btnWireframe.addEventListener('click', () => {
+      isWireframe = !isWireframe;
+      btnWireframe.classList.toggle('active', isWireframe);
+      if (currentModelGroup) {
+        currentModelGroup.traverse((child) => {
+          if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) child.material.forEach(m => m.wireframe = isWireframe);
+            else child.material.wireframe = isWireframe;
+          }
+        });
+      }
+    });
+
+    document.getElementById('btn-pov-birds').addEventListener('click', () => controls.setLookAt(new THREE.Vector3(0, 10, 0), 220, Math.PI * 0.28, -Math.PI * 0.25));
+    document.getElementById('btn-pov-street').addEventListener('click', () => controls.setLookAt(new THREE.Vector3(0, 3, 20), 45, Math.PI * 0.44, 0.2));
+    document.getElementById('btn-pov-intersection').addEventListener('click', () => controls.setLookAt(new THREE.Vector3(0, 4, 0), 65, Math.PI * 0.40, Math.PI * 0.75));
+    document.getElementById('btn-pov-roof').addEventListener('click', () => controls.setLookAt(new THREE.Vector3(45, 80, -25), 55, Math.PI * 0.35, -Math.PI * 0.85));
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update(clock.getDelta());
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    loadCityModel('Zombie_Apocalypse_City_Complete.glb');
+  </script>
+</body>
+</html>

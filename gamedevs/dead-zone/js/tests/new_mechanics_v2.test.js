@@ -237,9 +237,9 @@ console.log('Test 7: House Lv 3 Secure Pouch death immunity & Workbench Crafting
 GameState.reset();
 // Cheat wallet and upgrade backpack to hold materials
 GameState.addRp(2000000);
-GameState.upgradeBackpack(); // 10 slots
-GameState.upgradeBackpack(); // 16 slots
-assert.strictEqual(GameState.backpackMaxSlots, 16);
+GameState.upgradeBackpack(); // 48 slots
+GameState.upgradeBackpack(); // 64 slots
+assert.strictEqual(GameState.backpackMaxSlots, 64);
 
 // Now add materials for house upgrades (Lv2 needs 5 scrap, Lv3 needs 3 power converter)
 for (let i = 0; i < 5; i++) {
