@@ -339,7 +339,12 @@ class DeadZoneGame {
         }
       },
       onStartExtraction: () => this.startHoldoutExtraction(),
-      onLootCrate: (crateId) => this.lootManager.lootCrate(crateId, this.ui),
+      onLootCrate: (crateId) => {
+        this.lootManager.lootCrate(crateId, this.ui);
+        if (this.environment && this.environment.chunkManager) {
+          this.environment.chunkManager.markLooted(crateId);
+        }
+      },
       onUseStim: () => this.player.useNanoStim(this.ui),
       onSelectSlot: (slot) => {
         if (this.player) this.player.selectSlot(slot);
@@ -810,7 +815,7 @@ class DeadZoneGame {
     GameState.updateMarketplace(delta);
 
     if (this.environment) {
-      this.environment.update(delta);
+      this.environment.update(delta, this.player);
     }
 
     if (this.currentState === this.STATES.PLAYING) {
