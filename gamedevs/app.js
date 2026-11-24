@@ -7,6 +7,7 @@ import { worldAudio } from './audio_system.js';
 import { initNPCSystem, updateNPCSystem, getNearestNPC, interactWithNearestNPC } from './npc_system.js?v=4';
 
 import { MAP_SIZE, SPAWN_POS, collisionWalls, resolveWallCollisions, createWorld } from './js/world.js';
+import { zombieOutpostInstance } from './js/zombie_outpost_world.js';
 import {
   PORTAL_POS,
   CAMP_PORTAL_POS,
@@ -61,8 +62,8 @@ import {
 
 // ==================== THREE.JS SCENE SETUP ====================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 120, 400);
+scene.background = new THREE.Color(0x101826);
+scene.fog = new THREE.FogExp2(0x131d2d, 0.0145);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -71,30 +72,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
-// ==================== LIGHTING (ORIGINAL NATURAL BRIGHT) ====================
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(50, 80, 30);
-sun.castShadow = true;
-sun.shadow.mapSize.width = 1024;
-sun.shadow.mapSize.height = 1024;
-sun.shadow.camera.left = -80;
-sun.shadow.camera.right = 80;
-sun.shadow.camera.top = 80;
-sun.shadow.camera.bottom = -80;
-sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 200;
-sun.shadow.bias = -0.0005;
-scene.add(sun);
-
-const fillLight = new THREE.DirectionalLight(0xfff0e6, 0.45);
-fillLight.position.set(-30, 40, -40);
-scene.add(fillLight);
-
-scene.add(new THREE.HemisphereLight(0x87ceeb, 0x4a8f3c, 0.65));
+// ==================== LIGHTING (ZOMBIE OUTPOST NIGHT) ====================
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
 
 // ==================== BANGUN DUNIA & ZONA ====================
 createWorld(scene);
@@ -232,15 +215,19 @@ const urlParams = new URLSearchParams(window.location.search);
 const fromGame = urlParams.get('from');
 
 if (fromGame === 'camp' || fromGame === 'deadzone') {
-  player.position.set(CAMP_PORTAL_POS.x - 2.5, 0, CAMP_PORTAL_POS.z);
-  player.rotation.y = -Math.PI / 2;
-  setYaw(Math.PI / 2);
-  campPortalCooldown = 3.5;
+  player.position.set(17.8, 0, -4.2);
+  player.rotation.y = -Math.PI * 0.75;
+  setYaw(-Math.PI * 0.75);
+  campPortalCooldown = 4.0;
 } else if (fromGame === 'arena' || fromGame === 'fight') {
   player.position.set(ARENA_PORTAL_POS.x - 2.5, 0, ARENA_PORTAL_POS.z);
   player.rotation.y = -Math.PI / 2;
   setYaw(Math.PI / 2);
   arenaPortalCooldown = 3.5;
+} else {
+  player.position.copy(SPAWN_POS);
+  player.rotation.y = Math.PI * 0.5;
+  setYaw(Math.PI * 0.5);
 }
 
 const hintEl = document.getElementById('hint');
@@ -264,6 +251,15 @@ function triggerDialogue() {
   if (isNearKiosk) {
     openKioskModal();
     return;
+  }
+  if (zombieOutpostInstance) {
+    const nearby = zombieOutpostInstance.getNearestNPC(player.position, 3.6);
+    if (nearby && nearby.npc) {
+      const npc = nearby.npc;
+      const dIndex = Math.floor(Math.random() * npc.dialogues.length);
+      showDialogue(npc.avatar, npc.name, npc.role, npc.dialogues[dIndex]);
+      return;
+    }
   }
   if (!currentNearbyNPC) return;
   const data = currentNearbyNPC.talkTo(player.position);
@@ -430,14 +426,14 @@ function animate() {
   // Pastikan posisi player selalu mematuhi batas pagar keliling & dinding (Anti-Tembus & Anti-Bug)
   resolveWallCollisions(player.position);
 
-  // ===== CEK MASUK PORTAL =====
+  // ===== CEK MASUK PORTAL DEAD ZONE =====
   if (campPortalCooldown > 0) campPortalCooldown -= delta;
   const dpcx = player.position.x - CAMP_PORTAL_POS.x;
   const dpcz = player.position.z - CAMP_PORTAL_POS.z;
   const distCampPortal = Math.hypot(dpcx, dpcz);
-  if (distCampPortal < 1.4 && campPortalCooldown <= 0) {
+  if (distCampPortal < 1.9 && campPortalCooldown <= 0) {
     campPortalCooldown = 999;
-    if (campPortalLight) campPortalLight.intensity = 8;
+    if (campPortalLight) campPortalLight.intensity = 55;
     triggerPortalWarp('camp', () => {
       window.location.href = 'dead-zone/index.html';
     });
@@ -451,9 +447,9 @@ function animate() {
     arenaPortalCooldown = 3.0;
     const hint = document.getElementById('hint');
     if (hint) {
-      hint.textContent = '🔒 Portal Battle Arena saat ini sedang dinonaktifkan.';
+      hint.textContent = '🔒 Menara Pengawas mengawasi perimeter luar barikade.';
       setTimeout(() => {
-        if (hint && hint.textContent.includes('Battle Arena')) hint.textContent = '';
+        if (hint && hint.textContent.includes('Menara Pengawas')) hint.textContent = '';
       }, 3000);
     }
   }
@@ -462,6 +458,13 @@ function animate() {
   updateNPCSystem(player.position, delta);
   currentNearbyNPC = getNearestNPC();
 
+  // Outpost NPCs (Survivors, Guards)
+  let nearbyOutpostNPC = null;
+  if (zombieOutpostInstance) {
+    const n = zombieOutpostInstance.getNearestNPC(player.position, 3.6);
+    if (n) nearbyOutpostNPC = n.npc;
+  }
+
   const distToKiosk = Math.hypot(player.position.x - KIOSK_POS.x, player.position.z - KIOSK_POS.z);
   isNearKiosk = distToKiosk < 2.4;
 
@@ -469,7 +472,10 @@ function animate() {
   const npcPromptText = document.getElementById('npcPromptText');
   if (npcPrompt && npcPromptText) {
     if (isNearKiosk) {
-      npcPromptText.textContent = 'Tekan E untuk Lihat Rekor & Prestasi';
+      npcPromptText.textContent = 'Tekan E untuk Lihat Papan Prestasi';
+      npcPrompt.classList.remove('hidden');
+    } else if (nearbyOutpostNPC) {
+      npcPromptText.textContent = `Tekan E untuk bicara dengan ${nearbyOutpostNPC.name}`;
       npcPrompt.classList.remove('hidden');
     } else if (currentNearbyNPC) {
       npcPromptText.textContent = `Tekan E untuk bicara dengan ${currentNearbyNPC.name}`;

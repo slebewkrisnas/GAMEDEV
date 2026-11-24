@@ -1,0 +1,3877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Portal Outpost — Stylized 3D Military Base Diorama & GLB Exporter</title>
+
+  <!-- Tailwind CSS for responsive tactical HUD styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & Rajdhani for crisp game-engine HUD typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet" />
+
+  <!-- Three.js ES Modules Importmap (Three, OrbitControls, GLTFExporter) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    /* Base full-viewport 3D canvas styling */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 50% 40%, #1c2841 0%, #0d1321 70%, #070a12 100%);
+      color: #f1f5f9;
+      user-select: none;
+    }
+
+    #viewport-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    #viewport-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+
+    .font-display {
+      font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* Tactical Glassmorphism HUD Panels */
+    .hud-glass {
+      background: rgba(15, 23, 42, 0.84);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* Custom slim scrollbar for outliner */
+    .tactical-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .tactical-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 999px;
+    }
+    .tactical-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.55);
+      border-radius: 999px;
+    }
+    .tactical-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(56, 189, 248, 0.7);
+    }
+
+    /* Tactile button animations */
+    .btn-tactical {
+      transition: transform 0.14s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .btn-tactical:active {
+      transform: scale(0.97);
+    }
+
+    .outliner-item.active {
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.24) 0%, rgba(129, 140, 248, 0.12) 100%);
+      border-color: rgba(56, 189, 248, 0.65);
+      color: #ffffff;
+    }
+
+    .preset-btn.active {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: rgba(251, 191, 36, 0.75);
+      color: #fde68a;
+    }
+
+    .cam-btn.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: rgba(56, 189, 248, 0.75);
+      color: #bae6fd;
+    }
+
+    /* Loading overlay fade */
+    #loading-screen {
+      transition: opacity 0.45s ease, visibility 0.45s ease;
+    }
+    #loading-screen.hidden-loader {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Toast slide transition */
+    #toast-banner {
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+    }
+    #toast-banner.toast-hidden {
+      transform: translate(-50%, 24px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Collapsible Inspector Drawer */
+    #inspector-drawer {
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    }
+    #inspector-drawer.collapsed {
+      transform: translateX(calc(100% + 24px));
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Full-Viewport 3D WebGL Canvas Container -->
+  <div id="viewport-container"></div>
+
+  <!-- Initial Loading Overlay -->
+  <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95">
+    <div class="w-14 h-14 rounded-2xl border-2 border-cyan-400/30 border-t-cyan-400 animate-spin mb-4 shadow-lg shadow-cyan-500/20"></div>
+    <h1 class="font-display text-2xl font-bold tracking-wider text-white uppercase">Generating Stylized Diorama</h1>
+    <p class="text-xs text-slate-400 mt-1.5 tracking-wide">Painting procedural PBR textures &amp; rigging modular camp assets...</p>
+  </div>
+
+  <!-- Top-Left Asset Header & Telemetry Badge -->
+  <header class="fixed top-3 left-3 sm:top-4 sm:left-4 z-30 flex flex-col gap-2 max-w-[calc(100vw-80px)] sm:max-w-sm pointer-events-auto">
+    <div class="hud-glass rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <!-- Portal Icon -->
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-cyan-500/30 shrink-0">
+            <svg class="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="12" cy="12" r="8"></circle>
+              <path d="M12 4a5 5 0 0 1 5 5c0 2.8-2.2 4.5-5 4.5S7 11.8 7 9"></path>
+              <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-display text-base sm:text-lg font-bold tracking-wide text-white leading-none">PORTAL OUTPOST</h1>
+              <span class="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">GLB Ready</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Stylized Military Base 3D Game Diorama</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Asset Telemetry Counters -->
+      <div class="grid grid-cols-3 gap-1.5 mt-2.5 pt-2 border-t border-slate-700/60 text-center">
+        <div class="bg-slate-900/60 rounded-lg py-1 px-1.5 border border-slate-800">
+          <div id="stat-meshes" class="font-display text-sm font-bold text-cyan-300 leading-tight">—</div>
+          <div class="text-[9px] uppercase tracking-wider text-slate-400">Meshes</div>
+        </div>
+        <div class="bg-slate-900/60 rounded-lg py-1 px-1.5 border border-slate-800">
+          <div id="stat-tris" class="font-display text-sm font-bold text-amber-300 leading-tight">—</div>
+          <div class="text-[9px] uppercase tracking-wider text-slate-400">Triangles</div>
+        </div>
+        <div class="bg-slate-900/60 rounded-lg py-1 px-1.5 border border-slate-800">
+          <div id="stat-modules" class="font-display text-sm font-bold text-purple-300 leading-tight">10</div>
+          <div class="text-[9px] uppercase tracking-wider text-slate-400">Modules</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Top-Right Toggle Button for Inspector Drawer -->
+  <button
+    id="toggle-hud-btn"
+    title="Toggle Asset Inspector & Exporter"
+    class="btn-tactical fixed top-3 right-3 sm:top-4 sm:right-4 z-40 hud-glass rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs font-semibold text-slate-100 hover:border-cyan-400/60 hover:text-cyan-200 cursor-pointer"
+  >
+    <svg id="toggle-icon-open" class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round"></path>
+    </svg>
+    <span id="toggle-hud-label" class="hidden sm:inline">Inspector</span>
+  </button>
+
+  <!-- Right Collapsible Tactical Asset Inspector & Exporter HUD -->
+  <aside
+    id="inspector-drawer"
+    class="fixed top-16 right-3 sm:top-[68px] sm:right-4 bottom-12 sm:bottom-4 w-[calc(100vw-24px)] max-w-[300px] z-30 hud-glass rounded-2xl flex flex-col overflow-hidden"
+  >
+    <div class="flex-1 overflow-y-auto tactical-scroll p-3.5 space-y-4">
+
+      <!-- Section 1: Export 3D Asset (GLB / GLTF) -->
+      <section>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-display text-xs font-bold uppercase tracking-widest text-amber-300 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            Export 3D Asset (GLTF/GLB)
+          </h2>
+          <span class="text-[10px] text-slate-400">PBR Baked</span>
+        </div>
+
+        <div class="space-y-2">
+          <button
+            id="btn-export-full"
+            class="btn-tactical w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span>Export Full Diorama (.glb)</span>
+          </button>
+
+          <button
+            id="btn-export-selected"
+            class="btn-tactical w-full py-2 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/45 text-cyan-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            <span id="export-selected-label" class="truncate">Export Selected Module (.glb)</span>
+          </button>
+        </div>
+      </section>
+
+      <hr class="border-slate-700/60" />
+
+      <!-- Section 2: Modular Sub-Mesh Outliner -->
+      <section>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-display text-xs font-bold uppercase tracking-widest text-cyan-300 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            Modular Outliner
+          </h2>
+          <span id="selected-module-tris" class="text-[10px] text-slate-400 font-mono">All</span>
+        </div>
+
+        <div id="outliner-list" class="space-y-1 max-h-[210px] overflow-y-auto tactical-scroll pr-1">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <!-- Quick Individual Soldier Picker when inspecting NPCs -->
+        <div id="soldier-picker-wrap" class="mt-2 pt-2 border-t border-slate-800/80 hidden">
+          <label for="soldier-select" class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Inspect Rig-Ready Soldier NPC:</label>
+          <select
+            id="soldier-select"
+            class="w-full rounded-lg bg-slate-900/90 border border-slate-700 text-xs text-slate-200 px-2.5 py-1.5 focus:outline-none focus:border-cyan-400 cursor-pointer"
+          ></select>
+        </div>
+      </section>
+
+      <hr class="border-slate-700/60" />
+
+      <!-- Section 3: Lighting & Atmosphere Presets -->
+      <section>
+        <h2 class="font-display text-xs font-bold uppercase tracking-widest text-slate-300 mb-2">Lighting Preset</h2>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button data-light="sunset" class="preset-btn btn-tactical active rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-amber-400/50 cursor-pointer">
+            Sunset Dusk
+          </button>
+          <button data-light="day" class="preset-btn btn-tactical rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-amber-400/50 cursor-pointer">
+            Bright Day
+          </button>
+          <button data-light="night" class="preset-btn btn-tactical rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-amber-400/50 cursor-pointer">
+            Night Ops
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 4: Camera Presets -->
+      <section>
+        <h2 class="font-display text-xs font-bold uppercase tracking-widest text-slate-300 mb-2">Camera View</h2>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button data-cam="hero" class="cam-btn btn-tactical active rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-cyan-400/50 cursor-pointer">
+            Hero Isometric
+          </button>
+          <button data-cam="portal" class="cam-btn btn-tactical rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-cyan-400/50 cursor-pointer">
+            Portal Close-Up
+          </button>
+          <button data-cam="patrol" class="cam-btn btn-tactical rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-cyan-400/50 cursor-pointer">
+            Patrol View
+          </button>
+          <button data-cam="top" class="cam-btn btn-tactical rounded-lg py-1.5 px-2 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-cyan-400/50 cursor-pointer">
+            Top-Down
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 5: Viewport Toggles -->
+      <section>
+        <h2 class="font-display text-xs font-bold uppercase tracking-widest text-slate-300 mb-2">Viewport Controls</h2>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button
+            id="btn-toggle-anim"
+            class="btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span id="anim-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="anim-label">Pause Anim</span>
+          </button>
+
+          <button
+            id="btn-toggle-wireframe"
+            class="btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-slate-500 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+              <line x1="12" y1="22" x2="12" y2="12"></line>
+              <line x1="22" y1="8.5" x2="12" y2="12"></line>
+              <line x1="2" y1="8.5" x2="12" y2="12"></line>
+            </svg>
+            <span>Wireframe</span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- Subtle Bottom Viewport Controls Hint -->
+  <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none hidden sm:flex items-center gap-2 hud-glass rounded-full px-3.5 py-1.5 text-[11px] text-slate-300/90">
+    <span>Drag to Orbit</span>
+    <span class="text-slate-600">&bull;</span>
+    <span>Scroll to Zoom</span>
+    <span class="text-slate-600">&bull;</span>
+    <span>Click Any Asset to Inspect</span>
+  </div>
+
+  <!-- Non-blocking Toast Notification (replaces alert()) -->
+  <div id="toast-banner" class="toast-hidden fixed bottom-12 sm:bottom-14 left-1/2 -translate-x-1/2 z-50 hud-glass rounded-xl px-4 py-2.5 border border-cyan-400/50 flex items-center gap-2.5 shadow-2xl max-w-[92vw]">
+    <div id="toast-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></div>
+    <span id="toast-text" class="text-xs font-medium text-slate-100">Ready</span>
+  </div>
+
+  <!-- Main Three.js Application Module -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+    /**
+     * ============================================================================
+     * PROCEDURAL HAND-PAINTED PBR TEXTURE FACTORY
+     * Generates stylized Boom Beach / Clash of Clans CanvasTextures (albedo, bump,
+     * roughness, emissive) that embed cleanly inside binary GLB/GLTF exports.
+     * ============================================================================
+     */
+    class StylizedTextureFactory {
+      constructor() {
+        this.cache = {};
+      }
+
+      /** Helper: Create canvas & 2D context */
+      _makeCanvas(w, h) {
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        return { canvas: c, ctx: c.getContext('2d') };
+      }
+
+      /** Helper: Wrap canvas into a Three.js CanvasTexture */
+      _toTexture(canvas, { srgb = true, repeat = [1, 1], wrap = THREE.RepeatWrapping } = {}) {
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        tex.wrapS = wrap;
+        tex.wrapT = wrap;
+        tex.repeat.set(repeat[0], repeat[1]);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      /** Deterministic pseudo-random generator so hand-painted details stay consistent */
+      _rng(seed) {
+        let s = seed % 2147483647;
+        if (s <= 0) s += 2147483646;
+        return () => {
+          s = (s * 16807) % 2147483647;
+          return (s - 1) / 2147483646;
+        };
+      }
+
+      /** 1. Terrain Top Albedo & Bump (Grass perimeter + warm ochre/sandy dirt camp interior) */
+      getTerrainTextures() {
+        if (this.cache.terrain) return this.cache.terrain;
+        const size = 1024;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(4201);
+
+        // Base vibrant olive-emerald grass across entire platform
+        const grassGrad = ctx.createRadialGradient(size * 0.5, size * 0.5, size * 0.1, size * 0.5, size * 0.5, size * 0.65);
+        grassGrad.addColorStop(0, '#78a832');
+        grassGrad.addColorStop(0.75, '#5d8e25');
+        grassGrad.addColorStop(1, '#48731b');
+        ctx.fillStyle = grassGrad;
+        ctx.fillRect(0, 0, size, size);
+
+        // Bump neutral base
+        bCtx.fillStyle = '#808080';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Painterly grass tufts around border
+        for (let i = 0; i < 1200; i++) {
+          const x = rand() * size;
+          const y = rand() * size;
+          const r = 6 + rand() * 18;
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(148, 198, 56, 0.28)' : 'rgba(54, 92, 22, 0.25)';
+          ctx.beginPath();
+          ctx.ellipse(x, y, r, r * 0.55, rand() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Organic warm sandy-orange dirt camp interior
+        const drawDirtPatch = (cx, cy, rx, ry, rot = 0, color = '#cf8c4f', alpha = 1.0) => {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(rot);
+          const g = ctx.createRadialGradient(0, 0, Math.min(rx, ry) * 0.2, 0, 0, Math.max(rx, ry));
+          g.addColorStop(0, color);
+          g.addColorStop(0.78, color);
+          g.addColorStop(1, 'rgba(207, 140, 79, 0)');
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+
+        // Main camp dirt body (leaving green grass along edges & corners)
+        drawDirtPatch(size * 0.5, size * 0.52, size * 0.39, size * 0.36, 0, '#c78349', 0.98);
+        drawDirtPatch(size * 0.36, size * 0.55, size * 0.26, size * 0.26, 0.2, '#cc8a50', 0.92);
+        drawDirtPatch(size * 0.66, size * 0.48, size * 0.25, size * 0.24, -0.15, '#c9864c', 0.92);
+        drawDirtPatch(size * 0.48, size * 0.72, size * 0.22, size * 0.19, 0.1, '#d99e63', 0.9);
+        // Lighter worn plaza dirt right in front of the portal steps
+        drawDirtPatch(size * 0.5, size * 0.56, size * 0.18, size * 0.14, 0, '#e3b380', 0.85);
+        // Road toward patrol front-center
+        drawDirtPatch(size * 0.44, size * 0.82, size * 0.14, size * 0.18, -0.25, '#d6995d', 0.85);
+        // Slight dark scorch/wear around campfires
+        drawDirtPatch(size * 0.27, size * 0.69, size * 0.08, size * 0.08, 0, '#8f5932', 0.5);
+        drawDirtPatch(size * 0.66, size * 0.73, size * 0.08, size * 0.08, 0, '#8f5932', 0.5);
+
+        // Hand-painted dirt brushstrokes, pebbles, and worn path detail
+        for (let i = 0; i < 1600; i++) {
+          const x = size * (0.1 + rand() * 0.8);
+          const y = size * (0.12 + rand() * 0.78);
+          const dx = (x - size * 0.5) / (size * 0.42);
+          const dy = (y - size * 0.52) / (size * 0.38);
+          if (dx * dx + dy * dy < 0.95) {
+            const r = 2 + rand() * 9;
+            ctx.fillStyle = rand() > 0.45 ? 'rgba(245, 206, 152, 0.22)' : 'rgba(130, 74, 34, 0.20)';
+            ctx.beginPath();
+            ctx.ellipse(x, y, r * 1.4, r * 0.7, rand() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+
+            bCtx.fillStyle = rand() > 0.5 ? 'rgba(220,220,220,0.35)' : 'rgba(60,60,60,0.35)';
+            bCtx.beginPath();
+            bCtx.arc(x, y, r * 0.7, 0, Math.PI * 2);
+            bCtx.fill();
+          }
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true, wrap: THREE.ClampToEdgeWrapping }),
+          bumpMap: this._toTexture(bCan, { srgb: false, wrap: THREE.ClampToEdgeWrapping })
+        };
+        this.cache.terrain = result;
+        return result;
+      }
+
+      /** 2. Faceted Warm Brown Earth/Rock Cliff Sides */
+      getCliffTextures() {
+        if (this.cache.cliff) return this.cache.cliff;
+        const size = 512;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(991);
+
+        const grad = ctx.createLinearGradient(0, 0, 0, size);
+        grad.addColorStop(0, '#9c5a2c');
+        grad.addColorStop(0.45, '#824722');
+        grad.addColorStop(1, '#582f18');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        bCtx.fillStyle = '#808080';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Stylized strata layers and painterly rock facets
+        for (let i = 0; i < 420; i++) {
+          const x = rand() * size;
+          const y = rand() * size;
+          const w = 18 + rand() * 54;
+          const h = 10 + rand() * 34;
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(186, 114, 58, 0.25)' : 'rgba(62, 28, 12, 0.28)';
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + w, y + (rand() - 0.5) * 14);
+          ctx.lineTo(x + w * 0.8, y + h);
+          ctx.lineTo(x - w * 0.15, y + h * 0.85);
+          ctx.closePath();
+          ctx.fill();
+
+          bCtx.fillStyle = rand() > 0.5 ? 'rgba(210,210,210,0.35)' : 'rgba(50,50,50,0.35)';
+          bCtx.fillRect(x, y, w * 0.7, h * 0.7);
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true, repeat: [3, 1] }),
+          bumpMap: this._toTexture(bCan, { srgb: false, repeat: [3, 1] })
+        };
+        this.cache.cliff = result;
+        return result;
+      }
+
+      /** 3. Weathered Carved Stone Blocks (Ancient Portal & Steps) */
+      getPortalStoneTextures() {
+        if (this.cache.portalStone) return this.cache.portalStone;
+        const size = 512;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(1337);
+
+        ctx.fillStyle = '#7b879c';
+        ctx.fillRect(0, 0, size, size);
+        bCtx.fillStyle = '#909090';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Hand-painted cool stone mottling
+        for (let i = 0; i < 550; i++) {
+          const x = rand() * size;
+          const y = rand() * size;
+          const r = 8 + rand() * 30;
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(155, 169, 192, 0.24)' : 'rgba(66, 74, 92, 0.26)';
+          ctx.beginPath();
+          ctx.ellipse(x, y, r, r * 0.7, rand() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+
+          bCtx.fillStyle = rand() > 0.5 ? 'rgba(220,220,220,0.25)' : 'rgba(40,40,40,0.25)';
+          bCtx.beginPath();
+          bCtx.arc(x, y, r * 0.5, 0, Math.PI * 2);
+          bCtx.fill();
+        }
+
+        // Stylized chiselled block bevel seams & cracks
+        ctx.strokeStyle = 'rgba(38, 43, 58, 0.55)';
+        ctx.lineWidth = 4;
+        bCtx.strokeStyle = '#202020';
+        bCtx.lineWidth = 5;
+        for (let row = 0; row < 4; row++) {
+          const y = row * 128 + 2;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(size, y); ctx.stroke();
+          bCtx.beginPath(); bCtx.moveTo(0, y); bCtx.lineTo(size, y); bCtx.stroke();
+          // Edge highlight right below seam
+          ctx.strokeStyle = 'rgba(195, 210, 232, 0.35)';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, y + 4); ctx.lineTo(size, y + 4); ctx.stroke();
+          ctx.strokeStyle = 'rgba(38, 43, 58, 0.55)';
+          ctx.lineWidth = 4;
+        }
+        // Subtle stylized cracks
+        for (let c = 0; c < 18; c++) {
+          let cx = rand() * size;
+          let cy = rand() * size;
+          ctx.strokeStyle = 'rgba(40, 46, 62, 0.45)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          for (let s = 0; s < 4; s++) {
+            cx += (rand() - 0.5) * 32;
+            cy += (rand() - 0.5) * 32;
+            ctx.lineTo(cx, cy);
+          }
+          ctx.stroke();
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true, repeat: [1, 1] }),
+          bumpMap: this._toTexture(bCan, { srgb: false, repeat: [1, 1] })
+        };
+        this.cache.portalStone = result;
+        return result;
+      }
+
+      /** 4. Stylized Warm Wood Grain (Watchtowers, Fences, Shelving) */
+      getWoodTextures() {
+        if (this.cache.wood) return this.cache.wood;
+        const size = 512;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(701);
+
+        ctx.fillStyle = '#8b572a';
+        ctx.fillRect(0, 0, size, size);
+        bCtx.fillStyle = '#808080';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Horizontal plank bands
+        const planks = 6;
+        const ph = size / planks;
+        for (let p = 0; p < planks; p++) {
+          const py = p * ph;
+          const tint = (rand() - 0.5) * 20;
+          ctx.fillStyle = `rgb(${138 + tint}, ${84 + tint * 0.7}, ${42 + tint * 0.4})`;
+          ctx.fillRect(0, py, size, ph);
+
+          // Grain streaks
+          for (let g = 0; g < 26; g++) {
+            const gy = py + rand() * ph;
+            ctx.strokeStyle = rand() > 0.5 ? 'rgba(65, 34, 14, 0.32)' : 'rgba(186, 128, 70, 0.25)';
+            ctx.lineWidth = 1.5 + rand() * 3;
+            ctx.beginPath();
+            ctx.moveTo(0, gy);
+            ctx.bezierCurveTo(size * 0.33, gy + (rand() - 0.5) * 10, size * 0.66, gy + (rand() - 0.5) * 10, size, gy);
+            ctx.stroke();
+
+            bCtx.strokeStyle = rand() > 0.5 ? 'rgba(45,45,45,0.4)' : 'rgba(200,200,200,0.3)';
+            bCtx.lineWidth = 2;
+            bCtx.beginPath(); bCtx.moveTo(0, gy); bCtx.lineTo(size, gy); bCtx.stroke();
+          }
+
+          // Dark plank seam
+          ctx.fillStyle = 'rgba(40, 20, 8, 0.65)';
+          ctx.fillRect(0, py, size, 3);
+          bCtx.fillStyle = '#181818';
+          bCtx.fillRect(0, py, size, 4);
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true }),
+          bumpMap: this._toTexture(bCan, { srgb: false })
+        };
+        this.cache.wood = result;
+        return result;
+      }
+
+      /** 5. Stylized Supply Crate Texture (framed wood planks + diagonal cross brace) */
+      getCrateTextures() {
+        if (this.cache.crate) return this.cache.crate;
+        const size = 256;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+
+        // Inner wood panels
+        ctx.fillStyle = '#9c6631';
+        ctx.fillRect(0, 0, size, size);
+        bCtx.fillStyle = '#707070';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Panel horizontal lines
+        for (let y = 32; y < size; y += 38) {
+          ctx.fillStyle = 'rgba(54, 28, 10, 0.45)';
+          ctx.fillRect(24, y, size - 48, 3);
+        }
+
+        // Diagonal cross brace
+        ctx.save();
+        ctx.strokeStyle = '#b97b3c';
+        ctx.lineWidth = 28;
+        ctx.beginPath();
+        ctx.moveTo(24, 24);
+        ctx.lineTo(size - 24, size - 24);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(52, 26, 8, 0.6)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(26, 26, size - 52, size - 52);
+        ctx.restore();
+
+        // Outer raised border frame
+        ctx.strokeStyle = '#c48645';
+        ctx.lineWidth = 32;
+        ctx.strokeRect(16, 16, size - 32, size - 32);
+
+        bCtx.strokeStyle = '#e5e5e5';
+        bCtx.lineWidth = 32;
+        bCtx.strokeRect(16, 16, size - 32, size - 32);
+
+        // Dark outer outline + nail rivets
+        ctx.strokeStyle = '#4a2810';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, size - 4, size - 4);
+        ctx.fillStyle = '#3b2412';
+        const nails = [[18,18], [size-18,18], [18,size-18], [size-18,size-18]];
+        for (const [nx, ny] of nails) {
+          ctx.beginPath(); ctx.arc(nx, ny, 5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true }),
+          bumpMap: this._toTexture(bCan, { srgb: false })
+        };
+        this.cache.crate = result;
+        return result;
+      }
+
+      /** 6. Canvas Tent Fabric (Olive Green or Warm Tan variant) */
+      getCanvasTextures(variant = 'olive') {
+        const key = `canvas_${variant}`;
+        if (this.cache[key]) return this.cache[key];
+        const size = 512;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(variant === 'olive' ? 303 : 505);
+
+        const baseTop = variant === 'olive' ? '#7b8c42' : '#b89462';
+        const baseBot = variant === 'olive' ? '#58662d' : '#8b6a41';
+        const grad = ctx.createLinearGradient(0, 0, 0, size);
+        grad.addColorStop(0, baseTop);
+        grad.addColorStop(1, baseBot);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        bCtx.fillStyle = '#808080';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Subtle woven canvas crosshatch & painterly folds
+        for (let i = 0; i < 6; i++) {
+          const x = (i / 6) * size + 20;
+          const fg = ctx.createLinearGradient(x - 28, 0, x + 28, 0);
+          fg.addColorStop(0, 'rgba(0,0,0,0)');
+          fg.addColorStop(0.5, 'rgba(0,0,0,0.14)');
+          fg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = fg;
+          ctx.fillRect(x - 28, 0, 56, size);
+
+          bCtx.fillStyle = 'rgba(40,40,40,0.35)';
+          bCtx.fillRect(x - 6, 0, 12, size);
+        }
+
+        // Stitched canvas seams
+        ctx.strokeStyle = 'rgba(30, 36, 18, 0.35)';
+        ctx.setLineDash([8, 6]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, size * 0.5); ctx.lineTo(size, size * 0.5);
+        ctx.moveTo(size * 0.5, 0); ctx.lineTo(size * 0.5, size);
+        ctx.stroke();
+
+        // Subtle weave noise
+        for (let i = 0; i < 800; i++) {
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,230,0.06)' : 'rgba(20,20,10,0.08)';
+          ctx.fillRect(rand() * size, rand() * size, 6, 2);
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true }),
+          bumpMap: this._toTexture(bCan, { srgb: false })
+        };
+        this.cache[key] = result;
+        return result;
+      }
+
+      /** 7. Concrete Bunker Texture */
+      getConcreteTextures() {
+        if (this.cache.concrete) return this.cache.concrete;
+        const size = 512;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(808);
+
+        ctx.fillStyle = '#9b9a8e';
+        ctx.fillRect(0, 0, size, size);
+        bCtx.fillStyle = '#858585';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Concrete wear patches
+        for (let i = 0; i < 450; i++) {
+          const x = rand() * size;
+          const y = rand() * size;
+          const r = 8 + rand() * 30;
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(182, 182, 168, 0.2)' : 'rgba(84, 84, 74, 0.2)';
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Formwork panel seams & bolt holes
+        ctx.strokeStyle = 'rgba(65, 65, 58, 0.45)';
+        ctx.lineWidth = 3;
+        for (let i = 1; i < 4; i++) {
+          ctx.beginPath(); ctx.moveTo(0, i * 128); ctx.lineTo(size, i * 128); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(i * 128, 0); ctx.lineTo(i * 128, size); ctx.stroke();
+          bCtx.strokeStyle = '#303030';
+          bCtx.lineWidth = 4;
+          bCtx.beginPath(); bCtx.moveTo(0, i * 128); bCtx.lineTo(size, i * 128); bCtx.stroke();
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true }),
+          bumpMap: this._toTexture(bCan, { srgb: false })
+        };
+        this.cache.concrete = result;
+        return result;
+      }
+
+      /** 8. Sandbag Burlap Texture */
+      getSandbagTextures() {
+        if (this.cache.sandbag) return this.cache.sandbag;
+        const size = 256;
+        const { canvas, ctx } = this._makeCanvas(size, size);
+        const { canvas: bCan, ctx: bCtx } = this._makeCanvas(size, size);
+        const rand = this._rng(606);
+
+        ctx.fillStyle = '#c5a474';
+        ctx.fillRect(0, 0, size, size);
+        bCtx.fillStyle = '#808080';
+        bCtx.fillRect(0, 0, size, size);
+
+        // Burlap weave lines
+        for (let y = 0; y < size; y += 6) {
+          ctx.fillStyle = 'rgba(110, 82, 46, 0.14)';
+          ctx.fillRect(0, y, size, 2);
+          bCtx.fillStyle = 'rgba(50, 50, 50, 0.35)';
+          bCtx.fillRect(0, y, size, 2);
+        }
+        for (let x = 0; x < size; x += 6) {
+          ctx.fillStyle = 'rgba(255, 236, 198, 0.12)';
+          ctx.fillRect(x, 0, 2, size);
+        }
+        for (let i = 0; i < 120; i++) {
+          ctx.fillStyle = rand() > 0.5 ? 'rgba(145, 110, 68, 0.18)' : 'rgba(232, 205, 158, 0.15)';
+          ctx.beginPath();
+          ctx.arc(rand() * size, rand() * size, 6 + rand() * 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const result = {
+          map: this._toTexture(canvas, { srgb: true }),
+          bumpMap: this._toTexture(bCan, { srgb: false })
+        };
+        this.cache.sandbag = result;
+        return result;
+      }
+
+      /** 9. Faction Banner Texture (Olive green flag with gold emblem) */
+      getBannerTexture() {
+        if (this.cache.banner) return this.cache.banner;
+        const w = 256, h = 384;
+        const { canvas, ctx } = this._makeCanvas(w, h);
+
+        // Olive green banner field
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, '#627a30');
+        g.addColorStop(1, '#43551e');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+
+        // Gold border trim
+        ctx.strokeStyle = '#e5c158';
+        ctx.lineWidth = 14;
+        ctx.strokeRect(16, 16, w - 32, h - 42);
+
+        // Stylized military crossed rifles / star shield emblem
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.46);
+        ctx.strokeStyle = '#f6dc7a';
+        ctx.fillStyle = '#f6dc7a';
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+        // Crossed lines
+        ctx.beginPath(); ctx.moveTo(-48, -48); ctx.lineTo(48, 48); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(48, -48); ctx.lineTo(-48, 48); ctx.stroke();
+        // Top star / diamond crest
+        ctx.beginPath();
+        ctx.moveTo(0, -76);
+        ctx.lineTo(14, -54);
+        ctx.lineTo(0, -38);
+        ctx.lineTo(-14, -54);
+        ctx.closePath();
+        ctx.fill();
+        // Bottom chevron
+        ctx.beginPath();
+        ctx.moveTo(-36, 62);
+        ctx.lineTo(0, 86);
+        ctx.lineTo(36, 62);
+        ctx.stroke();
+        ctx.restore();
+
+        const tex = this._toTexture(canvas, { srgb: true, wrap: THREE.ClampToEdgeWrapping });
+        this.cache.banner = tex;
+        return tex;
+      }
+
+      /** 10. Swirling Ancient Energy Vortex (Two counter-rotating PBR/Emissive CanvasTextures) */
+      getVortexTextures() {
+        if (this.cache.vortex) return this.cache.vortex;
+
+        const makeSpiral = (layerIndex) => {
+          const size = 512;
+          const { canvas, ctx } = this._makeCanvas(size, size);
+          const cx = size / 2;
+          const cy = size / 2;
+          const maxR = size * 0.49;
+
+          if (layerIndex === 0) {
+            // Core solid swirling cosmos background
+            const bg = ctx.createRadialGradient(cx, cy, 4, cx, cy, maxR);
+            bg.addColorStop(0.0, '#ffffff');
+            bg.addColorStop(0.14, '#7df9ff');
+            bg.addColorStop(0.36, '#38bdf8');
+            bg.addColorStop(0.62, '#7c3aed');
+            bg.addColorStop(0.84, '#4c1d95');
+            bg.addColorStop(0.95, '#38bdf8');
+            bg.addColorStop(1.0, '#0c4a6e');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, size, size);
+          } else {
+            ctx.clearRect(0, 0, size, size);
+          }
+
+          // Paint luminous logarithmic spiral arms
+          const arms = layerIndex === 0 ? 5 : 4;
+          const dir = layerIndex === 0 ? 1 : -1;
+          for (let a = 0; a < arms; a++) {
+            const baseAngle = (a / arms) * Math.PI * 2;
+            for (let step = 0; step < 115; step++) {
+              const t = step / 115;
+              const r = t * maxR * 0.96;
+              const angle = baseAngle + dir * t * Math.PI * 3.1;
+              const x = cx + Math.cos(angle) * r;
+              const y = cy + Math.sin(angle) * r;
+              const blobR = (layerIndex === 0 ? 22 : 16) * (0.25 + t * 0.9) * (1 - t * 0.25);
+
+              const col =
+                t < 0.22
+                  ? 'rgba(230, 255, 255, 0.55)'
+                  : t < 0.52
+                  ? (a % 2 === 0 ? 'rgba(56, 226, 255, 0.36)' : 'rgba(217, 70, 239, 0.38)')
+                  : (a % 2 === 0 ? 'rgba(168, 85, 247, 0.34)' : 'rgba(56, 189, 248, 0.36)');
+
+              ctx.fillStyle = col;
+              ctx.beginPath();
+              ctx.arc(x, y, blobR, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
+          // Add bright starry energy specks
+          const rand = this._rng(layerIndex === 0 ? 777 : 888);
+          for (let s = 0; s < 95; s++) {
+            const ang = rand() * Math.PI * 2;
+            const dist = Math.sqrt(rand()) * maxR * 0.92;
+            const sx = cx + Math.cos(ang) * dist;
+            const sy = cy + Math.sin(ang) * dist;
+            const sr = 1.5 + rand() * 3.8;
+            ctx.fillStyle = rand() > 0.35 ? 'rgba(255,255,255,0.92)' : 'rgba(240, 171, 252, 0.9)';
+            ctx.beginPath();
+            ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Bright center core flare
+          const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * (layerIndex === 0 ? 0.22 : 0.16));
+          core.addColorStop(0, 'rgba(255, 255, 255, 1)');
+          core.addColorStop(0.45, 'rgba(125, 249, 255, 0.72)');
+          core.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          ctx.fillStyle = core;
+          ctx.beginPath();
+          ctx.arc(cx, cy, size * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+
+          return this._toTexture(canvas, { srgb: true, wrap: THREE.ClampToEdgeWrapping });
+        };
+
+        const result = {
+          layer1: makeSpiral(0),
+          layer2: makeSpiral(1)
+        };
+        this.cache.vortex = result;
+        return result;
+      }
+
+      /** 11. Volumetric Spotlight Beam Gradient Texture */
+      getSpotlightBeamTexture() {
+        if (this.cache.beam) return this.cache.beam;
+        const w = 128, h = 256;
+        const { canvas, ctx } = this._makeCanvas(w, h);
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0.0, 'rgba(255, 245, 170, 0.65)');
+        g.addColorStop(0.35, 'rgba(253, 224, 71, 0.28)');
+        g.addColorStop(1.0, 'rgba(253, 224, 71, 0.0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+
+        const tex = this._toTexture(canvas, { srgb: true, wrap: THREE.ClampToEdgeWrapping });
+        this.cache.beam = tex;
+        return tex;
+      }
+
+      /** 12. Stylized Chibi Soldier Face Texture (Expressive Boom Beach style) */
+      getSoldierFaceTexture(skinHex = '#f1be94') {
+        const key = `face_${skinHex}`;
+        if (this.cache[key]) return this.cache[key];
+        const w = 256, h = 128;
+        const { canvas, ctx } = this._makeCanvas(w, h);
+
+        // Skin tone base
+        ctx.fillStyle = skinHex;
+        ctx.fillRect(0, 0, w, h);
+
+        // Note: On Three.js SphereGeometry, u = 0.25 aligns with +Z when rotated cleanly
+        const fx = w * 0.5;
+        const fy = h * 0.54;
+
+        // Soft warm cheek blush
+        ctx.fillStyle = 'rgba(235, 118, 96, 0.28)';
+        ctx.beginPath(); ctx.ellipse(fx - 26, fy + 10, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(fx + 26, fy + 10, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Expressive cartoon eyes
+        const drawEye = (ex) => {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.ellipse(ex, fy - 2, 7.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#1e1b18';
+          ctx.beginPath(); ctx.arc(ex, fy - 1, 4.8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(ex - 1.8, fy - 3.5, 2.0, 0, Math.PI * 2); ctx.fill();
+        };
+        drawEye(fx - 16);
+        drawEye(fx + 16);
+
+        // Determined thick stylized eyebrows
+        ctx.strokeStyle = '#3b2414';
+        ctx.lineWidth = 4.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(fx - 24, fy - 15); ctx.lineTo(fx - 8, fy - 12); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(fx + 24, fy - 15); ctx.lineTo(fx + 8, fy - 12); ctx.stroke();
+
+        // Friendly confident cartoon grin
+        ctx.strokeStyle = '#733b24';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.arc(fx, fy + 10, 10, 0.22 * Math.PI, 0.78 * Math.PI);
+        ctx.stroke();
+
+        const tex = this._toTexture(canvas, { srgb: true, wrap: THREE.ClampToEdgeWrapping });
+        this.cache[key] = tex;
+        return tex;
+      }
+    }
+
+    /**
+     * ============================================================================
+     * MAIN 3D DIORAMA ENGINE & MODULAR ASSET BUILDER
+     * ============================================================================
+     */
+    class MilitaryPortalDioramaApp {
+      constructor() {
+        this.container = document.getElementById('viewport-container');
+        this.texFactory = new StylizedTextureFactory();
+        this.clock = new THREE.Clock();
+
+        // Runtime animation & state flags
+        this.isAnimating = true;
+        this.isWireframe = false;
+        this.elapsed = 0;
+        this.selectedModuleKey = 'Full_Diorama';
+        this.selectedObject = null;
+
+        // Animated entity registries
+        this.vortexLayers = [];
+        this.portalSparks = [];
+        this.portalRuneMeshes = [];
+        this.campfires = [];
+        this.spotlightSweeps = [];
+        this.soldiers = [];
+        this.modularRegistry = new Map();
+
+        // Smooth camera interpolation state
+        this.camLerp = {
+          active: false,
+          startPos: new THREE.Vector3(),
+          endPos: new THREE.Vector3(),
+          startTarget: new THREE.Vector3(),
+          endTarget: new THREE.Vector3(),
+          progress: 0
+        };
+
+        // Raycaster for direct click-to-inspect in 3D viewport
+        this.raycaster = new THREE.Raycaster();
+        this.pointerDownPos = new THREE.Vector2();
+
+        this._initRendererAndScene();
+        this._initLights();
+        this._buildSharedMaterials();
+        this._buildDioramaHierarchy();
+        this._initSelectionHelper();
+        this._initUI();
+        this._initEvents();
+        this._updateTelemetry();
+        this._applyLightingPreset('sunset');
+
+        // Hide loader gracefully once built
+        requestAnimationFrame(() => {
+          const loader = document.getElementById('loading-screen');
+          if (loader) loader.classList.add('hidden-loader');
+        });
+      }
+
+      /** Initialize WebGLRenderer, Scene, Camera, and OrbitControls */
+      _initRendererAndScene() {
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x131b2e, 0.0115);
+
+        const w = this.container.clientWidth || window.innerWidth;
+        const h = this.container.clientHeight || window.innerHeight;
+
+        this.camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 220);
+        this.camera.position.set(1.5, 17.5, 25.5);
+
+        this.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance'
+        });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.setSize(w, h);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.12;
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.container.appendChild(this.renderer.domElement);
+
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.06;
+        this.controls.maxPolarAngle = Math.PI * 0.485;
+        this.controls.minDistance = 6;
+        this.controls.maxDistance = 54;
+        this.controls.target.set(0, 1.6, 0.4);
+        this.controls.update();
+      }
+
+      /** Create Scene Lights (configured dynamically by presets) */
+      _initLights() {
+        this.lights = {};
+
+        // Hemisphere sky/ground ambient bounce
+        this.lights.hemi = new THREE.HemisphereLight(0x9fb8ff, 0x5c3c28, 0.85);
+        this.scene.add(this.lights.hemi);
+
+        // Main key directional light casting crisp stylized shadows
+        this.lights.sun = new THREE.DirectionalLight(0xffb478, 2.35);
+        this.lights.sun.position.set(-16, 24, 14);
+        this.lights.sun.castShadow = true;
+        this.lights.sun.shadow.mapSize.set(2048, 2048);
+        this.lights.sun.shadow.camera.near = 4;
+        this.lights.sun.shadow.camera.far = 65;
+        const d = 21;
+        this.lights.sun.shadow.camera.left = -d;
+        this.lights.sun.shadow.camera.right = d;
+        this.lights.sun.shadow.camera.top = d;
+        this.lights.sun.shadow.camera.bottom = -d;
+        this.lights.sun.shadow.bias = -0.0005;
+        this.scene.add(this.lights.sun);
+
+        // Warm sunset rim fill from rear-right
+        this.lights.rim = new THREE.DirectionalLight(0xf472b6, 0.7);
+        this.lights.rim.position.set(18, 12, -18);
+        this.scene.add(this.lights.rim);
+      }
+
+      /** Pre-build reusable hand-painted PBR materials */
+      _buildSharedMaterials() {
+        const tf = this.texFactory;
+        const terrainTex = tf.getTerrainTextures();
+        const cliffTex = tf.getCliffTextures();
+        const stoneTex = tf.getPortalStoneTextures();
+        const woodTex = tf.getWoodTextures();
+        const crateTex = tf.getCrateTextures();
+        const canvasOliveTex = tf.getCanvasTextures('olive');
+        const canvasTanTex = tf.getCanvasTextures('tan');
+        const concreteTex = tf.getConcreteTextures();
+        const sandbagTex = tf.getSandbagTextures();
+        const bannerTex = tf.getBannerTexture();
+        const beamTex = tf.getSpotlightBeamTexture();
+
+        this.mats = {
+          terrainTop: new THREE.MeshStandardMaterial({
+            map: terrainTex.map,
+            bumpMap: terrainTex.bumpMap,
+            bumpScale: 0.14,
+            roughness: 0.88,
+            metalness: 0.02
+          }),
+          grassRim: new THREE.MeshStandardMaterial({
+            color: 0x679d2a,
+            roughness: 0.82,
+            metalness: 0.02,
+            flatShading: true
+          }),
+          cliffRock: new THREE.MeshStandardMaterial({
+            map: cliffTex.map,
+            bumpMap: cliffTex.bumpMap,
+            bumpScale: 0.25,
+            roughness: 0.92,
+            metalness: 0.02,
+            flatShading: true
+          }),
+          boulder: new THREE.MeshStandardMaterial({
+            color: 0x8b95a5,
+            bumpMap: stoneTex.bumpMap,
+            bumpScale: 0.15,
+            roughness: 0.85,
+            metalness: 0.04,
+            flatShading: true
+          }),
+          rootWood: new THREE.MeshStandardMaterial({
+            color: 0x5c361c,
+            bumpMap: woodTex.bumpMap,
+            bumpScale: 0.18,
+            roughness: 0.9
+          }),
+          pineDark: new THREE.MeshStandardMaterial({ color: 0x2d6a2d, roughness: 0.8, flatShading: true }),
+          pineMid: new THREE.MeshStandardMaterial({ color: 0x3e8831, roughness: 0.78, flatShading: true }),
+          pineBright: new THREE.MeshStandardMaterial({ color: 0x5ba336, roughness: 0.75, flatShading: true }),
+          trunk: new THREE.MeshStandardMaterial({ color: 0x653b1e, roughness: 0.9, flatShading: true }),
+
+          portalStone: new THREE.MeshStandardMaterial({
+            map: stoneTex.map,
+            bumpMap: stoneTex.bumpMap,
+            bumpScale: 0.16,
+            roughness: 0.74,
+            metalness: 0.08
+          }),
+          portalDarkStone: new THREE.MeshStandardMaterial({
+            color: 0x454f63,
+            bumpMap: stoneTex.bumpMap,
+            bumpScale: 0.12,
+            roughness: 0.78,
+            metalness: 0.14
+          }),
+          runeCrystal: new THREE.MeshStandardMaterial({
+            color: 0xffa62b,
+            emissive: 0xff6b00,
+            emissiveIntensity: 2.1,
+            roughness: 0.22,
+            metalness: 0.15
+          }),
+          powerMetal: new THREE.MeshStandardMaterial({
+            color: 0x55647a,
+            roughness: 0.42,
+            metalness: 0.62
+          }),
+          darkMetal: new THREE.MeshStandardMaterial({
+            color: 0x2a313c,
+            roughness: 0.45,
+            metalness: 0.68
+          }),
+          ledCyan: new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            emissive: 0x38bdf8,
+            emissiveIntensity: 2.2,
+            roughness: 0.2
+          }),
+          wood: new THREE.MeshStandardMaterial({
+            map: woodTex.map,
+            bumpMap: woodTex.bumpMap,
+            bumpScale: 0.14,
+            roughness: 0.82,
+            metalness: 0.04
+          }),
+          woodDark: new THREE.MeshStandardMaterial({
+            color: 0x5a3418,
+            bumpMap: woodTex.bumpMap,
+            bumpScale: 0.12,
+            roughness: 0.86
+          }),
+          crate: new THREE.MeshStandardMaterial({
+            map: crateTex.map,
+            bumpMap: crateTex.bumpMap,
+            bumpScale: 0.15,
+            roughness: 0.78
+          }),
+          canvasOlive: new THREE.MeshStandardMaterial({
+            map: canvasOliveTex.map,
+            bumpMap: canvasOliveTex.bumpMap,
+            bumpScale: 0.1,
+            roughness: 0.86,
+            side: THREE.DoubleSide
+          }),
+          canvasTan: new THREE.MeshStandardMaterial({
+            map: canvasTanTex.map,
+            bumpMap: canvasTanTex.bumpMap,
+            bumpScale: 0.1,
+            roughness: 0.86,
+            side: THREE.DoubleSide
+          }),
+          tentDark: new THREE.MeshStandardMaterial({
+            color: 0x171412,
+            roughness: 0.98
+          }),
+          concrete: new THREE.MeshStandardMaterial({
+            map: concreteTex.map,
+            bumpMap: concreteTex.bumpMap,
+            bumpScale: 0.15,
+            roughness: 0.84,
+            metalness: 0.05
+          }),
+          sandbag: new THREE.MeshStandardMaterial({
+            map: sandbagTex.map,
+            bumpMap: sandbagTex.bumpMap,
+            bumpScale: 0.16,
+            roughness: 0.9
+          }),
+          banner: new THREE.MeshStandardMaterial({
+            map: bannerTex,
+            roughness: 0.75,
+            side: THREE.DoubleSide
+          }),
+          spotlightLens: new THREE.MeshStandardMaterial({
+            color: 0xfffbeb,
+            emissive: 0xfde047,
+            emissiveIntensity: 3.0,
+            roughness: 0.1
+          }),
+          spotlightBeam: new THREE.MeshBasicMaterial({
+            map: beamTex,
+            color: 0xfef08a,
+            transparent: true,
+            opacity: 0.34,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide
+          }),
+          jeepOlive: new THREE.MeshStandardMaterial({
+            color: 0x5c7232,
+            roughness: 0.54,
+            metalness: 0.22
+          }),
+          jeepCanopy: new THREE.MeshStandardMaterial({
+            color: 0x6f8241,
+            bumpMap: canvasOliveTex.bumpMap,
+            bumpScale: 0.08,
+            roughness: 0.82
+          }),
+          tireRubber: new THREE.MeshStandardMaterial({
+            color: 0x22252a,
+            roughness: 0.88,
+            metalness: 0.05
+          }),
+          glassWindshield: new THREE.MeshStandardMaterial({
+            color: 0x7dd3fc,
+            roughness: 0.12,
+            metalness: 0.35
+          }),
+          headlight: new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: 0xfef3c7,
+            emissiveIntensity: 2.2
+          }),
+          ammoGreen: new THREE.MeshStandardMaterial({
+            color: 0x4d682b,
+            roughness: 0.58,
+            metalness: 0.25
+          }),
+          soldierUniform: new THREE.MeshStandardMaterial({
+            color: 0x5c7532,
+            roughness: 0.76,
+            metalness: 0.04
+          }),
+          soldierVest: new THREE.MeshStandardMaterial({
+            color: 0x435622,
+            roughness: 0.72
+          }),
+          soldierHelmet: new THREE.MeshStandardMaterial({
+            color: 0x56722d,
+            roughness: 0.44,
+            metalness: 0.18
+          }),
+          soldierBoot: new THREE.MeshStandardMaterial({
+            color: 0x2f231b,
+            roughness: 0.78
+          }),
+          soldierSkin: new THREE.MeshStandardMaterial({
+            color: 0xf1be94,
+            roughness: 0.65
+          }),
+          goldBrass: new THREE.MeshStandardMaterial({
+            color: 0xeab308,
+            roughness: 0.35,
+            metalness: 0.72
+          })
+        };
+      }
+
+      /** Utility: Enable shadow casting/receiving cleanly across a group */
+      _enableShadows(obj, cast = true, receive = true) {
+        obj.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = cast;
+            child.receiveShadow = receive;
+          }
+        });
+      }
+
+      /** Build the entire modular 3D scene hierarchy */
+      _buildDioramaHierarchy() {
+        this.dioramaRoot = new THREE.Group();
+        this.dioramaRoot.name = 'Military_Portal_Camp_Diorama';
+        this.scene.add(this.dioramaRoot);
+
+        // Register top-level modular groups
+        this.modularRegistry.set('Full_Diorama', {
+          label: 'Full Diorama',
+          group: this.dioramaRoot,
+          camPos: [1.5, 17.5, 25.5],
+          camTarget: [0, 1.6, 0.4]
+        });
+
+        // 1. Floating Island Terrain
+        const terrainGroup = this._buildTerrain();
+        this.dioramaRoot.add(terrainGroup);
+
+        // 2. Centerpiece Ancient Stone Portal & Vortex
+        const { portalGroup, vortexGroup } = this._buildPortalAssembly();
+        this.dioramaRoot.add(portalGroup);
+
+        // 3. Concrete Bunker
+        const bunkerGroup = this._buildConcreteBunker();
+        this.dioramaRoot.add(bunkerGroup);
+
+        // 4. Wooden Watchtowers & Spotlights
+        const watchtowersGroup = this._buildWatchtowers();
+        this.dioramaRoot.add(watchtowersGroup);
+
+        // 5. Olive & Tan Canvas Tents
+        const tentsGroup = this._buildTents();
+        this.dioramaRoot.add(tentsGroup);
+
+        // 6. Stylized Military Jeeps
+        const jeepsGroup = this._buildJeeps();
+        this.dioramaRoot.add(jeepsGroup);
+
+        // 7. Sandbag Barricades & Flickering Campfire Outposts
+        const outpostsGroup = this._buildCampfireOutposts();
+        this.dioramaRoot.add(outpostsGroup);
+
+        // 8. Camp Props (Crates, Ammo Boxes, Shelving, Fences)
+        const propsGroup = this._buildCampProps();
+        this.dioramaRoot.add(propsGroup);
+
+        // 9. Rig-Ready Chibi Cartoon Military Soldiers
+        const soldiersGroup = this._buildSoldiers();
+        this.dioramaRoot.add(soldiersGroup);
+
+        // Populate modular outliner registry with dedicated inspection viewpoints
+        this.modularRegistry.set('Portal_Assembly', {
+          label: 'Portal_Assembly',
+          group: portalGroup,
+          camPos: [0.6, 6.2, 11.2],
+          camTarget: [0, 3.9, -1.6]
+        });
+        this.modularRegistry.set('Portal_Vortex', {
+          label: 'Portal_Vortex',
+          group: vortexGroup,
+          camPos: [0, 5.2, 7.6],
+          camTarget: [0, 4.6, -1.6]
+        });
+        this.modularRegistry.set('Structure_ConcreteBunker', {
+          label: 'Structure_ConcreteBunker',
+          group: bunkerGroup,
+          camPos: [-1.5, 6.8, 1.8],
+          camTarget: [-6.8, 1.6, -6.5]
+        });
+        this.modularRegistry.set('Structure_Watchtowers', {
+          label: 'Structure_Watchtowers',
+          group: watchtowersGroup,
+          camPos: [17.8, 9.5, 13.5],
+          camTarget: [9.5, 3.8, 2.0]
+        });
+        this.modularRegistry.set('Camp_Tents', {
+          label: 'Camp_Tents',
+          group: tentsGroup,
+          camPos: [-16.5, 9.5, 9.5],
+          camTarget: [-8.5, 1.2, -1.5]
+        });
+        this.modularRegistry.set('Vehicle_Jeeps', {
+          label: 'Vehicle_Jeeps',
+          group: jeepsGroup,
+          camPos: [14.2, 5.8, 6.4],
+          camTarget: [8.2, 1.1, -0.3]
+        });
+        this.modularRegistry.set('Campfire_Outposts', {
+          label: 'Campfire_Outposts',
+          group: outpostsGroup,
+          camPos: [-1.2, 7.2, 13.8],
+          camTarget: [-1.4, 1.0, 4.9]
+        });
+        this.modularRegistry.set('Camp_Props', {
+          label: 'Camp_Props',
+          group: propsGroup,
+          camPos: [-16.2, 5.8, 8.8],
+          camTarget: [-10.8, 1.0, 2.6]
+        });
+        this.modularRegistry.set('NPC_Soldiers', {
+          label: 'NPC_Soldiers (14)',
+          group: soldiersGroup,
+          camPos: [-1.8, 5.8, 13.2],
+          camTarget: [-0.8, 1.1, 4.4]
+        });
+        this.modularRegistry.set('Diorama_Terrain', {
+          label: 'Diorama_Terrain',
+          group: terrainGroup,
+          camPos: [-14.5, 10.5, 22.0],
+          camTarget: [0, -0.8, 0]
+        });
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 1. FLOATING ISLAND TERRAIN (`Diorama_Terrain`)
+       * ------------------------------------------------------------------------
+       */
+      _buildTerrain() {
+        const group = new THREE.Group();
+        group.name = 'Diorama_Terrain';
+
+        const W = 28.4;
+        const D = 23.6;
+
+        // Top sculpted ground surface with planar UV mapping for painterly dirt/grass blend
+        const topGeo = new THREE.PlaneGeometry(W, D, 32, 28);
+        topGeo.rotateX(-Math.PI / 2);
+        const pos = topGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const z = pos.getZ(i);
+          // Slight organic corner rounding & gentle edge undulation
+          const nx = x / (W * 0.5);
+          const nz = z / (D * 0.5);
+          const edgeDist = Math.max(Math.abs(nx), Math.abs(nz));
+          // Gently round corners inward
+          const r2 = nx * nx + nz * nz;
+          if (r2 > 1.35) {
+            const shrink = 1 - (r2 - 1.35) * 0.14;
+            pos.setX(i, x * shrink);
+            pos.setZ(i, z * shrink);
+          }
+          // Subtle raised grassy knolls along the rear perimeter, flat camp interior
+          let y = 0;
+          if (edgeDist > 0.78) {
+            y += Math.sin(x * 0.55) * Math.cos(z * 0.55) * 0.14;
+          }
+          if (z < -8.2) {
+            y += (Math.abs(z) - 8.2) * 0.08;
+          }
+          pos.setY(i, y);
+        }
+        topGeo.computeVertexNormals();
+        const topMesh = new THREE.Mesh(topGeo, this.mats.terrainTop);
+        topMesh.name = 'Terrain_GroundSurface';
+        topMesh.receiveShadow = true;
+        group.add(topMesh);
+
+        // Chunky sculpted faceted floating rock/earth underside + grass overhang skirt
+        const makeIslandRingShape = (rx, rz, cornerR) => {
+          const s = new THREE.Shape();
+          const hw = rx - cornerR;
+          const hd = rz - cornerR;
+          s.moveTo(-hw, -rz);
+          s.lineTo(hw, -rz);
+          s.quadraticCurveTo(rx, -rz, rx, -hd);
+          s.lineTo(rx, hd);
+          s.quadraticCurveTo(rx, rz, hw, rz);
+          s.lineTo(-hw, rz);
+          s.quadraticCurveTo(-rx, rz, -rx, hd);
+          s.lineTo(-rx, -hd);
+          s.quadraticCurveTo(-rx, -rz, -hw, -rz);
+          return s;
+        };
+
+        // Chunky emerald grass lip overhanging the cliffs
+        const grassShape = makeIslandRingShape(W * 0.506, D * 0.506, 2.8);
+        const grassGeo = new THREE.ExtrudeGeometry(grassShape, {
+          depth: 0.52,
+          bevelEnabled: true,
+          bevelThickness: 0.16,
+          bevelSize: 0.18,
+          bevelSegments: 1,
+          curveSegments: 8
+        });
+        grassGeo.rotateX(Math.PI / 2);
+        // Perturb skirt edges for hand-sculpted cartoon turf overhang
+        const gPos = grassGeo.attributes.position;
+        for (let i = 0; i < gPos.count; i++) {
+          const x = gPos.getX(i);
+          const y = gPos.getY(i);
+          const z = gPos.getZ(i);
+          if (y < -0.1) {
+            const wave = Math.sin(x * 0.8 + z * 0.6) * 0.18 + Math.cos(x * 1.4 - z * 1.1) * 0.1;
+            gPos.setY(i, y + wave);
+          }
+        }
+        grassGeo.computeVertexNormals();
+        const grassLip = new THREE.Mesh(grassGeo, this.mats.grassRim);
+        grassLip.name = 'Terrain_GrassOverhang';
+        grassLip.position.y = -0.02;
+        grassLip.receiveShadow = true;
+        grassLip.castShadow = true;
+        group.add(grassLip);
+
+        // Faceted tapered floating earth cliff base
+        const cliffGeo = new THREE.CylinderGeometry(1, 0.78, 4.4, 24, 5);
+        const cPos = cliffGeo.attributes.position;
+        for (let i = 0; i < cPos.count; i++) {
+          const vx = cPos.getX(i);
+          const vy = cPos.getY(i);
+          const vz = cPos.getZ(i);
+          // Stretch cylinder into a chunky rounded rectangle matching island footprint
+          const angle = Math.atan2(vz, vx);
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+          // Superellipse shaping (n = 3.6) for chunky diorama slab
+          const p = 3.6;
+          const denom = Math.pow(Math.pow(Math.abs(cosA), p) + Math.pow(Math.abs(sinA), p), 1 / p) || 1;
+          const rad = Math.hypot(vx, vz);
+          let sx = (cosA / denom) * rad * (W * 0.495);
+          let sz = (sinA / denom) * rad * (D * 0.495);
+
+          // Low-poly rock facet displacement on vertical cliff sides
+          const depthFactor = (2.2 - vy) / 4.4; // 0 at top, 1 at bottom
+          if (rad > 0.3) {
+            const noise =
+              Math.sin(angle * 7 + vy * 1.3) * 0.42 +
+              Math.cos(angle * 13 - vy * 1.8) * 0.25;
+            sx += cosA * noise * (0.4 + depthFactor * 0.6);
+            sz += sinA * noise * (0.4 + depthFactor * 0.6);
+          }
+          // Slightly jagged bottom rock plane
+          let sy = vy;
+          if (vy < -1.9) {
+            sy -= Math.abs(Math.sin(sx * 0.28) * Math.cos(sz * 0.28)) * 0.85;
+          }
+          cPos.setXYZ(i, sx, sy, sz);
+        }
+        cliffGeo.computeVertexNormals();
+        const cliffMesh = new THREE.Mesh(cliffGeo, this.mats.cliffRock);
+        cliffMesh.name = 'Terrain_CliffBase';
+        cliffMesh.position.y = -2.42;
+        cliffMesh.receiveShadow = true;
+        cliffMesh.castShadow = true;
+        group.add(cliffMesh);
+
+        // Sculpted stylized protruding tree roots clinging to the lower-left cliff face
+        const rootsGroup = new THREE.Group();
+        rootsGroup.name = 'Terrain_CliffRoots';
+        const rootPaths = [
+          [[-11.8, -0.3, 8.6], [-12.3, -1.5, 9.1], [-12.0, -2.9, 9.0], [-11.3, -4.1, 8.5]],
+          [[-12.1, -0.5, 7.6], [-12.7, -1.7, 7.9], [-12.5, -3.2, 7.4]],
+          [[-8.2, -0.35, 11.4], [-8.5, -1.6, 11.9], [-7.9, -3.1, 11.6], [-7.2, -4.2, 10.9]],
+          [[-7.8, -0.6, 11.5], [-7.1, -1.8, 12.0], [-6.6, -3.3, 11.3]],
+          [[-13.6, -0.4, 4.4], [-14.2, -1.8, 4.8], [-13.8, -3.3, 4.4]]
+        ];
+        rootPaths.forEach((pts, idx) => {
+          const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)));
+          const tubeGeo = new THREE.TubeGeometry(curve, 12, 0.22 - (idx % 2) * 0.05, 6, false);
+          const rootMesh = new THREE.Mesh(tubeGeo, this.mats.rootWood);
+          rootMesh.castShadow = true;
+          rootMesh.receiveShadow = true;
+          rootsGroup.add(rootMesh);
+        });
+        group.add(rootsGroup);
+
+        // Stylized grey boulders (embedded in cliff & framing terrain borders)
+        const bouldersGroup = new THREE.Group();
+        bouldersGroup.name = 'Terrain_Boulders';
+        const boulderSpecs = [
+          // Top edge rocks
+          { p: [-12.8, 0.55, 2.2], s: [1.3, 0.95, 1.1], r: 0.4 },
+          { p: [-11.9, 0.35, 3.6], s: [0.85, 0.65, 0.8], r: 1.1 },
+          { p: [-4.2, 0.65, -7.8], s: [1.5, 1.05, 1.2], r: 0.6 },
+          { p: [3.2, 0.55, -8.8], s: [1.25, 0.85, 1.0], r: 2.1 },
+          { p: [12.1, 0.45, -1.2], s: [1.0, 0.72, 0.9], r: 1.4 },
+          { p: [-12.8, 0.45, -5.8], s: [1.1, 0.75, 0.95], r: 0.9 },
+          // Cliff-embedded rocks on front-left & front-right faces
+          { p: [-10.2, -2.2, 10.6], s: [1.45, 1.5, 0.95], r: 0.3 },
+          { p: [-3.5, -2.5, 11.5], s: [1.15, 1.0, 0.8], r: 0.8 },
+          { p: [11.6, -2.1, 8.8], s: [1.3, 1.25, 0.95], r: 1.7 }
+        ];
+        const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+        boulderSpecs.forEach((b, i) => {
+          const rock = new THREE.Mesh(rockGeo, this.mats.boulder);
+          rock.name = `Boulder_${i + 1}`;
+          rock.position.set(...b.p);
+          rock.scale.set(...b.s);
+          rock.rotation.set(b.r * 0.4, b.r, b.r * 0.25);
+          rock.castShadow = true;
+          rock.receiveShadow = true;
+          bouldersGroup.add(rock);
+        });
+        group.add(bouldersGroup);
+
+        // Stylized Layered Cartoon Pine Trees framing back-left, back-center, and right borders
+        const treesGroup = new THREE.Group();
+        treesGroup.name = 'Terrain_PineTrees';
+        const treeSpecs = [
+          // Back-left forest cluster
+          { x: -13.1, z: -0.6, s: 1.05 },
+          { x: -12.6, z: -3.2, s: 1.25 },
+          { x: -11.4, z: -6.4, s: 1.15 },
+          { x: -9.8, z: -8.6, s: 1.3 },
+          { x: -7.8, z: -10.0, s: 1.12 },
+          // Back-center cluster behind portal
+          { x: -3.0, z: -10.2, s: 1.35 },
+          { x: -1.4, z: -10.5, s: 1.15 },
+          { x: 1.8, z: -10.1, s: 1.22 },
+          { x: 4.1, z: -9.8, s: 1.05 },
+          // Back-right & right edge forest cluster
+          { x: 7.4, z: -9.6, s: 1.2 },
+          { x: 11.4, z: -7.8, s: 1.18 },
+          { x: 12.6, z: -4.8, s: 1.32 },
+          { x: 13.0, z: -1.8, s: 1.2 },
+          { x: 13.2, z: 1.4, s: 1.12 },
+          { x: 12.8, z: 6.8, s: 0.95 }
+        ];
+
+        const createPineTree = (scale, idx) => {
+          const t = new THREE.Group();
+          t.name = `PineTree_${idx + 1}`;
+
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 1.5, 7), this.mats.trunk);
+          trunk.position.y = 0.72;
+          trunk.castShadow = true;
+          trunk.receiveShadow = true;
+          t.add(trunk);
+
+          // 4 chunky stylized conical foliage tiers
+          const tiers = [
+            { r: 1.48, h: 1.75, y: 1.75, mat: this.mats.pineDark },
+            { r: 1.22, h: 1.6, y: 2.75, mat: this.mats.pineMid },
+            { r: 0.92, h: 1.4, y: 3.65, mat: this.mats.pineMid },
+            { r: 0.58, h: 1.15, y: 4.42, mat: this.mats.pineBright }
+          ];
+          tiers.forEach((tier, ti) => {
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(tier.r, tier.h, 7), tier.mat);
+            cone.position.y = tier.y;
+            cone.rotation.y = ti * 0.45 + idx * 0.7;
+            cone.castShadow = true;
+            cone.receiveShadow = true;
+            t.add(cone);
+          });
+
+          t.scale.setScalar(scale);
+          return t;
+        };
+
+        treeSpecs.forEach((sp, i) => {
+          const tree = createPineTree(sp.s, i);
+          tree.position.set(sp.x, 0, sp.z);
+          treesGroup.add(tree);
+        });
+        group.add(treesGroup);
+
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 2. CENTERPIECE ANCIENT STONE PORTAL (`Portal_Assembly` + `Portal_Vortex`)
+       * ------------------------------------------------------------------------
+       */
+      _buildPortalAssembly() {
+        const portalGroup = new THREE.Group();
+        portalGroup.name = 'Portal_Assembly';
+        portalGroup.position.set(0, 0, -1.6);
+
+        // 2A. Wide Stone Steps & Stepped Plinth (`Portal_Steps`)
+        const stepsGroup = new THREE.Group();
+        stepsGroup.name = 'Portal_Steps';
+
+        // Main wide chunky carved base foundation
+        const mainPlinth = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.95, 4.4), this.mats.portalStone);
+        mainPlinth.position.set(0, 0.475, 0);
+        stepsGroup.add(mainPlinth);
+
+        const upperPlinth = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.35, 3.3), this.mats.portalDarkStone);
+        upperPlinth.position.set(0, 1.05, -0.1);
+        stepsGroup.add(upperPlinth);
+
+        // Stepped side blocks flanking the base
+        [-4.9, 4.9].forEach((sx) => {
+          const flank = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.58, 2.8), this.mats.portalStone);
+          flank.position.set(sx, 0.29, 0.3);
+          stepsGroup.add(flank);
+        });
+
+        // 4 wide stone staircase tiers leading up to the portal
+        for (let i = 0; i < 4; i++) {
+          const stepW = 4.6 - i * 0.22;
+          const stepH = 0.25;
+          const stepD = 0.68;
+          const step = new THREE.Mesh(new THREE.BoxGeometry(stepW, stepH, stepD), this.mats.portalStone);
+          step.position.set(0, 0.125 + i * 0.25, 3.15 - i * 0.54);
+          stepsGroup.add(step);
+        }
+        // Decorative low curb blocks flanking the stairs
+        [-2.45, 2.45].forEach((sx) => {
+          const curb = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 2.2), this.mats.portalDarkStone);
+          curb.position.set(sx, 0.325, 2.1);
+          curb.rotation.x = 0.28;
+          stepsGroup.add(curb);
+        });
+        this._enableShadows(stepsGroup, true, true);
+        portalGroup.add(stepsGroup);
+
+        // 2B. Large Circular Ancient Stone Portal Ring (`Portal_Gate`)
+        const gateGroup = new THREE.Group();
+        gateGroup.name = 'Portal_Gate';
+        const ringCenterY = 4.55;
+        const ringRadius = 3.72;
+
+        // Inner dark carved stone ring sleeve
+        const innerCollar = new THREE.Mesh(
+          new THREE.TorusGeometry(3.26, 0.24, 10, 36),
+          this.mats.portalDarkStone
+        );
+        innerCollar.position.set(0, ringCenterY, 0);
+        gateGroup.add(innerCollar);
+
+        // Outer chunky segmented stone voussoir blocks (18 stones around the arch)
+        const numBlocks = 18;
+        for (let i = 0; i < numBlocks; i++) {
+          const theta = (i / numBlocks) * Math.PI * 2;
+          // Skip bottom center 2 blocks buried cleanly into the pedestal steps
+          const bx = Math.sin(theta) * ringRadius;
+          const by = ringCenterY + Math.cos(theta) * ringRadius;
+          if (by < 1.15) continue;
+
+          const isKeystone = i === 0;
+          const bw = isKeystone ? 1.55 : 1.18;
+          const bh = isKeystone ? 1.32 : 1.05;
+          const bd = isKeystone ? 1.48 : 1.28;
+
+          const block = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), this.mats.portalStone);
+          block.position.set(bx, by, 0);
+          block.rotation.z = -theta;
+          gateGroup.add(block);
+
+          // Darker recessed stone trim bar on front & back of each block
+          const trim = new THREE.Mesh(
+            new THREE.BoxGeometry(bw * 0.84, 0.2, bd + 0.14),
+            this.mats.portalDarkStone
+          );
+          trim.position.set(
+            Math.sin(theta) * (ringRadius - 0.35),
+            ringCenterY + Math.cos(theta) * (ringRadius - 0.35),
+            0
+          );
+          trim.rotation.z = -theta;
+          gateGroup.add(trim);
+        }
+
+        // Heavy sculpted side buttress pillars anchoring the ring to the base
+        [-3.55, 3.55].forEach((sideX) => {
+          const sign = Math.sign(sideX);
+          const buttress = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.5, 1.75), this.mats.portalStone);
+          buttress.position.set(sideX, 2.05, 0.05);
+          buttress.rotation.z = sign * 0.22;
+          gateGroup.add(buttress);
+
+          const lowerFoot = new THREE.Mesh(new THREE.BoxGeometry(1.85, 1.1, 2.05), this.mats.portalDarkStone);
+          lowerFoot.position.set(sideX + sign * 0.35, 1.1, 0.15);
+          gateGroup.add(lowerFoot);
+        });
+
+        this._enableShadows(gateGroup, true, true);
+        portalGroup.add(gateGroup);
+
+        // 2C. Glowing Emissive Orange/Amber Rune Crystals (`Portal_Runes`)
+        const runesGroup = new THREE.Group();
+        runesGroup.name = 'Portal_Runes';
+
+        // Top Diamond Keystone Crystal (front & back)
+        const keystoneGeo = new THREE.OctahedronGeometry(0.42, 0);
+        [-0.76, 0.76].forEach((fz) => {
+          const gem = new THREE.Mesh(keystoneGeo, this.mats.runeCrystal);
+          gem.position.set(0, ringCenterY + ringRadius + 0.05, fz);
+          gem.scale.set(0.85, 1.35, 0.42);
+          runesGroup.add(gem);
+          this.portalRuneMeshes.push(gem);
+        });
+
+        // Symmetrical Glowing Amber Rune Wedges around the arch & buttresses
+        const runeAngles = [
+          Math.PI * 0.48, -Math.PI * 0.48,
+          Math.PI * 0.68, -Math.PI * 0.68,
+          Math.PI * 0.84, -Math.PI * 0.84
+        ];
+        const wedgeGeo = new THREE.OctahedronGeometry(0.28, 0);
+        runeAngles.forEach((ang) => {
+          const rx = Math.sin(ang) * (ringRadius + 0.02);
+          const ry = ringCenterY + Math.cos(ang) * (ringRadius + 0.02);
+          [-0.68, 0.68].forEach((fz) => {
+            const c = new THREE.Mesh(wedgeGeo, this.mats.runeCrystal);
+            c.position.set(rx, ry, fz);
+            c.rotation.z = -ang;
+            c.scale.set(0.75, 1.25, 0.45);
+            runesGroup.add(c);
+            this.portalRuneMeshes.push(c);
+          });
+        });
+
+        // Carved glowing orange rune accents along inner stone bevel
+        for (let i = 0; i < 16; i++) {
+          const ang = (i / 16) * Math.PI * 2;
+          const ry = ringCenterY + Math.cos(ang) * 3.38;
+          if (ry < 1.35) continue;
+          const rx = Math.sin(ang) * 3.38;
+          [-0.66, 0.66].forEach((fz) => {
+            const glyph = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.1, 0.08), this.mats.runeCrystal);
+            glyph.position.set(rx, ry, fz);
+            glyph.rotation.z = -ang;
+            runesGroup.add(glyph);
+          });
+        }
+        portalGroup.add(runesGroup);
+
+        // 2D. Flanking Metal Power Boxes (`Portal_PowerBoxes`)
+        const powerGroup = new THREE.Group();
+        powerGroup.name = 'Portal_PowerBoxes';
+        [-4.15, 4.15].forEach((px, idx) => {
+          const boxUnit = new THREE.Group();
+          boxUnit.name = `PowerBox_${idx === 0 ? 'Left' : 'Right'}`;
+          boxUnit.position.set(px, 1.0, 1.35);
+          boxUnit.rotation.y = idx === 0 ? 0.25 : -0.25;
+
+          const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.1, 0.95), this.mats.powerMetal);
+          body.position.y = 0.55;
+          boxUnit.add(body);
+
+          const lid = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.16, 1.04), this.mats.darkMetal);
+          lid.position.y = 1.12;
+          boxUnit.add(lid);
+
+          // Ribbed front grate & indicator LEDs
+          for (let r = 0; r < 3; r++) {
+            const rib = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.08, 0.08), this.mats.darkMetal);
+            rib.position.set(0, 0.35 + r * 0.16, 0.48);
+            boxUnit.add(rib);
+          }
+          const led1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.08), this.mats.ledCyan);
+          led1.position.set(-0.28, 0.88, 0.48);
+          boxUnit.add(led1);
+          const led2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.08), this.mats.runeCrystal);
+          led2.position.set(-0.08, 0.88, 0.48);
+          boxUnit.add(led2);
+
+          // Power cable curving into portal base
+          const cableCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, 0.22, -0.45),
+            new THREE.Vector3(idx === 0 ? 0.3 : -0.3, 0.12, -0.95),
+            new THREE.Vector3(idx === 0 ? 0.55 : -0.55, 0.35, -1.35)
+          ]);
+          const cable = new THREE.Mesh(new THREE.TubeGeometry(cableCurve, 8, 0.075, 6, false), this.mats.darkMetal);
+          boxUnit.add(cable);
+
+          powerGroup.add(boxUnit);
+        });
+        this._enableShadows(powerGroup, true, true);
+        portalGroup.add(powerGroup);
+
+        // 2E. Swirling Blue & Purple Energy Vortex (`Portal_Vortex` — GLTF/GLB PBR compatible)
+        const vortexGroup = new THREE.Group();
+        vortexGroup.name = 'Portal_Vortex';
+        vortexGroup.position.set(0, ringCenterY, 0);
+
+        const vortexTex = this.texFactory.getVortexTextures();
+
+        // Layer 1: Primary solid swirling cosmic portal surface
+        const matVortex1 = new THREE.MeshStandardMaterial({
+          map: vortexTex.layer1,
+          emissiveMap: vortexTex.layer1,
+          emissive: new THREE.Color(0xffffff),
+          emissiveIntensity: 1.35,
+          roughness: 0.2,
+          metalness: 0.05,
+          side: THREE.DoubleSide
+        });
+        const disc1 = new THREE.Mesh(new THREE.CircleGeometry(3.24, 40), matVortex1);
+        disc1.name = 'Vortex_CoreSwirl';
+        vortexGroup.add(disc1);
+        this.vortexLayers.push({ mesh: disc1, speed: -0.55 });
+
+        // Layer 2: Counter-rotating translucent luminous energy arms (front & back)
+        const matVortex2 = new THREE.MeshStandardMaterial({
+          map: vortexTex.layer2,
+          emissiveMap: vortexTex.layer2,
+          emissive: new THREE.Color(0xc4b5fd),
+          emissiveIntensity: 1.6,
+          transparent: true,
+          opacity: 0.88,
+          depthWrite: false,
+          roughness: 0.15,
+          side: THREE.DoubleSide
+        });
+        const discFront = new THREE.Mesh(new THREE.CircleGeometry(3.14, 36), matVortex2);
+        discFront.name = 'Vortex_EnergyArms_Front';
+        discFront.position.z = 0.09;
+        vortexGroup.add(discFront);
+        this.vortexLayers.push({ mesh: discFront, speed: 0.92 });
+
+        const discBack = new THREE.Mesh(new THREE.CircleGeometry(3.14, 36), matVortex2);
+        discBack.name = 'Vortex_EnergyArms_Back';
+        discBack.position.z = -0.09;
+        vortexGroup.add(discBack);
+        this.vortexLayers.push({ mesh: discBack, speed: 0.92 });
+
+        // Bright cyan inner glow rim
+        const glowRimMat = new THREE.MeshStandardMaterial({
+          color: 0x67e8f9,
+          emissive: 0x38bdf8,
+          emissiveIntensity: 2.2,
+          roughness: 0.2
+        });
+        const glowRim = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.1, 8, 36), glowRimMat);
+        glowRim.name = 'Vortex_GlowRim';
+        vortexGroup.add(glowRim);
+
+        // Floating glowing violet/cyan energy spark meshes (low-poly octahedrons so they export to GLB!)
+        const sparkGeo = new THREE.OctahedronGeometry(0.11, 0);
+        const sparkMats = [
+          new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x38bdf8, emissiveIntensity: 2.6 }),
+          new THREE.MeshStandardMaterial({ color: 0xf0abfc, emissive: 0xd946ef, emissiveIntensity: 2.6 }),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xbae6fd, emissiveIntensity: 2.8 })
+        ];
+        for (let i = 0; i < 34; i++) {
+          const spark = new THREE.Mesh(sparkGeo, sparkMats[i % sparkMats.length]);
+          spark.name = `Vortex_Spark_${i + 1}`;
+          const angle = (i / 34) * Math.PI * 2;
+          const radius = 2.6 + (i % 5) * 0.48;
+          const zOff = ((i % 7) - 3) * 0.35;
+          spark.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, zOff);
+          const sc = 0.55 + (i % 4) * 0.32;
+          spark.scale.setScalar(sc);
+          vortexGroup.add(spark);
+          this.portalSparks.push({
+            mesh: spark,
+            baseAngle: angle,
+            baseRadius: radius,
+            baseZ: zOff,
+            speed: 0.35 + (i % 5) * 0.16,
+            phase: i * 0.73,
+            baseScale: sc
+          });
+        }
+
+        // Cyan-purple PointLight illuminating the portal stairs and guards
+        this.lights.portal = new THREE.PointLight(0x60a5fa, 4.8, 17, 1.5);
+        this.lights.portal.position.set(0, 0, 2.2);
+        vortexGroup.add(this.lights.portal);
+
+        portalGroup.add(vortexGroup);
+        return { portalGroup, vortexGroup };
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 3. CONCRETE BUNKER (`Structure_ConcreteBunker`)
+       * ------------------------------------------------------------------------
+       */
+      _buildConcreteBunker() {
+        const group = new THREE.Group();
+        group.name = 'Structure_ConcreteBunker';
+        group.position.set(-6.9, 0, -6.5);
+        group.rotation.y = 0.34;
+
+        // Chunky foundation plinth
+        const base = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.55, 4.1), this.mats.concrete);
+        base.position.y = 0.275;
+        group.add(base);
+
+        // Main reinforced concrete blockhouse body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(4.7, 2.05, 3.6), this.mats.concrete);
+        body.position.y = 1.55;
+        group.add(body);
+
+        // Overhanging thick armored roof slab
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.42, 4.0), this.mats.concrete);
+        roof.position.y = 2.75;
+        group.add(roof);
+
+        // Raised concrete roof parapet & vent/comm box
+        const parapet = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.65, 2.6), this.mats.concrete);
+        parapet.position.set(0, 3.25, -0.1);
+        group.add(parapet);
+
+        const ventUnit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.85), this.mats.powerMetal);
+        ventUnit.position.set(-0.5, 3.78, -0.15);
+        group.add(ventUnit);
+
+        // Armored horizontal firing slits on front face
+        [-1.25, 0.1].forEach((sx) => {
+          const slitFrame = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.36, 0.2), this.mats.darkMetal);
+          slitFrame.position.set(sx, 2.05, 1.82);
+          group.add(slitFrame);
+          const slitVoid = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.18, 0.24), this.mats.tentDark);
+          slitVoid.position.set(sx, 2.05, 1.83);
+          group.add(slitVoid);
+        });
+
+        // Recessed heavy blast doorway on front-right
+        const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.65, 0.35), this.mats.powerMetal);
+        doorFrame.position.set(1.35, 1.32, 1.78);
+        group.add(doorFrame);
+
+        const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.96, 1.45, 0.38), this.mats.darkMetal);
+        doorPanel.position.set(1.35, 1.28, 1.8);
+        group.add(doorPanel);
+
+        // Small glowing amber bunker lamp above door
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.16, 0.18), this.mats.spotlightLens);
+        lamp.position.set(1.35, 2.32, 1.88);
+        group.add(lamp);
+
+        this._enableShadows(group, true, true);
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 4. WOODEN WATCHTOWERS & SPOTLIGHTS (`Structure_Watchtowers`)
+       * ------------------------------------------------------------------------
+       */
+      _buildWatchtowers() {
+        const group = new THREE.Group();
+        group.name = 'Structure_Watchtowers';
+
+        const createTower = ({
+          name,
+          x,
+          z,
+          rotY = 0,
+          width = 2.4,
+          deckHeights = [4.4],
+          hasRoof = true,
+          hasSpotlight = true,
+          hasBanner = true,
+          bannerLevel = 0,
+          beamLength = 6.2,
+          beamAngle = -0.55
+        }) => {
+          const tower = new THREE.Group();
+          tower.name = name;
+          tower.position.set(x, 0, z);
+          tower.rotation.y = rotY;
+
+          const topH = deckHeights[deckHeights.length - 1];
+          const postH = hasRoof ? topH + 2.05 : topH + 0.92;
+          const hw = width * 0.5;
+
+          // 4 chunky angled corner timber legs
+          const corners = [
+            [-hw, -hw],
+            [hw, -hw],
+            [hw, hw],
+            [-hw, hw]
+          ];
+          corners.forEach(([cx, cz]) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, postH, 0.24), this.mats.wood);
+            leg.position.set(cx, postH * 0.5, cz);
+            tower.add(leg);
+
+            // Stone footing pad
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.22, 0.46), this.mats.portalDarkStone);
+            foot.position.set(cx, 0.11, cz);
+            tower.add(foot);
+          });
+
+          // Horizontal & X-bracing bays between ground and each deck
+          let prevY = 0.2;
+          deckHeights.forEach((dy, levelIdx) => {
+            const bayH = dy - prevY;
+            const midY = (prevY + dy) * 0.5;
+            const diagLen = Math.hypot(width, bayH);
+            const diagAng = Math.atan2(bayH, width);
+
+            // 4 sides X-braces
+            const sides = [
+              { pos: [0, midY, hw], ry: 0 },
+              { pos: [0, midY, -hw], ry: 0 },
+              { pos: [hw, midY, 0], ry: Math.PI / 2 },
+              { pos: [-hw, midY, 0], ry: Math.PI / 2 }
+            ];
+            sides.forEach((s) => {
+              const b1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen * 0.96, 0.13, 0.11), this.mats.woodDark);
+              b1.position.set(...s.pos);
+              b1.rotation.y = s.ry;
+              b1.rotation.z = diagAng;
+              tower.add(b1);
+
+              const b2 = new THREE.Mesh(new THREE.BoxGeometry(diagLen * 0.96, 0.13, 0.11), this.mats.woodDark);
+              b2.position.set(...s.pos);
+              b2.rotation.y = s.ry;
+              b2.rotation.z = -diagAng;
+              tower.add(b2);
+            });
+
+            // Planked Guard Deck Platform
+            const deck = new THREE.Mesh(
+              new THREE.BoxGeometry(width + 0.55, 0.24, width + 0.55),
+              this.mats.wood
+            );
+            deck.position.y = dy;
+            tower.add(deck);
+
+            // Guard Platform Railings (double wooden rails on all 4 sides)
+            const rSpan = width + 0.42;
+            const rOff = (width + 0.34) * 0.5;
+            [dy + 0.45, dy + 0.85].forEach((ry) => {
+              const fRail = new THREE.Mesh(new THREE.BoxGeometry(rSpan, 0.12, 0.12), this.mats.wood);
+              fRail.position.set(0, ry, rOff);
+              tower.add(fRail);
+              const bRail = fRail.clone();
+              bRail.position.set(0, ry, -rOff);
+              tower.add(bRail);
+              const lRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, rSpan), this.mats.wood);
+              lRail.position.set(-rOff, ry, 0);
+              tower.add(lRail);
+              const rrRail = lRail.clone();
+              rrRail.position.set(rOff, ry, 0);
+              tower.add(rrRail);
+            });
+
+            // Green Faction Banner hanging from front railing
+            if (hasBanner && levelIdx === bannerLevel) {
+              const bannerMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.65), this.mats.banner);
+              bannerMesh.position.set(0, dy - 0.72, rOff + 0.14);
+              bannerMesh.rotation.x = -0.05;
+              tower.add(bannerMesh);
+
+              const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.32, 6), this.mats.woodDark);
+              rod.rotation.z = Math.PI / 2;
+              rod.position.set(0, dy + 0.12, rOff + 0.14);
+              tower.add(rod);
+            }
+
+            prevY = dy + 0.2;
+          });
+
+          // Pitched Timber Roof Cap (for tall lookout watchtowers)
+          if (hasRoof) {
+            const roof = new THREE.Mesh(
+              new THREE.ConeGeometry(width * 0.98, 1.05, 4),
+              this.mats.woodDark
+            );
+            roof.position.y = topH + 2.48;
+            roof.rotation.y = Math.PI / 4;
+            tower.add(roof);
+
+            // Antenna spire on top
+            const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.1, 6), this.mats.darkMetal);
+            ant.position.set(0.35, topH + 3.25, -0.2);
+            tower.add(ant);
+          }
+
+          // Glowing Yellow Spotlight + Sweeping Translucent Volumetric Beam
+          if (hasSpotlight) {
+            const spotPivot = new THREE.Group();
+            spotPivot.name = `${name}_SpotlightPivot`;
+            spotPivot.position.set(0, topH + 1.38, hw + 0.18);
+
+            const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.45, 10), this.mats.darkMetal);
+            housing.rotation.x = Math.PI / 2;
+            spotPivot.add(housing);
+
+            const lens = new THREE.Mesh(new THREE.CircleGeometry(0.27, 12), this.mats.spotlightLens);
+            lens.position.z = 0.24;
+            spotPivot.add(lens);
+
+            // Stylized translucent cone beam pointing forward & slightly downward
+            const beamGeo = new THREE.ConeGeometry(1.75, beamLength, 18, 1, true);
+            beamGeo.translate(0, -beamLength * 0.5, 0);
+            beamGeo.rotateX(-Math.PI / 2);
+            const beam = new THREE.Mesh(beamGeo, this.mats.spotlightBeam);
+            beam.position.z = 0.22;
+            beam.rotation.x = -beamAngle;
+            beam.name = `${name}_SpotlightBeam`;
+            spotPivot.add(beam);
+
+            // Warm golden lamp point glow
+            const glow = new THREE.PointLight(0xfde047, 2.1, 9.5, 1.6);
+            glow.position.set(0, 0, 0.65);
+            spotPivot.add(glow);
+
+            tower.add(spotPivot);
+            this.spotlightSweeps.push({
+              pivot: spotPivot,
+              light: glow,
+              beam,
+              baseRotY: 0,
+              speed: 0.45 + Math.random() * 0.2,
+              phase: Math.random() * Math.PI * 2
+            });
+          }
+
+          this._enableShadows(tower, true, true);
+          // Do not let transparent spotlight beam cast shadow
+          tower.traverse((c) => {
+            if (c.name && c.name.includes('SpotlightBeam')) {
+              c.castShadow = false;
+              c.receiveShadow = false;
+            }
+          });
+          return tower;
+        };
+
+        // 1. Prominent Multi-Level Foreground-Right Watchtower (with 2 guards & green banner)
+        group.add(
+          createTower({
+            name: 'Watchtower_FrontRight_Dual',
+            x: 11.1,
+            z: 4.9,
+            rotY: -0.58,
+            width: 2.55,
+            deckHeights: [2.5, 5.2],
+            hasRoof: false,
+            hasSpotlight: false,
+            hasBanner: true,
+            bannerLevel: 1
+          })
+        );
+
+        // 2. Back-Right Tall Spotlight Watchtower
+        group.add(
+          createTower({
+            name: 'Watchtower_BackRight',
+            x: 9.8,
+            z: -5.4,
+            rotY: -0.68,
+            width: 2.25,
+            deckHeights: [5.4],
+            hasRoof: true,
+            hasSpotlight: true,
+            hasBanner: true,
+            bannerLevel: 0,
+            beamLength: 7.4,
+            beamAngle: -0.45
+          })
+        );
+
+        // 3. Back-Left Tall Watchtower behind Bunker
+        group.add(
+          createTower({
+            name: 'Watchtower_BackLeft',
+            x: -5.2,
+            z: -9.2,
+            rotY: 0.42,
+            width: 2.15,
+            deckHeights: [5.0],
+            hasRoof: true,
+            hasSpotlight: true,
+            hasBanner: true,
+            bannerLevel: 0,
+            beamLength: 6.6,
+            beamAngle: -0.42
+          })
+        );
+
+        // 4. Mid-Left Compact Spotlight Tower
+        group.add(
+          createTower({
+            name: 'Watchtower_MidLeft_Light',
+            x: -10.8,
+            z: -4.8,
+            rotY: 0.85,
+            width: 1.5,
+            deckHeights: [2.8],
+            hasRoof: false,
+            hasSpotlight: true,
+            hasBanner: false,
+            beamLength: 5.5,
+            beamAngle: -0.35
+          })
+        );
+
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 5. OLIVE GREEN & TAN CANVAS TENTS (`Camp_Tents`)
+       * ------------------------------------------------------------------------
+       */
+      _buildTents() {
+        const group = new THREE.Group();
+        group.name = 'Camp_Tents';
+
+        // Shared A-frame prism geometry with chunky Boom Beach silhouette
+        const makeTentShape = (w, h, wallH) => {
+          const s = new THREE.Shape();
+          s.moveTo(-w * 0.5, 0);
+          s.lineTo(-w * 0.47, wallH);
+          s.lineTo(0, h);
+          s.lineTo(w * 0.47, wallH);
+          s.lineTo(w * 0.5, 0);
+          s.closePath();
+          return s;
+        };
+
+        const tentGeo = new THREE.ExtrudeGeometry(makeTentShape(3.1, 2.35, 1.0), {
+          depth: 3.3,
+          bevelEnabled: true,
+          bevelThickness: 0.08,
+          bevelSize: 0.07,
+          bevelSegments: 2
+        });
+        tentGeo.center();
+        // Shift Y so bottom rests cleanly on y = 0
+        tentGeo.computeBoundingBox();
+        tentGeo.translate(0, -tentGeo.boundingBox.min.y, 0);
+
+        const createTent = ({ name, x, z, rotY, variant = 'olive', scale = 1, hasFlag = false }) => {
+          const t = new THREE.Group();
+          t.name = name;
+          t.position.set(x, 0, z);
+          t.rotation.y = rotY;
+          t.scale.setScalar(scale);
+
+          const mat = variant === 'olive' ? this.mats.canvasOlive : this.mats.canvasTan;
+          const body = new THREE.Mesh(tentGeo, mat);
+          t.add(body);
+
+          // Chunky wooden ridge pole protruding front & back
+          const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.85, 7), this.mats.woodDark);
+          ridge.rotation.x = Math.PI / 2;
+          ridge.position.set(0, 2.38, 0);
+          t.add(ridge);
+
+          // Recessed dark open tent entrance + folded side flaps
+          const door = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.48, 0.14), this.mats.tentDark);
+          door.position.set(0, 0.75, 1.71);
+          t.add(door);
+
+          [-0.64, 0.64].forEach((fx) => {
+            const flap = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.52, 0.16), mat);
+            flap.position.set(fx, 0.76, 1.74);
+            flap.rotation.y = fx < 0 ? 0.35 : -0.35;
+            t.add(flap);
+          });
+
+          // Wooden front support posts
+          [-0.56, 0.56].forEach((px) => {
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 1.52, 6), this.mats.wood);
+            post.position.set(px, 0.76, 1.78);
+            t.add(post);
+          });
+
+          // Optional small faction flag pole beside tent
+          if (hasFlag) {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 3.4, 6), this.mats.woodDark);
+            pole.position.set(-1.35, 1.7, -1.2);
+            t.add(pole);
+            const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.55), this.mats.banner);
+            flag.position.set(-0.92, 3.1, -1.2);
+            t.add(flag);
+          }
+
+          this._enableShadows(t, true, true);
+          return t;
+        };
+
+        const tentSpecs = [
+          { name: 'Tent_WestFront_Olive', x: -10.8, z: 0.4, rotY: 0.65, variant: 'olive', scale: 1.05 },
+          { name: 'Tent_WestMid_Tan', x: -9.8, z: -2.6, rotY: 0.52, variant: 'tan', scale: 0.96 },
+          { name: 'Tent_BackLeft_Olive', x: -8.4, z: -4.9, rotY: 0.42, variant: 'olive', scale: 0.95 },
+          { name: 'Tent_BackRight_1', x: 5.5, z: -7.1, rotY: -0.25, variant: 'olive', scale: 0.94, hasFlag: true },
+          { name: 'Tent_BackRight_2', x: 7.7, z: -5.4, rotY: -0.45, variant: 'olive', scale: 0.96, hasFlag: true },
+          { name: 'Tent_EastMid_Tan', x: 10.3, z: -2.1, rotY: -0.72, variant: 'tan', scale: 0.98 },
+          { name: 'Tent_EastFront_Olive', x: 8.8, z: 2.8, rotY: -0.95, variant: 'olive', scale: 1.02 },
+          { name: 'Tent_SouthEast_Olive', x: 6.4, z: 8.6, rotY: -2.65, variant: 'olive', scale: 0.96 }
+        ];
+        tentSpecs.forEach((sp) => group.add(createTent(sp)));
+
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 6. STYLIZED MILITARY JEEPS (`Vehicle_Jeeps`)
+       * ------------------------------------------------------------------------
+       */
+      _buildJeeps() {
+        const group = new THREE.Group();
+        group.name = 'Vehicle_Jeeps';
+
+        const createJeep = (name, x, z, rotY) => {
+          const jeep = new THREE.Group();
+          jeep.name = name;
+          jeep.position.set(x, 0, z);
+          jeep.rotation.y = rotY;
+
+          // Lower chassis frame
+          const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.62, 3.35), this.mats.jeepOlive);
+          chassis.position.set(0, 0.72, 0);
+          jeep.add(chassis);
+
+          // Chunky raised engine hood
+          const hood = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.54, 1.25), this.mats.jeepOlive);
+          hood.position.set(0, 1.15, 0.95);
+          jeep.add(hood);
+
+          // Front steel bumper & classic vertical grille slots
+          const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.24, 0.26), this.mats.darkMetal);
+          bumper.position.set(0, 0.56, 1.72);
+          jeep.add(bumper);
+
+          for (let g = -2; g <= 2; g++) {
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, 0.08), this.mats.darkMetal);
+            bar.position.set(g * 0.18, 1.08, 1.59);
+            jeep.add(bar);
+          }
+
+          // Glowing round headlights
+          [-0.62, 0.62].forEach((hx) => {
+            const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.12, 10), this.mats.headlight);
+            hl.rotation.x = Math.PI / 2;
+            hl.position.set(hx, 1.12, 1.6);
+            jeep.add(hl);
+          });
+
+          // Windshield frame + glossy cartoon glass
+          const wsFrame = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.76, 0.14), this.mats.jeepOlive);
+          wsFrame.position.set(0, 1.66, 0.24);
+          wsFrame.rotation.x = -0.22;
+          jeep.add(wsFrame);
+
+          const glass = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.56, 0.16), this.mats.glassWindshield);
+          glass.position.set(0, 1.67, 0.24);
+          glass.rotation.x = -0.22;
+          jeep.add(glass);
+
+          // Canvas rear troop cover with rounded roof top
+          const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.68, 1.08, 1.78), this.mats.jeepCanopy);
+          canopy.position.set(0, 1.52, -0.78);
+          jeep.add(canopy);
+
+          const canopyTop = new THREE.Mesh(new THREE.CylinderGeometry(0.84, 0.84, 1.78, 10, 1, false, 0, Math.PI), this.mats.jeepCanopy);
+          canopyTop.rotation.x = Math.PI / 2;
+          canopyTop.rotation.y = Math.PI / 2;
+          canopyTop.position.set(0, 2.02, -0.78);
+          canopyTop.scale.set(1, 0.34, 1);
+          jeep.add(canopyTop);
+
+          // 4 chunky oversized knobby wheels + spare rear wheel
+          const makeWheel = () => {
+            const w = new THREE.Group();
+            const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.36, 14), this.mats.tireRubber);
+            tire.rotation.z = Math.PI / 2;
+            w.add(tire);
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.39, 8), this.mats.jeepOlive);
+            hub.rotation.z = Math.PI / 2;
+            w.add(hub);
+            return w;
+          };
+
+          const wheelCoords = [
+            [-0.92, 0.46, 1.04],
+            [0.92, 0.46, 1.04],
+            [-0.92, 0.46, -1.04],
+            [0.92, 0.46, -1.04]
+          ];
+          wheelCoords.forEach(([wx, wy, wz]) => {
+            const wheel = makeWheel();
+            wheel.position.set(wx, wy, wz);
+            jeep.add(wheel);
+          });
+
+          // Spare wheel mounted on back
+          const spare = makeWheel();
+          spare.rotation.y = Math.PI / 2;
+          spare.scale.setScalar(0.82);
+          spare.position.set(0, 1.05, -1.78);
+          jeep.add(spare);
+
+          this._enableShadows(jeep, true, true);
+          return jeep;
+        };
+
+        // 1. Jeep parked near Concrete Bunker (back-left)
+        group.add(createJeep('Jeep_Bunker', -4.5, -4.5, 0.65));
+        // 2. Jeep parked on East road near right tents
+        group.add(createJeep('Jeep_EastCamp', 8.3, -0.1, -2.1));
+
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 7. SANDBAG BARRICADES & FLICKERING CAMPFIRES (`Campfire_Outposts`)
+       * ------------------------------------------------------------------------
+       */
+      _buildCampfireOutposts() {
+        const group = new THREE.Group();
+        group.name = 'Campfire_Outposts';
+
+        const sandbagGeo = new THREE.CapsuleGeometry(0.22, 0.44, 5, 8);
+        sandbagGeo.rotateZ(Math.PI / 2);
+        sandbagGeo.scale(1, 0.65, 0.85);
+
+        const createOutpost = ({ name, x, z, arcStart, arcEnd, radius = 2.65, flagAngle = 0 }) => {
+          const outpost = new THREE.Group();
+          outpost.name = name;
+          outpost.position.set(x, 0, z);
+
+          // 3 staggered rows of curved stacked tan sandbags
+          const bagsPerRow = 15;
+          for (let row = 0; row < 3; row++) {
+            const y = 0.14 + row * 0.25;
+            const offsetAng = (row % 2) * 0.08;
+            for (let i = 0; i < bagsPerRow; i++) {
+              const t = i / (bagsPerRow - 1);
+              const ang = arcStart + t * (arcEnd - arcStart) + offsetAng;
+              const bag = new THREE.Mesh(sandbagGeo, this.mats.sandbag);
+              bag.position.set(Math.cos(ang) * radius, y, Math.sin(ang) * radius);
+              bag.rotation.y = -ang + Math.PI / 2 + (Math.sin(i * 2.1) * 0.08);
+              outpost.add(bag);
+            }
+          }
+
+          // Outer wooden fence posts & spiral barbed wire coils
+          const posts = 6;
+          const postPts = [];
+          for (let p = 0; p < posts; p++) {
+            const t = p / (posts - 1);
+            const ang = arcStart + t * (arcEnd - arcStart);
+            const px = Math.cos(ang) * (radius + 0.58);
+            const pz = Math.sin(ang) * (radius + 0.58);
+            postPts.push(new THREE.Vector3(px, 0.72, pz));
+
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.15, 6), this.mats.woodDark);
+            post.position.set(px, 0.57, pz);
+            post.rotation.z = (p % 2 === 0 ? 1 : -1) * 0.05;
+            outpost.add(post);
+          }
+
+          // Helical barbed wire strand connecting fence posts
+          const wireSamples = [];
+          const wireCurveBase = new THREE.CatmullRomCurve3(postPts);
+          const steps = 64;
+          for (let s = 0; s <= steps; s++) {
+            const u = s / steps;
+            const pt = wireCurveBase.getPoint(u);
+            const tan = wireCurveBase.getTangent(u).normalize();
+            const up = new THREE.Vector3(0, 1, 0);
+            const side = new THREE.Vector3().crossVectors(tan, up).normalize();
+            const coilAng = u * Math.PI * 24;
+            const coilR = 0.14;
+            wireSamples.push(
+              pt
+                .clone()
+                .addScaledVector(side, Math.cos(coilAng) * coilR)
+                .addScaledVector(up, Math.sin(coilAng) * coilR)
+            );
+          }
+          const barbedWire = new THREE.Mesh(
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wireSamples), 80, 0.022, 5, false),
+            this.mats.darkMetal
+          );
+          barbedWire.name = `${name}_BarbedWire`;
+          outpost.add(barbedWire);
+
+          // Olive Green Faction Flag on tall pole
+          const fx = Math.cos(flagAngle) * (radius - 0.3);
+          const fz = Math.sin(flagAngle) * (radius - 0.3);
+          const fPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.7, 6), this.mats.woodDark);
+          fPole.position.set(fx, 1.35, fz);
+          outpost.add(fPole);
+          const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.62), this.mats.banner);
+          flag.position.set(fx + 0.46, 2.38, fz);
+          outpost.add(flag);
+
+          // Central Campfire (Stone Ring + Charred Logs + Multi-Layer Flickering Flames + Embers)
+          const fireGroup = new THREE.Group();
+          fireGroup.name = `${name}_Campfire`;
+
+          // Ring of 9 smooth campfire stones
+          const stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
+          for (let i = 0; i < 9; i++) {
+            const a = (i / 9) * Math.PI * 2;
+            const st = new THREE.Mesh(stoneGeo, this.mats.boulder);
+            st.position.set(Math.cos(a) * 0.66, 0.11, Math.sin(a) * 0.66);
+            st.scale.set(1.15, 0.72, 1.0);
+            st.rotation.y = a;
+            fireGroup.add(st);
+          }
+
+          // Crisscrossed firewood logs
+          for (let l = 0; l < 4; l++) {
+            const log = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.92, 6), this.mats.woodDark);
+            log.position.set(0, 0.16, 0);
+            log.rotation.z = Math.PI / 2 - 0.28;
+            log.rotation.y = (l / 4) * Math.PI * 2;
+            fireGroup.add(log);
+          }
+
+          // Multi-layered stylized cartoon flames
+          const outerFlameMat = new THREE.MeshStandardMaterial({
+            color: 0xff5714,
+            emissive: 0xff4d00,
+            emissiveIntensity: 2.4,
+            roughness: 0.3
+          });
+          const midFlameMat = new THREE.MeshStandardMaterial({
+            color: 0xffb703,
+            emissive: 0xff9f1c,
+            emissiveIntensity: 2.8,
+            roughness: 0.25
+          });
+          const coreFlameMat = new THREE.MeshStandardMaterial({
+            color: 0xfff3b0,
+            emissive: 0xffe66d,
+            emissiveIntensity: 3.2,
+            roughness: 0.2
+          });
+
+          const flameOuter = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.15, 7), outerFlameMat);
+          flameOuter.position.y = 0.62;
+          fireGroup.add(flameOuter);
+
+          const flameMid = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.85, 7), midFlameMat);
+          flameMid.position.set(0.05, 0.54, 0.04);
+          fireGroup.add(flameMid);
+
+          const flameCore = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.52, 6), coreFlameMat);
+          flameCore.position.y = 0.42;
+          fireGroup.add(flameCore);
+
+          // Rising glowing ember sparks
+          const embers = [];
+          const emberGeo = new THREE.OctahedronGeometry(0.055, 0);
+          for (let e = 0; e < 8; e++) {
+            const em = new THREE.Mesh(emberGeo, midFlameMat);
+            em.position.set((Math.random() - 0.5) * 0.4, 0.5 + Math.random() * 1.3, (Math.random() - 0.5) * 0.4);
+            fireGroup.add(em);
+            embers.push({
+              mesh: em,
+              phase: Math.random() * Math.PI * 2,
+              speed: 0.8 + Math.random() * 0.6,
+              offsetX: (Math.random() - 0.5) * 0.45,
+              offsetZ: (Math.random() - 0.5) * 0.45
+            });
+          }
+
+          // Warm flickering PointLight
+          const fireLight = new THREE.PointLight(0xff7b29, 3.2, 9.5, 1.6);
+          fireLight.position.set(0, 1.1, 0);
+          fireGroup.add(fireLight);
+
+          outpost.add(fireGroup);
+
+          // Chunky wooden log seats / stools around campfire
+          const seatAngles = [arcStart - 0.55, arcEnd + 0.55, (arcStart + arcEnd) * 0.5 + Math.PI];
+          seatAngles.forEach((sa) => {
+            const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.42, 8), this.mats.wood);
+            stump.position.set(Math.cos(sa) * 1.48, 0.21, Math.sin(sa) * 1.48);
+            outpost.add(stump);
+          });
+
+          this.campfires.push({
+            flameOuter,
+            flameMid,
+            flameCore,
+            embers,
+            light: fireLight,
+            phase: x * 1.7
+          });
+
+          this._enableShadows(outpost, true, true);
+          return outpost;
+        };
+
+        // Front-Left Campfire Outpost
+        group.add(
+          createOutpost({
+            name: 'Outpost_WestCampfire',
+            x: -6.9,
+            z: 4.9,
+            arcStart: -0.35,
+            arcEnd: 2.55,
+            radius: 2.75,
+            flagAngle: -0.95
+          })
+        );
+
+        // Front-Right Campfire Outpost
+        group.add(
+          createOutpost({
+            name: 'Outpost_EastCampfire',
+            x: 4.5,
+            z: 5.5,
+            arcStart: 1.95,
+            arcEnd: 4.85,
+            radius: 2.65,
+            flagAngle: 3.1
+          })
+        );
+
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 8. CAMP PROPS (`Camp_Props`: Crates, Ammo Boxes, Shelving, Fences)
+       * ------------------------------------------------------------------------
+       */
+      _buildCampProps() {
+        const group = new THREE.Group();
+        group.name = 'Camp_Props';
+
+        const crateGeo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+        const addCrate = (x, y, z, s = 1, rotY = 0) => {
+          const c = new THREE.Mesh(crateGeo, this.mats.crate);
+          c.position.set(x, y + 0.46 * s, z);
+          c.scale.setScalar(s);
+          c.rotation.y = rotY;
+          group.add(c);
+        };
+
+        // Wooden supply crate clusters scattered naturally around camp
+        addCrate(-10.1, 0, 2.5, 1.0, 0.25);
+        addCrate(-9.1, 0, 2.1, 0.82, -0.15);
+        addCrate(-9.7, 0.88, 2.3, 0.72, 0.55);
+
+        addCrate(-5.9, 0, -4.3, 0.85, 0.15);
+        addCrate(-5.1, 0, -3.9, 0.72, -0.3);
+
+        addCrate(2.0, 0, 6.9, 1.0, 0.35);
+        addCrate(1.3, 0, 7.7, 0.78, -0.2);
+
+        addCrate(7.7, 0, 4.9, 0.95, 0.4);
+        addCrate(8.4, 0, 4.4, 0.72, 0.1);
+        addCrate(6.3, 0, -4.4, 0.85, -0.4);
+
+        // Olive Green Ammo Boxes with metal clasps
+        const createAmmoBox = (x, z, rotY) => {
+          const ab = new THREE.Group();
+          ab.position.set(x, 0, z);
+          ab.rotation.y = rotY;
+
+          const body = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.54, 0.68), this.mats.ammoGreen);
+          body.position.y = 0.27;
+          ab.add(body);
+
+          const lid = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.12, 0.74), this.mats.ammoGreen);
+          lid.position.y = 0.56;
+          ab.add(lid);
+
+          [-0.36, 0.36].forEach((cx) => {
+            const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.76), this.mats.darkMetal);
+            clasp.position.set(cx, 0.46, 0);
+            ab.add(clasp);
+          });
+          const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.7), this.mats.goldBrass);
+          stripe.position.set(0, 0.3, 0);
+          ab.add(stripe);
+
+          group.add(ab);
+        };
+
+        createAmmoBox(-10.4, 4.1, 0.45);
+        createAmmoBox(2.5, 8.2, -0.25);
+        createAmmoBox(-6.6, -4.0, 0.9);
+        createAmmoBox(7.2, -3.8, -0.6);
+
+        // Far-left Wooden Supply Shelving Unit (matching left-side diorama shelf)
+        const shelf = new THREE.Group();
+        shelf.name = 'Props_SupplyShelf';
+        shelf.position.set(-11.7, 0, 2.5);
+        shelf.rotation.y = 0.62;
+
+        // 4 corner uprights
+        [[-0.85, -0.35], [0.85, -0.35], [-0.85, 0.35], [0.85, 0.35]].forEach(([sx, sz]) => {
+          const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.95, 0.12), this.mats.woodDark);
+          p.position.set(sx, 0.975, sz);
+          shelf.add(p);
+        });
+        // 3 wooden shelf planks stocked with tiny supplies
+        [0.45, 1.05, 1.65].forEach((sy, tier) => {
+          const plank = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.1, 0.8), this.mats.wood);
+          plank.position.y = sy;
+          shelf.add(plank);
+          for (let item = -2; item <= 2; item++) {
+            const box = new THREE.Mesh(
+              new THREE.BoxGeometry(0.26, 0.28 + (tier % 2) * 0.08, 0.36),
+              item % 2 === 0 ? this.mats.ammoGreen : this.mats.powerMetal
+            );
+            box.position.set(item * 0.32, sy + 0.19, 0);
+            shelf.add(box);
+          }
+        });
+        group.add(shelf);
+
+        // Rustic Wooden Camp Perimeter Fence Segments
+        const createFence = (x, z, rotY, len = 3.2) => {
+          const f = new THREE.Group();
+          f.position.set(x, 0, z);
+          f.rotation.y = rotY;
+          for (let i = -1; i <= 1; i++) {
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.05, 6), this.mats.woodDark);
+            post.position.set(i * (len * 0.45), 0.52, 0);
+            f.add(post);
+          }
+          [0.36, 0.78].forEach((ry) => {
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.11, 0.08), this.mats.wood);
+            rail.position.set(0, ry, 0);
+            f.add(rail);
+          });
+          group.add(f);
+        };
+
+        createFence(-9.4, 7.6, 0.48, 3.6);
+        createFence(5.2, -4.8, 0.12, 2.5);
+        createFence(0.6, 8.9, -0.35, 3.0);
+
+        this._enableShadows(group, true, true);
+        return group;
+      }
+
+      /**
+       * ------------------------------------------------------------------------
+       * 9. RIG-READY CHIBI CARTOON MILITARY SOLDIER NPCs (`NPC_Soldiers`)
+       * Hierarchical articulated sub-meshes:
+       * Pelvis -> Torso -> Head -> Helmet
+       *        -> LeftArm_Pivot / RightArm_Pivot -> AssaultRifle
+       *        -> LeftLeg_Pivot / RightLeg_Pivot
+       * ------------------------------------------------------------------------
+       */
+      _buildSoldiers() {
+        const group = new THREE.Group();
+        group.name = 'NPC_Soldiers';
+
+        const skinTones = ['#f1be94', '#e5ad82', '#d6996e', '#f4c7a0'];
+
+        const createChibiSoldier = ({ name, skinIdx = 0, hasRifle = true }) => {
+          const root = new THREE.Group();
+          root.name = name;
+
+          // Root Pelvis pivot (for full-body bounce & seated/walking hip motion)
+          const pelvis = new THREE.Group();
+          pelvis.name = 'Pelvis';
+          pelvis.position.y = 0.56;
+          root.add(pelvis);
+
+          // Torso + Tactical Vest + Belt
+          const torso = new THREE.Group();
+          torso.name = 'Torso';
+          pelvis.add(torso);
+
+          const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.27, 0.48, 10), this.mats.soldierUniform);
+          chest.position.y = 0.24;
+          torso.add(chest);
+
+          const vest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.36), this.mats.soldierVest);
+          vest.position.set(0, 0.26, 0.01);
+          torso.add(vest);
+
+          // Tactical belt & brass buckle
+          const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.28, 0.1, 10), this.mats.soldierBoot);
+          belt.position.y = 0.06;
+          torso.add(belt);
+
+          const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.09, 0.06), this.mats.goldBrass);
+          buckle.position.set(0, 0.06, 0.26);
+          torso.add(buckle);
+
+          // Small tactical backpack
+          const pack = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.18), this.mats.soldierVest);
+          pack.position.set(0, 0.27, -0.22);
+          torso.add(pack);
+
+          // Chibi Oversized Expressive Head + Round Olive Helmet
+          const headGroup = new THREE.Group();
+          headGroup.name = 'Head';
+          headGroup.position.y = 0.72;
+          torso.add(headGroup);
+
+          const faceTex = this.texFactory.getSoldierFaceTexture(skinTones[skinIdx % skinTones.length]);
+          const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.65 });
+          const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.265, 16, 14), faceMat);
+          // Rotate sphere so canvas center (u=0.5) faces directly forward (+Z)
+          headMesh.rotation.y = -Math.PI / 2;
+          headGroup.add(headMesh);
+
+          // Stylized rounded nose
+          const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), this.mats.soldierSkin);
+          nose.position.set(0, -0.02, 0.26);
+          headGroup.add(nose);
+
+          // Chunky Boom Beach Round Military Helmet
+          const helmetGroup = new THREE.Group();
+          helmetGroup.name = 'Helmet';
+          helmetGroup.position.set(0, 0.06, -0.01);
+          headGroup.add(helmetGroup);
+
+          const dome = new THREE.Mesh(
+            new THREE.SphereGeometry(0.305, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58),
+            this.mats.soldierHelmet
+          );
+          helmetGroup.add(dome);
+
+          const brim = new THREE.Mesh(new THREE.TorusGeometry(0.305, 0.038, 8, 18), this.mats.soldierHelmet);
+          brim.rotation.x = Math.PI / 2;
+          brim.position.y = -0.05;
+          helmetGroup.add(brim);
+
+          // Articulated Left Arm Pivot
+          const leftArmPivot = new THREE.Group();
+          leftArmPivot.name = 'LeftArm_Pivot';
+          leftArmPivot.position.set(-0.3, 0.42, 0);
+          torso.add(leftArmPivot);
+
+          const lArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.24, 5, 8), this.mats.soldierUniform);
+          lArm.position.y = -0.16;
+          leftArmPivot.add(lArm);
+          const lHand = new THREE.Mesh(new THREE.SphereGeometry(0.082, 8, 8), this.mats.soldierSkin);
+          lHand.position.y = -0.34;
+          leftArmPivot.add(lHand);
+
+          // Articulated Right Arm Pivot + Stylized Assault Rifle
+          const rightArmPivot = new THREE.Group();
+          rightArmPivot.name = 'RightArm_Pivot';
+          rightArmPivot.position.set(0.3, 0.42, 0);
+          torso.add(rightArmPivot);
+
+          const rArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.24, 5, 8), this.mats.soldierUniform);
+          rArm.position.y = -0.16;
+          rightArmPivot.add(rArm);
+          const rHand = new THREE.Mesh(new THREE.SphereGeometry(0.082, 8, 8), this.mats.soldierSkin);
+          rHand.position.y = -0.34;
+          rightArmPivot.add(rHand);
+
+          let rifleGroup = null;
+          if (hasRifle) {
+            rifleGroup = new THREE.Group();
+            rifleGroup.name = 'AssaultRifle';
+            rifleGroup.position.set(-0.08, -0.32, 0.16);
+            rifleGroup.rotation.set(0.15, -0.45, 0.12);
+
+            const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.48), this.mats.darkMetal);
+            rifleGroup.add(receiver);
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.42, 7), this.mats.darkMetal);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.02, 0.4);
+            rifleGroup.add(barrel);
+            const stock = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.14, 0.28), this.mats.soldierBoot);
+            stock.position.set(0, -0.02, -0.32);
+            rifleGroup.add(stock);
+            const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.09), this.mats.powerMetal);
+            mag.position.set(0, -0.13, 0.1);
+            mag.rotation.x = 0.28;
+            rifleGroup.add(mag);
+            const sight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.2), this.mats.darkMetal);
+            sight.position.set(0, 0.09, 0.02);
+            rifleGroup.add(sight);
+
+            rightArmPivot.add(rifleGroup);
+          }
+
+          // Articulated Left & Right Legs with Chunky Combat Boots
+          const makeLeg = (legName, xPos) => {
+            const pivot = new THREE.Group();
+            pivot.name = legName;
+            pivot.position.set(xPos, 0, 0);
+
+            const legMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.24, 5, 8), this.mats.soldierUniform);
+            legMesh.position.y = -0.2;
+            pivot.add(legMesh);
+
+            const boot = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.18, 0.28), this.mats.soldierBoot);
+            boot.position.set(0, -0.45, 0.04);
+            pivot.add(boot);
+
+            return pivot;
+          };
+
+          const leftLegPivot = makeLeg('LeftLeg_Pivot', -0.13);
+          const rightLegPivot = makeLeg('RightLeg_Pivot', 0.13);
+          pelvis.add(leftLegPivot);
+          pelvis.add(rightLegPivot);
+
+          this._enableShadows(root, true, true);
+
+          return {
+            root,
+            pelvis,
+            torso,
+            head: headGroup,
+            leftArm: leftArmPivot,
+            rightArm: rightArmPivot,
+            leftLeg: leftLegPivot,
+            rightLeg: rightLegPivot,
+            rifle: rifleGroup
+          };
+        };
+
+        // --- A. 4 Patrolling Soldiers with closed-loop waypoint paths ---
+        const patrolConfigs = [
+          {
+            name: 'Soldier_Patrol_1',
+            path: [
+              new THREE.Vector3(-2.6, 0, 7.6),
+              new THREE.Vector3(0.4, 0, 7.0),
+              new THREE.Vector3(1.2, 0, 3.6),
+              new THREE.Vector3(-2.4, 0, 3.9)
+            ],
+            speed: 1.55,
+            startT: 0.0
+          },
+          {
+            name: 'Soldier_Patrol_2',
+            path: [
+              new THREE.Vector3(-1.4, 0, 8.6),
+              new THREE.Vector3(1.2, 0, 7.8),
+              new THREE.Vector3(2.2, 0, 4.4),
+              new THREE.Vector3(-1.3, 0, 4.8)
+            ],
+            speed: 1.55,
+            startT: 0.48
+          },
+          {
+            name: 'Soldier_Patrol_3',
+            path: [
+              new THREE.Vector3(3.6, 0, 1.8),
+              new THREE.Vector3(6.2, 0, 1.4),
+              new THREE.Vector3(5.8, 0, -2.5),
+              new THREE.Vector3(3.2, 0, -0.6)
+            ],
+            speed: 1.42,
+            startT: 0.25
+          },
+          {
+            name: 'Soldier_Patrol_4',
+            path: [
+              new THREE.Vector3(-5.8, 0, 1.2),
+              new THREE.Vector3(-3.6, 0, 0.2),
+              new THREE.Vector3(-5.2, 0, -2.2),
+              new THREE.Vector3(-7.4, 0, -0.6)
+            ],
+            speed: 1.38,
+            startT: 0.72
+          }
+        ];
+
+        patrolConfigs.forEach((cfg, idx) => {
+          const rig = createChibiSoldier({ name: cfg.name, skinIdx: idx, hasRifle: true });
+          // Hold assault rifle across chest in patrol pose
+          rig.rightArm.rotation.set(-0.68, 0.15, 0.15);
+          rig.leftArm.rotation.set(-0.58, -0.35, -0.2);
+          group.add(rig.root);
+
+          const curve = new THREE.CatmullRomCurve3(cfg.path, true, 'catmullrom', 0.35);
+          this.soldiers.push({
+            ...rig,
+            name: cfg.name,
+            role: 'patrol',
+            curve,
+            t: cfg.startT,
+            speed: cfg.speed / curve.getLength(),
+            phase: idx * 1.4
+          });
+        });
+
+        // --- B. 2 Alert Portal Step Guards ---
+        [
+          { name: 'Soldier_PortalGuard_Left', x: -2.9, z: 1.9, rotY: 0.28 },
+          { name: 'Soldier_PortalGuard_Right', x: 2.8, z: 2.0, rotY: -0.28 }
+        ].forEach((g, idx) => {
+          const rig = createChibiSoldier({ name: g.name, skinIdx: idx + 1, hasRifle: true });
+          rig.root.position.set(g.x, 0, g.z);
+          rig.root.rotation.y = g.rotY;
+          rig.rightArm.rotation.set(-0.72, 0.1, 0.12);
+          rig.leftArm.rotation.set(-0.62, -0.32, -0.18);
+          group.add(rig.root);
+          this.soldiers.push({ ...rig, name: g.name, role: 'guard', baseRotY: g.rotY, phase: idx * 2.1 });
+        });
+
+        // --- C. 2 Watchtower Guards on Foreground-Right Multi-Level Tower ---
+        [
+          { name: 'Soldier_TowerGuard_Upper', x: 11.1, y: 5.32, z: 4.9, rotY: -0.65 },
+          { name: 'Soldier_TowerGuard_Lower', x: 10.65, y: 2.62, z: 5.25, rotY: -0.95 }
+        ].forEach((tg, idx) => {
+          const rig = createChibiSoldier({ name: tg.name, skinIdx: idx + 2, hasRifle: true });
+          rig.root.position.set(tg.x, tg.y, tg.z);
+          rig.root.rotation.y = tg.rotY;
+          rig.rightArm.rotation.set(-0.82, 0.12, 0.1);
+          rig.leftArm.rotation.set(-0.75, -0.35, -0.15);
+          group.add(rig.root);
+          this.soldiers.push({ ...rig, name: tg.name, role: 'tower', baseRotY: tg.rotY, phase: idx * 1.8 });
+        });
+
+        // --- D. 4 Campfire Soldiers warming & chatting around West & East campfires ---
+        const campfireSoldiers = [
+          { name: 'Soldier_Campfire_W1', x: -8.1, z: 4.3, rotY: 1.05, seated: false },
+          { name: 'Soldier_Campfire_W2', x: -7.5, z: 6.2, rotY: 2.75, seated: true },
+          { name: 'Soldier_Campfire_E1', x: 5.9, z: 5.1, rotY: -1.3, seated: false },
+          { name: 'Soldier_Campfire_E2', x: 3.6, z: 6.5, rotY: 2.45, seated: true }
+        ];
+        campfireSoldiers.forEach((cs, idx) => {
+          const rig = createChibiSoldier({ name: cs.name, skinIdx: idx, hasRifle: false });
+          rig.root.position.set(cs.x, cs.seated ? -0.14 : 0, cs.z);
+          rig.root.rotation.y = cs.rotY;
+          if (cs.seated) {
+            rig.leftLeg.rotation.x = -1.25;
+            rig.rightLeg.rotation.x = -1.25;
+          }
+          // Warm hands near fire pose
+          rig.leftArm.rotation.set(-0.95, -0.25, 0.15);
+          rig.rightArm.rotation.set(-0.95, 0.25, -0.15);
+          group.add(rig.root);
+          this.soldiers.push({
+            ...rig,
+            name: cs.name,
+            role: 'campfire',
+            seated: cs.seated,
+            baseRotY: cs.rotY,
+            phase: idx * 1.55
+          });
+        });
+
+        // --- E. 2 Camp Duty Soldiers near West & East Tents ---
+        [
+          { name: 'Soldier_Camp_West', x: -9.1, z: 0.9, rotY: 0.85 },
+          { name: 'Soldier_Camp_East', x: 6.8, z: -3.2, rotY: -0.95 }
+        ].forEach((cd, idx) => {
+          const rig = createChibiSoldier({ name: cd.name, skinIdx: idx + 1, hasRifle: true });
+          rig.root.position.set(cd.x, 0, cd.z);
+          rig.root.rotation.y = cd.rotY;
+          rig.rightArm.rotation.set(-0.62, 0.1, 0.15);
+          rig.leftArm.rotation.set(-0.5, -0.28, -0.15);
+          group.add(rig.root);
+          this.soldiers.push({ ...rig, name: cd.name, role: 'guard', baseRotY: cd.rotY, phase: idx * 2.4 });
+        });
+
+        return group;
+      }
+
+      /** Visual Bounding Box Highlight (kept outside dioramaRoot so it never exports into GLB) */
+      _initSelectionHelper() {
+        this.selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0x38bdf8);
+        this.selectionBox.visible = false;
+        this.selectionBox.material.transparent = true;
+        this.selectionBox.material.opacity = 0.78;
+        this.scene.add(this.selectionBox);
+      }
+
+      /** Build Outliner UI & bind HUD buttons */
+      _initUI() {
+        const outlinerEl = document.getElementById('outliner-list');
+        const soldierPickerWrap = document.getElementById('soldier-picker-wrap');
+        const soldierSelect = document.getElementById('soldier-select');
+
+        // Populate individual soldier selector dropdown
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'All Soldiers (NPC_Soldiers Group)';
+        soldierSelect.appendChild(defaultOpt);
+        this.soldiers.forEach((s) => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.textContent = `${s.name} (${s.role})`;
+          soldierSelect.appendChild(opt);
+        });
+
+        soldierSelect.addEventListener('change', (e) => {
+          const val = e.target.value;
+          if (!val) {
+            this.selectModule('NPC_Soldiers', true);
+            return;
+          }
+          const found = this.soldiers.find((s) => s.name === val);
+          if (found) {
+            this.selectedModuleKey = found.name;
+            this.selectedObject = found.root;
+            this._updateSelectionVisuals(true);
+          }
+        });
+
+        // Populate Modular Sub-Mesh Outliner list
+        outlinerEl.innerHTML = '';
+        for (const [key, entry] of this.modularRegistry.entries()) {
+          const btn = document.createElement('button');
+          btn.dataset.moduleKey = key;
+          btn.className = `outliner-item btn-tactical w-full text-left px-2.5 py-1.5 rounded-lg border border-transparent text-xs font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white flex items-center justify-between gap-2 cursor-pointer ${
+            key === 'Full_Diorama' ? 'active' : ''
+          }`;
+
+          const stats = this._countObjectStats(entry.group);
+          btn.innerHTML = `
+            <span class="truncate flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full ${key === 'Portal_Vortex' ? 'bg-purple-400' : key === 'Full_Diorama' ? 'bg-amber-400' : 'bg-cyan-400'} shrink-0"></span>
+              <span class="truncate">${entry.label}</span>
+            </span>
+            <span class="text-[10px] font-mono text-slate-500 shrink-0">${stats.meshes}m</span>
+          `;
+
+          btn.addEventListener('click', () => {
+            soldierSelect.value = '';
+            this.selectModule(key, true);
+          });
+          outlinerEl.appendChild(btn);
+        }
+
+        // Collapse inspector by default on compact mobile screens for unobstructed 3D view
+        const drawer = document.getElementById('inspector-drawer');
+        const toggleBtn = document.getElementById('toggle-hud-btn');
+        if (window.innerWidth < 768) {
+          drawer.classList.add('collapsed');
+        }
+        toggleBtn.addEventListener('click', () => {
+          drawer.classList.toggle('collapsed');
+        });
+
+        // Export Full Diorama (.glb)
+        document.getElementById('btn-export-full').addEventListener('click', () => {
+          this.exportGLB(this.dioramaRoot, 'military_portal_camp_diorama.glb');
+        });
+
+        // Export Selected Module (.glb)
+        document.getElementById('btn-export-selected').addEventListener('click', () => {
+          const targetObj = this.selectedObject || this.dioramaRoot;
+          const fileName =
+            targetObj === this.dioramaRoot
+              ? 'military_portal_camp_diorama.glb'
+              : `${targetObj.name}.glb`;
+          this.exportGLB(targetObj, fileName);
+        });
+
+        // Lighting Presets
+        document.querySelectorAll('.preset-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            this._applyLightingPreset(btn.dataset.light);
+          });
+        });
+
+        // Camera Presets
+        document.querySelectorAll('.cam-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.cam-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            this._applyCameraPreset(btn.dataset.cam);
+          });
+        });
+
+        // Play / Pause Animations
+        const animBtn = document.getElementById('btn-toggle-anim');
+        const animLabel = document.getElementById('anim-label');
+        const animDot = document.getElementById('anim-dot');
+        animBtn.addEventListener('click', () => {
+          this.isAnimating = !this.isAnimating;
+          animLabel.textContent = this.isAnimating ? 'Pause Anim' : 'Play Anim';
+          animDot.className = this.isAnimating
+            ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse'
+            : 'w-2 h-2 rounded-full bg-slate-500';
+          animBtn.className = this.isAnimating
+            ? 'btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 flex items-center justify-center gap-1.5 cursor-pointer'
+            : 'btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 flex items-center justify-center gap-1.5 cursor-pointer';
+        });
+
+        // Wireframe Toggle
+        const wireBtn = document.getElementById('btn-toggle-wireframe');
+        wireBtn.addEventListener('click', () => {
+          this.isWireframe = !this.isWireframe;
+          this.dioramaRoot.traverse((child) => {
+            if (child.isMesh && child.material) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach((m) => {
+                if (!child.name.includes('SpotlightBeam')) {
+                  m.wireframe = this.isWireframe;
+                }
+              });
+            }
+          });
+          wireBtn.className = this.isWireframe
+            ? 'btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-cyan-500/25 border border-cyan-400/65 text-cyan-200 flex items-center justify-center gap-1.5 cursor-pointer'
+            : 'btn-tactical rounded-lg py-2 px-2.5 text-[11px] font-semibold bg-slate-900/70 border border-slate-700/80 text-slate-300 hover:border-slate-500 flex items-center justify-center gap-1.5 cursor-pointer';
+        });
+
+        // Initial selection state
+        this.selectedObject = this.dioramaRoot;
+        this._updateSelectionVisuals(false);
+        this._soldierPickerWrap = soldierPickerWrap;
+      }
+
+      /** Select a modular group, highlight it, and smoothly focus camera */
+      selectModule(key, focusCamera = true) {
+        const entry = this.modularRegistry.get(key);
+        if (!entry) return;
+
+        this.selectedModuleKey = key;
+        this.selectedObject = entry.group;
+
+        // Highlight active item in outliner
+        document.querySelectorAll('.outliner-item').forEach((el) => {
+          el.classList.toggle('active', el.dataset.moduleKey === key);
+        });
+
+        // Reveal individual soldier picker when NPC_Soldiers is inspected
+        if (this._soldierPickerWrap) {
+          this._soldierPickerWrap.classList.toggle('hidden', key !== 'NPC_Soldiers');
+        }
+
+        this._updateSelectionVisuals(focusCamera, entry);
+      }
+
+      /** Refresh Selection Box, Export Button label, and smooth camera move */
+      _updateSelectionVisuals(focusCamera = true, registryEntry = null) {
+        const exportLabel = document.getElementById('export-selected-label');
+        const trisLabel = document.getElementById('selected-module-tris');
+
+        const isFull = !this.selectedObject || this.selectedObject === this.dioramaRoot;
+        const stats = this._countObjectStats(this.selectedObject || this.dioramaRoot);
+        trisLabel.textContent = `${stats.tris.toLocaleString()} tris`;
+
+        if (isFull) {
+          exportLabel.textContent = 'Export Selected Module (.glb)';
+          this.selectionBox.visible = false;
+        } else {
+          exportLabel.textContent = `Export ${this.selectedObject.name}.glb`;
+          this.selectionBox.setFromObject(this.selectedObject);
+          this.selectionBox.visible = true;
+        }
+
+        if (focusCamera) {
+          if (registryEntry && registryEntry.camPos) {
+            this._flyCameraTo(
+              new THREE.Vector3(...registryEntry.camPos),
+              new THREE.Vector3(...registryEntry.camTarget)
+            );
+          } else if (this.selectedObject) {
+            // Dynamically frame an individual clicked soldier/sub-object
+            const box = new THREE.Box3().setFromObject(this.selectedObject);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const dist = Math.max(size.length() * 2.2, 4.2);
+            const targetPos = center.clone().add(new THREE.Vector3(dist * 0.55, dist * 0.55, dist * 0.9));
+            this._flyCameraTo(targetPos, center);
+          }
+        }
+      }
+
+      /** Smooth camera ease-out transition */
+      _flyCameraTo(endPos, endTarget) {
+        this.camLerp.active = true;
+        this.camLerp.startPos.copy(this.camera.position);
+        this.camLerp.endPos.copy(endPos);
+        this.camLerp.startTarget.copy(this.controls.target);
+        this.camLerp.endTarget.copy(endTarget);
+        this.camLerp.progress = 0;
+      }
+
+      /** Lighting & Atmosphere Presets */
+      _applyLightingPreset(mode) {
+        const body = document.body;
+        if (mode === 'sunset') {
+          body.style.background = 'radial-gradient(circle at 50% 38%, #2b2342 0%, #141a2e 65%, #080b14 100%)';
+          this.scene.fog.color.setHex(0x161c32);
+          this.lights.hemi.color.setHex(0xa5b4fc);
+          this.lights.hemi.groundColor.setHex(0x5c3a25);
+          this.lights.hemi.intensity = 0.88;
+          this.lights.sun.color.setHex(0xffb275);
+          this.lights.sun.intensity = 2.4;
+          this.lights.sun.position.set(-16, 22, 14);
+          this.lights.rim.color.setHex(0xf472b6);
+          this.lights.rim.intensity = 0.72;
+          this.renderer.toneMappingExposure = 1.12;
+          this._lightScale = { portal: 4.8, fire: 3.2, spot: 2.1, beamOpacity: 0.34 };
+        } else if (mode === 'day') {
+          body.style.background = 'radial-gradient(circle at 50% 32%, #38bdf8 0%, #1d4ed8 65%, #0f172a 100%)';
+          this.scene.fog.color.setHex(0x2563eb);
+          this.lights.hemi.color.setHex(0xe0f2fe);
+          this.lights.hemi.groundColor.setHex(0x7c5a38);
+          this.lights.hemi.intensity = 1.25;
+          this.lights.sun.color.setHex(0xfffbeb);
+          this.lights.sun.intensity = 2.95;
+          this.lights.sun.position.set(14, 28, 18);
+          this.lights.rim.color.setHex(0x93c5fd);
+          this.lights.rim.intensity = 0.65;
+          this.renderer.toneMappingExposure = 1.08;
+          this._lightScale = { portal: 3.0, fire: 1.8, spot: 0.9, beamOpacity: 0.14 };
+        } else if (mode === 'night') {
+          body.style.background = 'radial-gradient(circle at 50% 42%, #131c36 0%, #070b17 70%, #02040a 100%)';
+          this.scene.fog.color.setHex(0x070c18);
+          this.lights.hemi.color.setHex(0x475569);
+          this.lights.hemi.groundColor.setHex(0x1e1b2e);
+          this.lights.hemi.intensity = 0.48;
+          this.lights.sun.color.setHex(0x7dd3fc);
+          this.lights.sun.intensity = 0.95;
+          this.lights.sun.position.set(-14, 24, -12);
+          this.lights.rim.color.setHex(0x6366f1);
+          this.lights.rim.intensity = 0.55;
+          this.renderer.toneMappingExposure = 1.2;
+          this._lightScale = { portal: 7.4, fire: 5.2, spot: 3.8, beamOpacity: 0.5 };
+        }
+
+        // Update spotlight beam opacity immediately
+        this.mats.spotlightBeam.opacity = this._lightScale.beamOpacity;
+      }
+
+      /** Camera Viewpoint Presets */
+      _applyCameraPreset(preset) {
+        const presets = {
+          hero: { pos: [1.5, 17.5, 25.5], target: [0, 1.6, 0.4] },
+          portal: { pos: [0.8, 5.8, 10.6], target: [0, 4.1, -1.6] },
+          patrol: { pos: [-3.8, 5.2, 13.8], target: [0.4, 1.4, 2.2] },
+          top: { pos: [0.0, 34.0, 4.2], target: [0, 0.5, 0] }
+        };
+        const p = presets[preset];
+        if (p) {
+          this._flyCameraTo(new THREE.Vector3(...p.pos), new THREE.Vector3(...p.target));
+        }
+      }
+
+      /** Bind Resize & Viewport Raycast Click Selection */
+      _initEvents() {
+        window.addEventListener('resize', () => {
+          const w = this.container.clientWidth || window.innerWidth;
+          const h = this.container.clientHeight || window.innerHeight;
+          this.camera.aspect = w / h;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(w, h);
+        });
+
+        // Cancel auto camera glide if user grabs orbit controls
+        this.controls.addEventListener('start', () => {
+          this.camLerp.active = false;
+        });
+
+        // Distinguish short click vs orbit drag for 3D module inspection
+        const dom = this.renderer.domElement;
+        dom.addEventListener('pointerdown', (e) => {
+          this.pointerDownPos.set(e.clientX, e.clientY);
+        });
+        dom.addEventListener('pointerup', (e) => {
+          const dist = Math.hypot(e.clientX - this.pointerDownPos.x, e.clientY - this.pointerDownPos.y);
+          if (dist > 6) return; // Was an orbit drag, ignore click
+          this._handleViewportClick(e);
+        });
+      }
+
+      /** Raycast click directly onto modular sub-groups or individual soldiers */
+      _handleViewportClick(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2(
+          ((event.clientX - rect.left) / rect.width) * 2 - 1,
+          -((event.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        this.raycaster.setFromCamera(mouse, this.camera);
+        const hits = this.raycaster.intersectObject(this.dioramaRoot, true);
+        if (!hits.length) {
+          this.selectModule('Full_Diorama', false);
+          return;
+        }
+
+        // Walk up parent chain to identify either an individual Soldier or a registered Module
+        let node = hits[0].object;
+        let matchedSoldier = null;
+        let matchedModuleKey = null;
+
+        while (node && node !== this.dioramaRoot) {
+          if (node.name && node.name.startsWith('Soldier_')) {
+            matchedSoldier = node;
+            break;
+          }
+          if (this.modularRegistry.has(node.name)) {
+            matchedModuleKey = node.name;
+            break;
+          }
+          node = node.parent;
+        }
+
+        if (matchedSoldier) {
+          this.selectModule('NPC_Soldiers', false);
+          const sel = document.getElementById('soldier-select');
+          if (sel) sel.value = matchedSoldier.name;
+          this.selectedModuleKey = matchedSoldier.name;
+          this.selectedObject = matchedSoldier;
+          this._updateSelectionVisuals(false);
+          this.showToast(`Selected Rig-Ready NPC: ${matchedSoldier.name}`, 'info');
+        } else if (matchedModuleKey) {
+          this.selectModule(matchedModuleKey, false);
+          this.showToast(`Selected Module: ${matchedModuleKey}`, 'info');
+        }
+      }
+
+      /** Count meshes & triangles recursively */
+      _countObjectStats(root) {
+        let meshes = 0;
+        let tris = 0;
+        root.traverse((obj) => {
+          if (obj.isMesh && obj.geometry) {
+            meshes++;
+            const geo = obj.geometry;
+            if (geo.index) {
+              tris += Math.round(geo.index.count / 3);
+            } else if (geo.attributes.position) {
+              tris += Math.round(geo.attributes.position.count / 3);
+            }
+          }
+        });
+        return { meshes, tris };
+      }
+
+      /** Update live header telemetry badges */
+      _updateTelemetry() {
+        const { meshes, tris } = this._countObjectStats(this.dioramaRoot);
+        document.getElementById('stat-meshes').textContent = meshes.toLocaleString();
+        document.getElementById('stat-tris').textContent =
+          tris >= 1000 ? `${(tris / 1000).toFixed(1)}k` : tris.toLocaleString();
+        document.getElementById('stat-modules').textContent = (this.modularRegistry.size - 1).toString();
+      }
+
+      /**
+       * ========================================================================
+       * WORKING GLB / GLTF 3D ASSET EXPORTER
+       * Uses Three.js GLTFExporter to bundle geometry, node hierarchy, and
+       * procedural PBR CanvasTextures into a downloadable binary `.glb` file.
+       * ========================================================================
+       */
+      exportGLB(targetObject, filename) {
+        try {
+          this.showToast(`Exporting ${filename}...`, 'working');
+          targetObject.updateMatrixWorld(true);
+
+          const exporter = new GLTFExporter();
+          exporter.parse(
+            targetObject,
+            (result) => {
+              try {
+                let blob;
+                if (result instanceof ArrayBuffer) {
+                  blob = new Blob([result], { type: 'model/gltf-binary' });
+                } else {
+                  const json = JSON.stringify(result, null, 2);
+                  blob = new Blob([json], { type: 'application/json' });
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.style.display = 'none';
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+                const sizeKB = (blob.size / 1024).toFixed(0);
+                const sizeLabel = blob.size > 1024 * 1024 ? `${(blob.size / (1024 * 1024)).toFixed(2)} MB` : `${sizeKB} KB`;
+                this.showToast(`Downloaded ${filename} (${sizeLabel})`, 'success');
+              } catch (dlErr) {
+                console.error('Download error:', dlErr);
+                this.showToast('Failed to trigger file download.', 'error');
+              }
+            },
+            (err) => {
+              console.error('GLTFExporter error:', err);
+              this.showToast('GLB export encountered an error.', 'error');
+            },
+            {
+              binary: true,
+              onlyVisible: true,
+              includeCustomExtensions: false
+            }
+          );
+        } catch (ex) {
+          console.error('Export exception:', ex);
+          this.showToast('Could not initialize GLB export.', 'error');
+        }
+      }
+
+      /** Non-blocking HUD Toast Notification */
+      showToast(message, type = 'info') {
+        const banner = document.getElementById('toast-banner');
+        const text = document.getElementById('toast-text');
+        const dot = document.getElementById('toast-indicator');
+
+        text.textContent = message;
+        dot.className =
+          type === 'success'
+            ? 'w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0'
+            : type === 'error'
+            ? 'w-2.5 h-2.5 rounded-full bg-rose-400 shrink-0'
+            : type === 'working'
+            ? 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0'
+            : 'w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0';
+
+        banner.classList.remove('toast-hidden');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+          banner.classList.add('toast-hidden');
+        }, 3200);
+      }
+
+      /** Main Real-Time Animation Loop */
+      update() {
+        const dt = Math.min(this.clock.getDelta(), 0.05);
+
+        // Smooth camera fly-to easing
+        if (this.camLerp.active) {
+          this.camLerp.progress = Math.min(1, this.camLerp.progress + dt * 1.9);
+          const ease = 1 - Math.pow(1 - this.camLerp.progress, 3);
+          this.camera.position.lerpVectors(this.camLerp.startPos, this.camLerp.endPos, ease);
+          this.controls.target.lerpVectors(this.camLerp.startTarget, this.camLerp.endTarget, ease);
+          if (this.camLerp.progress >= 1) this.camLerp.active = false;
+        }
+
+        if (this.isAnimating) {
+          this.elapsed += dt;
+          const t = this.elapsed;
+
+          // 1. Counter-rotating Portal Vortex layers
+          for (const layer of this.vortexLayers) {
+            layer.mesh.rotation.z += layer.speed * dt;
+          }
+
+          // 2. Floating Portal Energy Sparks orbiting & pulsing
+          for (const sp of this.portalSparks) {
+            const ang = sp.baseAngle + t * sp.speed;
+            const r = sp.baseRadius + Math.sin(t * 2.2 + sp.phase) * 0.22;
+            sp.mesh.position.x = Math.cos(ang) * r;
+            sp.mesh.position.y = Math.sin(ang) * r;
+            sp.mesh.position.z = sp.baseZ + Math.cos(t * 1.8 + sp.phase) * 0.25;
+            const pulse = sp.baseScale * (0.75 + 0.35 * Math.sin(t * 4.0 + sp.phase));
+            sp.mesh.scale.setScalar(pulse);
+          }
+
+          // 3. Pulsing Orange Portal Rune Crystals & Portal PointLight
+          const runePulse = 1.85 + Math.sin(t * 2.8) * 0.45;
+          this.mats.runeCrystal.emissiveIntensity = runePulse;
+          if (this.lights.portal && this._lightScale) {
+            this.lights.portal.intensity = this._lightScale.portal * (0.9 + Math.sin(t * 3.4) * 0.14);
+          }
+
+          // 4. Flickering Campfire Flames, Rising Embers & Warm Light
+          for (const cf of this.campfires) {
+            const flick = Math.sin(t * 11 + cf.phase) * 0.12 + Math.cos(t * 17 + cf.phase) * 0.08;
+            cf.flameOuter.scale.set(1 + flick * 0.5, 1 + flick * 1.1, 1 - flick * 0.4);
+            cf.flameOuter.rotation.y = t * 1.2;
+            cf.flameMid.scale.set(1 - flick * 0.4, 1 + flick * 1.35, 1 + flick * 0.4);
+            cf.flameCore.scale.set(1 + flick * 0.3, 1 - flick * 0.8, 1 + flick * 0.3);
+
+            if (this._lightScale) {
+              cf.light.intensity = this._lightScale.fire * (0.88 + flick * 1.4);
+            }
+
+            for (const em of cf.embers) {
+              const life = (t * em.speed + em.phase) % 1;
+              em.mesh.position.y = 0.45 + life * 1.85;
+              em.mesh.position.x = em.offsetX + Math.sin(t * 4 + em.phase) * 0.14;
+              em.mesh.position.z = em.offsetZ + Math.cos(t * 3.6 + em.phase) * 0.14;
+              const s = Math.sin(life * Math.PI) * 1.1;
+              em.mesh.scale.setScalar(Math.max(0.01, s));
+            }
+          }
+
+          // 5. Watchtower Spotlights gentle scanning sweep
+          for (const sw of this.spotlightSweeps) {
+            sw.pivot.rotation.y = sw.baseRotY + Math.sin(t * sw.speed + sw.phase) * 0.42;
+            if (this._lightScale) {
+              sw.light.intensity = this._lightScale.spot;
+            }
+          }
+
+          // 6. Articulated Chibi Soldier NPC Animations
+          for (const s of this.soldiers) {
+            if (s.role === 'patrol') {
+              // Walk smoothly along curved camp patrol loop
+              s.t = (s.t + s.speed * dt) % 1;
+              const pos = s.curve.getPointAt(s.t);
+              const nextPos = s.curve.getPointAt((s.t + 0.01) % 1);
+              s.root.position.copy(pos);
+
+              const targetAngle = Math.atan2(nextPos.x - pos.x, nextPos.z - pos.z);
+              s.root.rotation.y = targetAngle;
+
+              // Lively bouncy Boom Beach walk cycle
+              const stride = t * 7.8 + s.phase;
+              const swing = Math.sin(stride);
+              s.leftLeg.rotation.x = swing * 0.62;
+              s.rightLeg.rotation.x = -swing * 0.62;
+              s.pelvis.position.y = 0.56 + Math.abs(Math.cos(stride)) * 0.065;
+              s.torso.rotation.z = swing * 0.06;
+              s.head.rotation.y = Math.sin(t * 1.8 + s.phase) * 0.14;
+              s.rightArm.rotation.x = -0.68 + swing * 0.1;
+              s.leftArm.rotation.x = -0.58 - swing * 0.1;
+            } else if (s.role === 'tower') {
+              // Watchtower guard scanning left & right across base
+              const scan = Math.sin(t * 0.9 + s.phase) * 0.45;
+              s.torso.rotation.y = scan * 0.55;
+              s.head.rotation.y = scan * 0.45;
+              s.pelvis.position.y = 0.56 + Math.sin(t * 2.4 + s.phase) * 0.015;
+            } else if (s.role === 'guard') {
+              // Alert breathing & occasional head check
+              s.pelvis.position.y = 0.56 + Math.sin(t * 2.6 + s.phase) * 0.018;
+              s.head.rotation.y = Math.sin(t * 1.1 + s.phase) * 0.28;
+            } else if (s.role === 'campfire') {
+              // Warm friendly bobbing & subtle hand warming gestures
+              const bob = Math.sin(t * 2.8 + s.phase);
+              s.pelvis.position.y = 0.56 + bob * 0.018;
+              s.torso.rotation.x = 0.08 + bob * 0.03;
+              s.leftArm.rotation.x = -0.95 + Math.sin(t * 4.2 + s.phase) * 0.08;
+              s.rightArm.rotation.x = -0.95 + Math.cos(t * 4.2 + s.phase) * 0.08;
+              s.head.rotation.y = Math.sin(t * 1.4 + s.phase) * 0.22;
+            }
+          }
+        }
+
+        // Keep selection bounding box synced if tracking an animated soldier or module
+        if (this.selectionBox.visible && this.selectedObject && this.selectedObject !== this.dioramaRoot) {
+          this.selectionBox.setFromObject(this.selectedObject);
+        }
+
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      /** Start continuous render loop */
+      start() {
+        const tick = () => {
+          requestAnimationFrame(tick);
+          this.update();
+        };
+        tick();
+      }
+    }
+
+    // Boot application safely after window load
+    window.addEventListener('load', () => {
+      try {
+        const app = new MilitaryPortalDioramaApp();
+        app.start();
+      } catch (err) {
+        console.error('3D Diorama Initialization Error:', err);
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+          loader.innerHTML = `
+            <div class="max-w-md text-center p-6 rounded-2xl bg-slate-900 border border-rose-500/40">
+              <h2 class="font-display text-xl font-bold text-rose-400">WebGL Initialization Error</h2>
+              <p class="text-xs text-slate-300 mt-2">Could not start the 3D WebGL context. Please ensure hardware acceleration is enabled and reload.</p>
+            </div>
+          `;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

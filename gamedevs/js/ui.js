@@ -181,12 +181,12 @@ export function initAudioUI(worldAudio) {
   window.addEventListener('keydown', resumeAudioOnGesture, { once: true });
 }
 
-// ==================== NAVIGATION COMPASS & WAYPOINTS ====================
+// ==================== NAVIGATION COMPASS & WAYPOINTS (ZOMBIE OUTPOST) ====================
 const WAYPOINTS = [
-  { id: 'farm', name: 'Kebun', icon: '🍎', x: -38, z: 22 },
-  { id: 'camp', name: 'Kamp', icon: '🎖️', x: 42, z: -12 },
-  { id: 'arena', name: 'Arena', icon: '⚔️', x: 30, z: 22 },
-  { id: 'plaza', name: 'Plaza', icon: '🏆', x: -14, z: 5 }
+  { id: 'camp', name: 'Portal Rift', icon: '🌀', x: 19.6, z: -4.8 },
+  { id: 'farm', name: 'Api Unggun', icon: '🔥', x: -7.2, z: 0.4 },
+  { id: 'plaza', name: 'Gerbang Pos', icon: '🚧', x: 7.2, z: 10.1 },
+  { id: 'arena', name: 'Menara', icon: '🗼', x: 2.3, z: -9.6 }
 ];
 
 export function updateCompassHUD(playerPos, currentYaw) {
