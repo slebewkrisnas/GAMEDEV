@@ -972,12 +972,6 @@ export class VillageArchitect {
               return;
             }
 
-            // Hilangkan Plane002 (bidang alas putih polos blender yang menyilaukan di tanah)
-            if (child.isMesh && child.name && child.name.toLowerCase().includes('plane002')) {
-              child.visible = false;
-              return;
-            }
-
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
@@ -986,9 +980,9 @@ export class VillageArchitect {
                 mats.forEach(m => {
                   m.roughness = Math.max(m.roughness || 0.6, 0.85);
                   m.metalness = Math.min(m.metalness || 0.05, 0.1);
-                  // Redupkan material putih polos tanpa tekstur agar dinding dan kusen bernuansa kayu gelap hangat
-                  if (!m.map) {
-                    m.color.setHex(0x5c4a3d);
+                  // Redupkan material putih polos tanpa tekstur agar dinding dan plang tidak menyilaukan
+                  if (!m.map && m.color && m.color.r > 0.85 && m.color.g > 0.85 && m.color.b > 0.85) {
+                    m.color.setHex(0xb8aa96);
                   }
                 });
               }
@@ -1860,7 +1854,7 @@ export class VillageArchitect {
     gate.position.set(x, 0, z);
 
     // 1. Portal Kabut Mistis Pusaran Energi di Tengah Lengkungan Gapura
-    const portalGeo = new THREE.PlaneGeometry(5.2, 5.0);
+    const portalGeo = new THREE.PlaneGeometry(5.2, 4.4);
     const portalMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
@@ -1868,13 +1862,13 @@ export class VillageArchitect {
       side: THREE.DoubleSide
     });
     const portal = new THREE.Mesh(portalGeo, portalMat);
-    portal.position.set(0, 2.7, 0);
+    portal.position.set(0, 2.2, 0);
     gate.add(portal);
     this.env.animatedObjects.push({ mesh: portal, type: 'vortex_pulse', speed: 2.2 });
 
     // Cincin partikel pusaran portal sekunder (Aksen Ungu Mistis)
     const innerPortal = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.6, 4.0),
+      new THREE.PlaneGeometry(3.6, 3.6),
       new THREE.MeshBasicMaterial({
         color: 0xa855f7,
         transparent: true,
@@ -1882,17 +1876,17 @@ export class VillageArchitect {
         side: THREE.DoubleSide
       })
     );
-    innerPortal.position.set(0, 2.7, 0.05);
+    innerPortal.position.set(0, 2.2, 0.05);
     gate.add(innerPortal);
     this.env.animatedObjects.push({ mesh: innerPortal, type: 'crystal_spin', speed: 1.5 });
 
     // 2. Pencahayaan Lentera Hangat di Sudut Gerbang Toraja
     const gateWarmLight = new THREE.PointLight(0xffb74d, 0.9, 14);
-    gateWarmLight.position.set(0, 4.2, -1.0);
+    gateWarmLight.position.set(0, 3.8, -1.0);
     this.lights.add(gateWarmLight);
 
     const portalGlow = new THREE.PointLight(0x38bdf8, 1.2, 10);
-    portalGlow.position.set(0, 2.7, 0.5);
+    portalGlow.position.set(0, 2.2, 0.5);
     this.lights.add(portalGlow);
 
     // 3. Tanaman Hias & Bebatuan Alam di Sisi Kiri & Kanan Gapura
@@ -1912,8 +1906,8 @@ export class VillageArchitect {
               // Skala proporsional gapura Toraja megah membentang di jalan utama
               const scale = 0.82;
               model.scale.set(scale, scale, scale);
-              // Geser agar dasar kaki tiang tepat menapak di tanah y = 0 (min Y asli: -1.0)
-              model.position.set(0, 1.0 * scale, 0);
+              // Kaki tiang dan batu umpak (PlinthStone) tepat menapak di permukaan tanah y = 0
+              model.position.set(0, 0, 0);
 
               model.traverse((child) => {
                 if (child.isMesh) {
